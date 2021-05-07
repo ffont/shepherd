@@ -1,0 +1,3 @@
+[submodule "Shepherd/3rdParty/JUCE"]
+	path = Shepherd/3rdParty/JUCE
+	url = https://github.com/juce-framework/JUCE.git
