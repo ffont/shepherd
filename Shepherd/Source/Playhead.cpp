@@ -22,7 +22,7 @@ void Playhead::playNow()
 
 void Playhead::playNow(double sliceOffset)
 {
-    currentSlice = { -sliceOffset, -sliceOffset }; // Reset position to the indicated offset so that play event is triggered sample accurate
+    resetSlice(sliceOffset);  // Reset position to the indicated offset so that play event is triggered sample accurate
     willPlayAt = -1.0;
     playing = true;
     hasJustStoppedFlag = false;
@@ -106,4 +106,9 @@ juce::Range<double> Playhead::getCurrentSlice() const noexcept
 void Playhead::resetSlice()
 {
     currentSlice = {0.0, 0.0};
+}
+
+void Playhead::resetSlice(double sliceOffset)
+{
+    currentSlice = {-sliceOffset, -sliceOffset};
 }

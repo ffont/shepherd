@@ -40,8 +40,10 @@ private:
     
     // Playhead and main app state
     double bpm = 120.0;
+    double nextBpm = 0.0;
     double sampleRate = 44100.0;
     int samplesPerBlock = 0;
+    bool metronomeOn = true;
     
     // Clips and global playhead
     double playheadPositionInBeats = 0.0;

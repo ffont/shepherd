@@ -45,11 +45,17 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
         msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
         midiSequence.addEvent(msgNoteOff);
     }
+    clipLengthInBeats = std::ceil(midiSequence.getEndTime()); // Quantize it to next beat integer
 }
 
 void Clip::playNow()
 {
     playerPlayhead.playNow();
+}
+
+void Clip::playNow(double sliceOffset)
+{
+    playerPlayhead.playNow(sliceOffset);
 }
 
 void Clip::playAt(double positionInParent)
@@ -67,12 +73,12 @@ void Clip::stopAt(double positionInParent)
     playerPlayhead.stopAt(positionInParent);
 }
 
-void Clip::togglePlayStopNow()
+void Clip::togglePlayStop()
 {
     if (playerPlayhead.isPlaying()){
         playerPlayhead.stopNow();
     } else {
-        playerPlayhead.playNow();
+        playerPlayhead.playAt(std::round(playerPlayhead.getParentSlice().getEnd() + 1));
     }
 }
 
@@ -89,9 +95,17 @@ void Clip::recordAt(double positionInParent)
 void Clip::toggleRecord()
 {
     if (recorderPlayhead.isPlaying()){
-        recorderPlayhead.stopAt(0.0);  // Record until next beat
+        if (clipLengthInBeats > 0.0){
+            recorderPlayhead.stopAt(clipLengthInBeats);  // Record until next clip length
+        } else {
+            recorderPlayhead.stopNow();
+        }
     } else {
-        recorderPlayhead.playAt(0.0);  // Start recording at next beat
+        if (clipLengthInBeats > 0.0){
+            recorderPlayhead.playAt(0.0);  // Start recording when clip loops
+        } else {
+            recorderPlayhead.playNow();
+        }
     }
 }
 
@@ -110,12 +124,26 @@ Playhead* Clip::getRecorderPlayhead()
     return &recorderPlayhead;
 }
 
+double Clip::getLengthInBeats()
+{
+    return clipLengthInBeats;
+}
+
 void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferSize)
 {
     
     if (shouldClearSequence){
         midiSequence.clear();
         shouldClearSequence = false;
+        clipLengthInBeats = 0.0;
+    }
+    
+    // Check if Clip's player is cued to play and call playNow if needed (accounting for potential offset in samples)
+    if (playerPlayhead.isCuedToPlay()){
+        const auto parentSliceInBeats = playerPlayhead.getParentSlice();
+        if (parentSliceInBeats.contains(playerPlayhead.getPlayAtCueBeats())){
+            playerPlayhead.playNow(playerPlayhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
+        }
     }
     
     // If the clip is playing, check if any notes should be added to the current slice
@@ -125,9 +153,19 @@ void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferS
         for (int i=0; i < midiSequence.getNumEvents(); i++){
             juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
             double eventPositionInBeats = msg.getTimeStamp();
-            if (sliceInBeats.contains(eventPositionInBeats))
+            bool sliceContainsEvent = sliceInBeats.contains(eventPositionInBeats);
+            bool sliceContainsLoopedEvent = sliceInBeats.contains(eventPositionInBeats + clipLengthInBeats);
+            
+            if (sliceContainsEvent || sliceContainsLoopedEvent)
             {
-                double eventPositionInSliceInBeats = eventPositionInBeats - sliceInBeats.getStart();
+                double eventPositionInSliceInBeats;
+                if (sliceContainsEvent) {
+                    eventPositionInSliceInBeats = eventPositionInBeats - sliceInBeats.getStart();
+                } else {
+                    eventPositionInSliceInBeats = eventPositionInBeats + clipLengthInBeats - sliceInBeats.getStart();
+                }
+                    
+                
                 int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getSampleRate() / getGlobalBpm());
                 jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
                 
@@ -137,26 +175,21 @@ void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferS
                 // Store notes currently played
                 if      (msg.isNoteOn())  notesCurrentlyPlayed.add (msg.getNoteNumber());
                 else if (msg.isNoteOff()) notesCurrentlyPlayed.removeValue (msg.getNoteNumber());
-                
-                if (i == midiSequence.getNumEvents() - 1){
-                    // If last note has been added, we have reached end of clip, stop now and cue play at next beat integer
-                    playerPlayhead.stopNow();
-                    playerPlayhead.playAt(std::round(playerPlayhead.getParentSlice().getEnd() + 1));
-                }
             }
         }
+        
         playerPlayhead.releaseSlice();
+        
+        // Check if Clip length is set and we've reached it. Reset current slice to clip continues looping
+        // Note that in the next slice clip will start with an offset of some samples (positive) because the
+        // loop point falls before the end of the current slice and we need to compensate for that
+        if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats))){
+            playerPlayhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
+        }
+        
     } else {
         if (playerPlayhead.hasJustStopped()){
             renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
-        }
-    }
-    
-    // Check if Clip's player is cued to play and call playNow if needed (accounting for potential offset in samples)
-    if (playerPlayhead.isCuedToPlay()){
-        const auto parentSliceInBeats = playerPlayhead.getParentSlice();
-        if (parentSliceInBeats.contains(playerPlayhead.getPlayAtCueBeats())){
-            playerPlayhead.playNow(playerPlayhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
         }
     }
     
@@ -179,7 +212,17 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
 
 void Clip::recordFromBuffer(juce::MidiBuffer& incommingBuffer, int bufferSize)
 {
+    // Check if Clip's recorder is cued to play and call playNow if needed (accounting for potential offset in samples)
+    if (recorderPlayhead.isCuedToPlay()){
+        const auto parentSliceInBeats = recorderPlayhead.getParentSlice();
+        if (parentSliceInBeats.contains(recorderPlayhead.getPlayAtCueBeats()) || parentSliceInBeats.contains(recorderPlayhead.getPlayAtCueBeats() + clipLengthInBeats)){
+            // Consider edge case where playhead should start at a looping point
+            recorderPlayhead.playNow(recorderPlayhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
+        }
+    }
+    
     // If the clip is recording, check if any notes should be added to the recording buffer
+    bool recorderPlayheadJustLooped = false;
     if (recorderPlayhead.isPlaying()){
         
         recorderPlayhead.captureSlice();
@@ -194,26 +237,28 @@ void Clip::recordFromBuffer(juce::MidiBuffer& incommingBuffer, int bufferSize)
                 // This condition should always be true except maybe when recorder was just started or just stopped
                 msg.setTimeStamp(eventPositionInBeats);
                 recordedMidiSequence.addEvent(msg);
-                
             } else {
                 //jassert() ?
             }
         }
+        
         recorderPlayhead.releaseSlice();
-    } else {
-        if (recorderPlayhead.hasJustStopped()){
-            // Add new events to the sequence buffer and clear recording buffer
-            midiSequence.addSequence(recordedMidiSequence, 0);
-            recordedMidiSequence.clear();
+        
+        // Check if Clip lehth is set and we've reached it. We should wrap recorder slice
+        if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats))){
+            recorderPlayhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
+            recorderPlayheadJustLooped = true;
         }
     }
     
-    // Check if Clip's recorder is cued to play and call playNow if needed (accounting for potential offset in samples)
-    if (recorderPlayhead.isCuedToPlay()){
-        const auto parentSliceInBeats = recorderPlayhead.getParentSlice();
-        if (parentSliceInBeats.contains(recorderPlayhead.getPlayAtCueBeats())){
-            recorderPlayhead.playNow(recorderPlayhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
+    if (recorderPlayhead.hasJustStopped() || recorderPlayheadJustLooped){
+        // Add new events to the sequence buffer and clear recording buffer
+        // Also set clip length if it was not set
+        midiSequence.addSequence(recordedMidiSequence, 0);
+        if (clipLengthInBeats == 0.0) {
+            clipLengthInBeats = std::ceil(midiSequence.getEndTime()); // Quantize it to next beat integer
         }
+        recordedMidiSequence.clear();
     }
     
     // Check if Clip's recorder is cued to stop and call stopNow if needed

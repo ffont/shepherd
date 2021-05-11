@@ -35,6 +35,7 @@ public:
     void captureSlice();
     void releaseSlice();
     void resetSlice();
+    void resetSlice(double sliceOffset);
 
     juce::Range<double> getCurrentSlice() const noexcept;
     std::function<juce::Range<double>()> getParentSlice;
@@ -42,7 +43,7 @@ public:
 private:
     juce::Range<double> currentSlice { 0.0, 0.0 };
     bool playing = false;
-    bool hasJustStoppedFlag;
+    bool hasJustStoppedFlag = false;
     double willPlayAt = -1.0;
     double willStopAt = -1.0;
 };

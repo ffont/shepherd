@@ -24,10 +24,11 @@ public:
          );
     
     void playNow();
+    void playNow(double sliceOffset);
     void playAt(double positionInParent);
     void stopNow();
     void stopAt(double positionInParent);
-    void togglePlayStopNow();
+    void togglePlayStop();
     
     void recordNow();
     void recordAt(double positionInParent);
@@ -42,6 +43,8 @@ public:
     Playhead* getPlayerPlayhead();
     Playhead* getRecorderPlayhead();
     
+    double getLengthInBeats();
+    
 private:
     
     Playhead playerPlayhead;
@@ -49,6 +52,7 @@ private:
     
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
+    double clipLengthInBeats = 0.0;
     
     juce::SortedSet<int> notesCurrentlyPlayed;
     std::function<double()> getGlobalBpm;

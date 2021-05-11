@@ -9,7 +9,7 @@ MainComponent::MainComponent()
     tempoSlider.setValue(bpm);
     tempoSlider.setTextValueSuffix (" bpm");
     tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 160, tempoSlider.getTextBoxHeight());
-    tempoSlider.onValueChange = [this] { bpm = tempoSlider.getValue(); };
+    tempoSlider.onValueChange = [this] { nextBpm = tempoSlider.getValue(); };
     addAndMakeVisible (tempoSliderLabel);
     tempoSliderLabel.setText ("Tempo", juce::dontSendNotification);
     tempoSliderLabel.attachToComponent (&tempoSlider, true);
@@ -32,7 +32,7 @@ MainComponent::MainComponent()
     clipClearButton.onClick = [this] { midiClip->clearSequence(); };
     clipClearButton.setButtonText("Clear");
     addAndMakeVisible (clipStartStopButton);
-    clipStartStopButton.onClick = [this] { midiClip->togglePlayStopNow(); };
+    clipStartStopButton.onClick = [this] { midiClip->togglePlayStop(); };
     clipStartStopButton.setButtonText("Start/Stop");
         
     // Set UI size and start timer to print playhead position
@@ -109,8 +109,6 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
                             [this]{ return samplesPerBlock; },
                             [this]{ return midiOutChannel; }
                             ));
-    midiClip->playNow();
-    
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
@@ -125,7 +123,12 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Generate MIDI output buffer
     juce::MidiBuffer generatedMidi;  // TODO: Is this thread safe?
     
-    // Do global start/stop if requested
+    // Do global start/stop if requested and change of tempo
+    if (nextBpm > 0.0){
+        bpm = nextBpm;
+        nextBpm = 0.0;
+    }
+    
     if (shouldToggleIsPlaying){
         if (isPlaying){
             midiClip->renderRemainingNoteOffsIntoMidiBuffer(generatedMidi);
@@ -150,6 +153,25 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         auto msg = metadata.getMessage();
         msg.setChannel(midiOutChannel);
         generatedMidi.addEvent(msg, metadata.samplePosition);
+    }
+    
+    // Add metronome ticks to the buffer
+    if (metronomeOn) {
+        double previousBeat = playheadPositionInBeats;
+        double beatsPerSample = 1 / (60.0 * sampleRate / bpm);
+        for (int i=0; i<bufferToFill.numSamples; i++){
+            double nextBeat = previousBeat + beatsPerSample;
+            if (previousBeat == 0.0) {
+                previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
+            }
+            if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
+                juce::MidiMessage msgOn = juce::MidiMessage::noteOn(1, 80.0f, 1.0f);
+                juce::MidiMessage msgOff = juce::MidiMessage::noteOff(1, 80.0f, 0.0f);
+                generatedMidi.addEvent(msgOn, i);
+                generatedMidi.addEvent(msgOff, i + 200);
+            }
+            previousBeat = nextBeat;
+        }
     }
      
     // Send the generated MIDI buffer to the output
@@ -200,7 +222,7 @@ void MainComponent::timerCallback()
     playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
     midiOutChannelLabel.setText ((juce::String)midiOutChannel, juce::dontSendNotification);
     
-    clipPlayheadLabel.setText ((juce::String)midiClip->getPlayerPlayhead()->getCurrentSlice().getStart(), juce::dontSendNotification);
+    clipPlayheadLabel.setText ((juce::String)midiClip->getPlayerPlayhead()->getCurrentSlice().getStart() + "(" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
     clipRecorderPlayheadLabel.setText ((juce::String)midiClip->getRecorderPlayhead()->getCurrentSlice().getStart(), juce::dontSendNotification);
     
     if ((midiClip->getRecorderPlayhead()->isPlaying()) && (!midiClip->getRecorderPlayhead()->isCuedToPlay()) && (!midiClip->getRecorderPlayhead()->isCuedToStop())){
