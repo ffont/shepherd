@@ -3,30 +3,40 @@
 //==============================================================================
 MainComponent::MainComponent()
 {
+    // Main transport controls
     addAndMakeVisible (tempoSlider);
     tempoSlider.setRange (40, 300);
     tempoSlider.setValue(bpm);
     tempoSlider.setTextValueSuffix (" bpm");
     tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 160, tempoSlider.getTextBoxHeight());
     tempoSlider.onValueChange = [this] { bpm = tempoSlider.getValue(); };
-    
     addAndMakeVisible (tempoSliderLabel);
     tempoSliderLabel.setText ("Tempo", juce::dontSendNotification);
     tempoSliderLabel.attachToComponent (&tempoSlider, true);
-    
     addAndMakeVisible (playheadLabel);
+    addAndMakeVisible (globalStartStopButton);
+    globalStartStopButton.onClick = [this] { shouldToggleIsPlaying = true; };
+    globalStartStopButton.setButtonText("Start/Stop");
+    addAndMakeVisible (midiOutChannelLabel);
+    addAndMakeVisible (midiOutChannelSetButton);
+    midiOutChannelSetButton.setButtonText ("MIDI ch");
+    midiOutChannelSetButton.onClick = [this] { midiOutChannel = midiOutChannel % 16 + 1; };
     
-    addAndMakeVisible (recordButton);
-    recordButton.onClick = [this] { willStartRecordingMidi = true; };
-    recordButton.setButtonText("Record");
-    
-    addAndMakeVisible (clearSequenceButton);
-    clearSequenceButton.onClick = [this] { shouldClearSequence = true; };
-    clearSequenceButton.setButtonText("Clear");
-    
+    // Clip controls
+    addAndMakeVisible (clipPlayheadLabel);
+    addAndMakeVisible (clipRecorderPlayheadLabel);
+    addAndMakeVisible (clipRecordButton);
+    clipRecordButton.onClick = [this] { midiClip->toggleRecord(); };
+    clipRecordButton.setButtonText("Record");
+    addAndMakeVisible (clipClearButton);
+    clipClearButton.onClick = [this] { midiClip->clearSequence(); };
+    clipClearButton.setButtonText("Clear");
+    addAndMakeVisible (clipStartStopButton);
+    clipStartStopButton.onClick = [this] { midiClip->togglePlayStopNow(); };
+    clipStartStopButton.setButtonText("Start/Stop");
+        
+    // Set UI size and start timer to print playhead position
     setSize (800, 600);
-    
-    // Start timer to print playhead position
     startTimer (50);
 
     // Some platforms require permissions to open input channels so request that here
@@ -71,47 +81,36 @@ MainComponent::MainComponent()
         midiIn.get()->start();
     }
     
-    
-    // Initialize recordedSequence some notes
-    noteOnTimes = {
-        {0, 0.0},
-        {1, 0.0},
-        {2, 0.0},
-        {3, 0.0},
-        {4, 0.0},
-        {5, 0.0},
-        {6, 0.0},
-        {7, 0.0}
-    };
-    for (auto note: noteOnTimes) {
-        juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, 64, 1.0f);
-        msgNoteOn.setTimeStamp(note.first + note.second);
-        recordedSequence.addEvent(msgNoteOn);
-        juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, 64, 1.0f);
-        msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
-        recordedSequence.addEvent(msgNoteOff);
-    }
+    // Init sine synth with 16 voices (used for testig purposes only)
+    #if JUCE_DEBUG
+    for (auto i = 0; i < 16; ++i)
+        sineSynth.addVoice (new SineWaveVoice());
+    sineSynth.addSound (new SineWaveSound());
+    #endif
 }
 
 MainComponent::~MainComponent()
 {
-    // This shuts down the audio device and clears the audio source.
     shutdownAudio();
 }
 
 //==============================================================================
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRate)
 {
-    // This function will be called when the audio device is started, or when
-    // its settings (i.e. sample rate, block size, etc) are changed.
-
-    // You can use this function to initialise any resources you might need,
-    // but be careful - it will be called on the audio thread, not the GUI thread.
-
-    // For more details, see the help for AudioProcessor::prepareToPlay()
     sampleRate = _sampleRate;
+    samplesPerBlock = samplesPerBlockExpected;
     
     midiInCollector.reset(_sampleRate);
+    sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
+    
+    midiClip.reset(new Clip([this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / bpm)}; },
+                            [this]{ return bpm; },
+                            [this]{ return sampleRate; },
+                            [this]{ return samplesPerBlock; },
+                            [this]{ return midiOutChannel; }
+                            ));
+    midiClip->playNow();
+    
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
@@ -119,160 +118,98 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Clear audio buffers
     bufferToFill.clearActiveBufferRegion();
     
-    // Porcess MIDI INPUT
+    // Collect messages from MIDI input
     juce::MidiBuffer incomingMidi;
     midiInCollector.removeNextBlockOfMessages (incomingMidi, bufferToFill.numSamples);
     
-    // Keep track of notes being currently played
-    for (const auto metadata : incomingMidi)
-    {
-        const auto msg = metadata.getMessage();
-        if      (msg.isNoteOn())  currentNotesMidiIn.add (msg.getNoteNumber());
-        else if (msg.isNoteOff()) currentNotesMidiIn.removeValue (msg.getNoteNumber());
-    }
-         
-    // Generate MIDI OUTPUT
-    
-    if (shouldClearSequence) {
-        recordedSequence.clear();
-        isPlayingRecordedSequence = false;
-        willPlayRecordedSequence = true;
-        shouldClearSequence = false;
-    }
-    
-    int samplesPerBeat = (int)std::round(60.0 * sampleRate / bpm);
-    
+    // Generate MIDI output buffer
     juce::MidiBuffer generatedMidi;  // TODO: Is this thread safe?
     
-    // Copy all incoming MIDI to the output buffer and, if recording, to the recording message collection
+    // Do global start/stop if requested
+    if (shouldToggleIsPlaying){
+        if (isPlaying){
+            midiClip->renderRemainingNoteOffsIntoMidiBuffer(generatedMidi);
+            isPlaying = false;
+        } else {
+            playheadPositionInBeats = 0.0;
+            midiClip->getPlayerPlayhead()->resetSlice();
+            isPlaying = true;
+        }
+        shouldToggleIsPlaying = false;
+    }
+    
+    // Generate notes and/or record notes
+    if (isPlaying){
+        midiClip->recordFromBuffer(incomingMidi, bufferToFill.numSamples);
+        midiClip->renderSliceIntoMidiBuffer(generatedMidi, bufferToFill.numSamples);
+    }
+    
+    // Copy all incoming MIDI notes to the output buffer for direct monitoring
     for (const auto metadata : incomingMidi)
     {
-        const auto msg = metadata.getMessage();
+        auto msg = metadata.getMessage();
+        msg.setChannel(midiOutChannel);
         generatedMidi.addEvent(msg, metadata.samplePosition);
-        
-        if (isRecordingMidi){
-            juce::MidiMessage newMessage = juce::MidiMessage(msg);
-            newMessage.setTimeStamp(beatCount - beatStartedRecordingMidi + currentBeatFraction + metadata.samplePosition/samplesPerBeat);
-            recordingSequence.addEvent(newMessage);
-        }
     }
-    
-    for (int i=0; i<bufferToFill.numSamples; i++){
-        
-        // Check if MIDI recording should start (at start of bar)
-        if ((willStartRecordingMidi) && (currentBeat == 0)){
-            beatStartedRecordingMidi = beatCount;
-            isRecordingMidi = true;
-            willStartRecordingMidi = false;
-        }
-        
-        // Check if MIDI recording should stop
-        if ((isRecordingMidi) && (beatCount - beatStartedRecordingMidi >= midiRecorderTime)){
-            isRecordingMidi = false;
-            beatStartedRecordingMidi = 0;
-            // Use .addSequence to add too previous notes, use .swapWith to erase previous sequence
-            //recordedSequence.swapWith(recordingSequence);
-            recordedSequence.addSequence(recordingSequence, 0);
-            recordingSequence.clear();
-            isPlayingRecordedSequence = false;
-            willPlayRecordedSequence = true;
-        }
-        
-        // Check if recorded sequence should start playing (at start of bar)
-        if ((willPlayRecordedSequence) && (recordedSequence.getNumEvents() > 0) && (currentBeat == 0)){
-            isPlayingRecordedSequence = true;
-            willPlayRecordedSequence = false;
-            beatRecordedSequenceLastTriggered = beatCount;
-        }
-        
-        // Update playhead
-        double bufferStartBeatWithFraction = beatCount + currentBeatFraction;
-        if (samplesSinceLastBeat == samplesPerBeat){
-            samplesSinceLastBeat = 0;
-            beatCount += 1;
-            currentBeat = beatCount % beatsPerBar;
-            currentBar = beatCount / beatsPerBar;
-        } else if (samplesSinceLastBeat > samplesPerBeat){
-            samplesSinceLastBeat = samplesSinceLastBeat - samplesPerBeat;
-            beatCount += 1;
-            currentBeat = beatCount % beatsPerBar;
-            currentBar = beatCount / beatsPerBar;
-        } else {
-            samplesSinceLastBeat += 1;
-        }
-        currentBeatFraction = (double)samplesSinceLastBeat / (double)samplesPerBeat;
-        double bufferEndBeatWithFraction = beatCount + currentBeatFraction;
-        
-        // See if notes from the recorded sequence should be triggered
-        for (int j=0; j < recordedSequence.getNumEvents(); j++){
-            juce::MidiMessage msg = recordedSequence.getEventPointer(j)->message;
-            if ((msg.getTimeStamp() + beatRecordedSequenceLastTriggered >= bufferStartBeatWithFraction) && (msg.getTimeStamp() + beatRecordedSequenceLastTriggered < bufferEndBeatWithFraction)){
-                generatedMidi.addEvent(msg, i);
-                
-                if (j == recordedSequence.getNumEvents() - 1){
-                    // If last note has been added, we have reached end of clip
-                    // Set it to "not playing" and trigger loop at next bar
-                    isPlayingRecordedSequence = false;
-                    willPlayRecordedSequence = true;
-                }
-            }
-        }
-    }
-    
+     
     // Send the generated MIDI buffer to the output
-    midiOutA.get()->sendBlockOfMessagesNow(generatedMidi);
+    if (midiOutA != nullptr)
+        midiOutA.get()->sendBlockOfMessagesNow(generatedMidi);
+    
+    #if JUCE_DEBUG
+    // Render the generated MIDI buffer with the sine synth
+    sineSynth.renderNextBlock (*bufferToFill.buffer, generatedMidi, bufferToFill.startSample, bufferToFill.numSamples);
+    #endif
+    
+    // Update playhead positions
+    if (isPlaying){
+        playheadPositionInBeats += bufferToFill.numSamples / (60.0 * sampleRate / bpm);
+    }
 }
 
 void MainComponent::releaseResources()
 {
-    // This will be called when the audio device stops, or when it is being
-    // restarted due to a setting change.
-
-    // For more details, see the help for AudioProcessor::releaseResources()
 }
 
 //==============================================================================
 void MainComponent::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-
-    // You can add your drawing code here!
 }
 
 void MainComponent::resized()
 {
-    // This is called when the MainContentComponent is resized.
-    // If you add any child components, this is where you should
-    // update their positions.
     auto sliderLeft = 70;
+    
     playheadLabel.setBounds(16, 20, 200, 20);
-    recordButton.setBounds(16 + 210, 20, 50, 20);
-    clearSequenceButton.setBounds(16 + 210 + 60, 20, 50, 20);
+    globalStartStopButton.setBounds(16 + 210, 20, 100, 20);
+    midiOutChannelLabel.setBounds(16 + 210 + 110, 20, 50, 20);
+    midiOutChannelSetButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
     tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
+ 
+    clipPlayheadLabel.setBounds(16, 70, 200, 20);
+    clipRecorderPlayheadLabel.setBounds(16 + 110, 70, 200, 20);
+    clipStartStopButton.setBounds(16 + 210, 70, 100, 20);
+    clipRecordButton.setBounds(16 + 210 + 110, 70, 50, 20);
+    clipClearButton.setBounds(16 + 210 + 60 + 110, 70, 50, 20);
 }
 
 //==============================================================================
 void MainComponent::timerCallback()
 {
-    const juce::String text = juce::String::formatted("Playhead: %i|%i|%03i", currentBar + 1, currentBeat + 1, (int)(round(currentBeatFraction * 1000)));
-    playheadLabel.setText (text, juce::dontSendNotification);
+    playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
+    midiOutChannelLabel.setText ((juce::String)midiOutChannel, juce::dontSendNotification);
     
-    if (isRecordingMidi){
-        playheadLabel.setColour(juce::Label::textColourId, juce::Colours::red);
+    clipPlayheadLabel.setText ((juce::String)midiClip->getPlayerPlayhead()->getCurrentSlice().getStart(), juce::dontSendNotification);
+    clipRecorderPlayheadLabel.setText ((juce::String)midiClip->getRecorderPlayhead()->getCurrentSlice().getStart(), juce::dontSendNotification);
+    
+    if ((midiClip->getRecorderPlayhead()->isPlaying()) && (!midiClip->getRecorderPlayhead()->isCuedToPlay()) && (!midiClip->getRecorderPlayhead()->isCuedToStop())){
+        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::red);
+    } else if ((midiClip->getRecorderPlayhead()->isPlaying()) && (midiClip->getRecorderPlayhead()->isCuedToStop())){
+        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
+    } else if ((!midiClip->getRecorderPlayhead()->isPlaying()) && (midiClip->getRecorderPlayhead()->isCuedToPlay())){
+        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
     } else {
-        if (willStartRecordingMidi) {
-            playheadLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
-        } else {
-            playheadLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        }
-    }
-    
-    if ((!isRecordingMidi) && (!recordButton.isEnabled())){
-        recordButton.setEnabled(true);
-    }
-    
-    if (((willStartRecordingMidi) || (isRecordingMidi)) && (recordButton.isEnabled())){
-        recordButton.setEnabled(false);
+        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     }
 }
