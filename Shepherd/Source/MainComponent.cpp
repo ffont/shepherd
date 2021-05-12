@@ -39,6 +39,14 @@ MainComponent::MainComponent()
         setAudioChannels (2, 2);
     }
     
+    // Setup OSC rserver
+    if (! connect (oscReceivePort)){
+        DBG("ERROR starting OSC server");
+    } else {
+        DBG("Started OSC server, listening at 0.0.0.0:" << oscReceivePort);
+        addListener (this);
+    }
+    
     // Setup MIDI devices
     const juce::String outDeviceName = "IAC Driver Bus 1";
     juce::String outDeviceIdentifier = "";
@@ -294,5 +302,21 @@ void MainComponent::timerCallback()
             }
         }
     }
+}
 
+void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
+{
+    std::cout << message.getAddressPattern().toString() << std::endl;
+}
+
+void MainComponent::sendOscMessage (const juce::OSCMessage& message)
+{
+    if (!oscSenderIsConnected){
+        if (oscSender.connect (oscSendHost, oscSendPort)){
+            oscSenderIsConnected = true;
+        }
+    }
+    if (oscSenderIsConnected){
+        oscSender.send (message);
+    }
 }

@@ -12,7 +12,9 @@
     your controls and content.
 */
 class MainComponent  : public juce::AudioAppComponent,
-                       private juce::Timer
+                       private juce::Timer,
+                       private juce::OSCReceiver,
+                       private juce::OSCReceiver::Listener<juce::OSCReceiver::MessageLoopCallback>
                        
 {
 public:
@@ -31,7 +33,15 @@ public:
 
 private:
     //==============================================================================
-    void timerCallback() override;
+
+    // OSC
+    void oscMessageReceived (const juce::OSCMessage& message) override;
+    void sendOscMessage (const juce::OSCMessage& message);
+    juce::OSCSender oscSender;
+    int oscReceivePort = 9003;
+    int oscSendPort = 9004;
+    juce::String oscSendHost = "127.0.0.1";
+    bool oscSenderIsConnected = false;
     
     // Midi devices and other midi stuff
     std::unique_ptr<juce::MidiOutput> midiOutA;
@@ -61,6 +71,8 @@ private:
     juce::OwnedArray<Track> tracks;
     
     // Desktop app UI
+    void timerCallback() override;  // Callback used to update UI
+    
     juce::Slider tempoSlider;
     juce::Label tempoSliderLabel;
     juce::Label playheadLabel;
