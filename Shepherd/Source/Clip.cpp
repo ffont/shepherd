@@ -17,8 +17,7 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
            std::function<int()> samplesPerBlockGetter,
            std::function<int()> midiOutChannelGetter
            )
-: playerPlayhead(playheadParentSliceGetter), recorderPlayhead([this]{return juce::Range<double>{playerPlayhead.getCurrentSlice().getStart(), playerPlayhead.getCurrentSlice().getStart() + (double)getSamplesPerBlock() / (60.0 * getSampleRate() / getGlobalBpm())};})
-//: playerPlayhead(playheadParentSliceGetter), recorderPlayhead([this]{ return playerPlayhead.getCurrentSlice();})
+: playhead(playheadParentSliceGetter)
 {
     getGlobalBpm = globalBpmGetter;
     getSampleRate = sampleRateGetter;
@@ -50,63 +49,110 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
 
 void Clip::playNow()
 {
-    playerPlayhead.playNow();
+    playhead.playNow();
 }
 
 void Clip::playNow(double sliceOffset)
 {
-    playerPlayhead.playNow(sliceOffset);
+    playhead.playNow(sliceOffset);
 }
 
 void Clip::playAt(double positionInParent)
 {
-    playerPlayhead.playAt(positionInParent);
+    playhead.playAt(positionInParent);
 }
 
 void Clip::stopNow()
 {
-    playerPlayhead.stopNow();
+    if (isRecording()){
+        stopRecordingNow();
+    }
+    playhead.stopNow();
 }
 
 void Clip::stopAt(double positionInParent)
 {
-    playerPlayhead.stopAt(positionInParent);
+    playhead.stopAt(positionInParent);
 }
 
 void Clip::togglePlayStop()
 {
-    if (playerPlayhead.isPlaying()){
-        playerPlayhead.stopNow();
+    if (isPlaying()){
+        stopNow();
     } else {
-        playerPlayhead.playAt(std::round(playerPlayhead.getParentSlice().getEnd() + 1));
+        playAt(std::round(playhead.getParentSlice().getEnd() + 1));
     }
 }
 
-void Clip::recordNow()
+void Clip::startRecordingNow()
 {
-    recorderPlayhead.playNow();
+    willStartRecordingAt = -1.0;
+    recording = true;
+    hasJustStoppedRecordingFlag = false;
 }
 
-void Clip::recordAt(double positionInParent)
+void Clip::stopRecordingNow()
 {
-    recorderPlayhead.playAt(positionInParent);
+    willStopRecordingAt = -1.0;
+    recording = false;
+    hasJustStoppedRecordingFlag = true;
+}
+
+void Clip::startRecordingAt(double positionInClipPlayhead)
+{
+    willStartRecordingAt = positionInClipPlayhead;
+}
+
+void Clip::stopRecordingAt(double positionInClipPlayhead)
+{
+    willStopRecordingAt = positionInClipPlayhead;
 }
 
 void Clip::toggleRecord()
 {
-    if (recorderPlayhead.isPlaying()){
+    if (isRecording()){
         if (clipLengthInBeats > 0.0){
-            recorderPlayhead.stopAt(clipLengthInBeats);  // Record until next clip length
+            stopRecordingAt(clipLengthInBeats);  // Record until next clip length
         } else {
-            recorderPlayhead.stopNow();
+            stopRecordingNow();
         }
     } else {
         if (clipLengthInBeats > 0.0){
-            recorderPlayhead.playAt(0.0);  // Start recording when clip loops
+            startRecordingAt(0.0);  // Start recording when clip loops
         } else {
-            recorderPlayhead.playNow();
+            startRecordingNow();
         }
     }
+}
+
+bool Clip::isPlaying()
+{
+    return playhead.isPlaying();
+}
+
+bool Clip::isCuedToPlay()
+{
+    return playhead.isCuedToPlay();
+}
+
+bool Clip::isCuedToStop()
+{
+    return playhead.isCuedToStop();
+}
+
+bool Clip::isRecording()
+{
+    return recording;
+}
+
+bool Clip::isCuedToStartRecording()
+{
+    return willStartRecordingAt >= 0.0;
+}
+
+bool Clip::isCuedToStopRecording()
+{
+    return willStopRecordingAt >= 0.0;
 }
 
 void Clip::clearSequence()
@@ -114,14 +160,14 @@ void Clip::clearSequence()
     shouldClearSequence = true;
 }
 
-Playhead* Clip::getPlayerPlayhead()
+double Clip::getPlayheadPosition()
 {
-    return &playerPlayhead;
+    return playhead.getCurrentSlice().getEnd();
 }
 
-Playhead* Clip::getRecorderPlayhead()
+void Clip::resetPlayheadPosition()
 {
-    return &recorderPlayhead;
+    playhead.resetSlice();
 }
 
 double Clip::getLengthInBeats()
@@ -129,9 +175,16 @@ double Clip::getLengthInBeats()
     return clipLengthInBeats;
 }
 
-void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferSize)
+void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
 {
-    
+    for (int i=0; i<notesCurrentlyPlayed.size(); i++){
+        juce::MidiMessage msg = juce::MidiMessage::noteOff(getMidiOutChannel(), notesCurrentlyPlayed[i], 0.0f);
+        bufferToFill.addEvent(msg, 0);
+    }
+}
+
+void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize)
+{
     if (shouldClearSequence){
         midiSequence.clear();
         shouldClearSequence = false;
@@ -139,17 +192,19 @@ void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferS
     }
     
     // Check if Clip's player is cued to play and call playNow if needed (accounting for potential offset in samples)
-    if (playerPlayhead.isCuedToPlay()){
-        const auto parentSliceInBeats = playerPlayhead.getParentSlice();
-        if (parentSliceInBeats.contains(playerPlayhead.getPlayAtCueBeats())){
-            playerPlayhead.playNow(playerPlayhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
+    if (playhead.isCuedToPlay()){
+        const auto parentSliceInBeats = playhead.getParentSlice();
+        if (parentSliceInBeats.contains(playhead.getPlayAtCueBeats())){
+            playhead.playNow(playhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
         }
     }
     
     // If the clip is playing, check if any notes should be added to the current slice
-    if (playerPlayhead.isPlaying()){
-        playerPlayhead.captureSlice();
-        const auto sliceInBeats = playerPlayhead.getCurrentSlice();
+    if (playhead.isPlaying()){
+        playhead.captureSlice();
+        const auto sliceInBeats = playhead.getCurrentSlice();
+        
+        // Read clip's sequence and play notes if needed
         for (int i=0; i < midiSequence.getNumEvents(); i++){
             juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
             double eventPositionInBeats = msg.getTimeStamp();
@@ -165,7 +220,6 @@ void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferS
                     eventPositionInSliceInBeats = eventPositionInBeats + clipLengthInBeats - sliceInBeats.getStart();
                 }
                     
-                
                 int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getSampleRate() / getGlobalBpm());
                 jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
                 
@@ -178,94 +232,90 @@ void Clip::renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferS
             }
         }
         
-        playerPlayhead.releaseSlice();
-        
-        // Check if Clip length is set and we've reached it. Reset current slice to clip continues looping
-        // Note that in the next slice clip will start with an offset of some samples (positive) because the
-        // loop point falls before the end of the current slice and we need to compensate for that
-        if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats))){
-            playerPlayhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
+        // Record midi events (and check if we should start/stop recording)
+        if (isCuedToStartRecording()){
+            if (sliceInBeats.contains(willStartRecordingAt) || sliceInBeats.contains(willStartRecordingAt + clipLengthInBeats)){ // Edge case: start recording at end of clip
+                startRecordingNow();
+            }
         }
-        
-    } else {
-        if (playerPlayhead.hasJustStopped()){
-            renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
-        }
-    }
     
-    // Check if Clip's player is cued to stop and call stopNow if needed
-    if (playerPlayhead.isCuedToStop()){
-        const auto parentSliceInBeats = playerPlayhead.getParentSlice();
-        if (parentSliceInBeats.contains(playerPlayhead.getStopAtCueBeats())){
-            playerPlayhead.stopNow();
-        }
-    }
-}
-
-void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
-{
-    for (int i=0; i<notesCurrentlyPlayed.size(); i++){
-        juce::MidiMessage msg = juce::MidiMessage::noteOff(getMidiOutChannel(), notesCurrentlyPlayed[i], 0.0f);
-        bufferToFill.addEvent(msg, 0);
-    }
-}
-
-void Clip::recordFromBuffer(juce::MidiBuffer& incommingBuffer, int bufferSize)
-{
-    // Check if Clip's recorder is cued to play and call playNow if needed (accounting for potential offset in samples)
-    if (recorderPlayhead.isCuedToPlay()){
-        const auto parentSliceInBeats = recorderPlayhead.getParentSlice();
-        if (parentSliceInBeats.contains(recorderPlayhead.getPlayAtCueBeats()) || parentSliceInBeats.contains(recorderPlayhead.getPlayAtCueBeats() + clipLengthInBeats)){
-            // Consider edge case where playhead should start at a looping point
-            recorderPlayhead.playNow(recorderPlayhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
-        }
-    }
-    
-    // If the clip is recording, check if any notes should be added to the recording buffer
-    bool recorderPlayheadJustLooped = false;
-    if (recorderPlayhead.isPlaying()){
-        
-        recorderPlayhead.captureSlice();
-        const auto sliceInBeats = recorderPlayhead.getCurrentSlice();
-        
-        for (const auto metadata : incommingBuffer)
-        {
-            auto msg = metadata.getMessage();
-            double eventPositionInBeats = sliceInBeats.getStart() + sliceInBeats.getLength() * metadata.samplePosition / bufferSize;
-            
-            if (sliceInBeats.contains(eventPositionInBeats)) {
-                // This condition should always be true except maybe when recorder was just started or just stopped
-                msg.setTimeStamp(eventPositionInBeats);
-                recordedMidiSequence.addEvent(msg);
-            } else {
-                //jassert() ?
+        if (recording){
+            for (const auto metadata : incommingBuffer)
+            {
+                auto msg = metadata.getMessage();
+                double eventPositionInBeats = sliceInBeats.getStart() + sliceInBeats.getLength() * metadata.samplePosition / bufferSize;
+                
+                if (sliceInBeats.contains(eventPositionInBeats)) {
+                    // This condition should always be true except maybe when recorder was just started or just stopped
+                    msg.setTimeStamp(eventPositionInBeats);
+                    recordedMidiSequence.addEvent(msg);
+                } else {
+                    //jassert() ?
+                }
             }
         }
         
-        recorderPlayhead.releaseSlice();
-        
-        // Check if Clip lehth is set and we've reached it. We should wrap recorder slice
-        if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats))){
-            recorderPlayhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
-            recorderPlayheadJustLooped = true;
+        if (isCuedToStopRecording()){
+            if (sliceInBeats.contains(willStopRecordingAt) || sliceInBeats.contains(willStopRecordingAt + clipLengthInBeats)){ // Edge case: stop recording at end of clip
+                stopRecordingNow();
+            }
         }
+        
+        // Loop the clip if needed
+        // Check if Clip length and, if current slice contains it, reset slice so the clip loops.
+        // Note that in the next slice clip will start with an offset of some samples (positive) because the
+        // loop point falls before the end of the current slice and we need to compensate for that.
+        if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats))){
+            playhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
+            addRecordedSequenceToSequence();
+        }
+        
+        // Release slice as we finished processing it
+        // Note that releaseSlice sets the end of the playhead slice to be the same as the start. This won't have
+        // any negative effect if we've restarted playhead because clip is looping, but it will me meaningless.
+        playhead.releaseSlice();
+        
+    }
+    if (playhead.hasJustStopped()){
+        renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }
     
-    if (recorderPlayhead.hasJustStopped() || recorderPlayheadJustLooped){
-        // Add new events to the sequence buffer and clear recording buffer
-        // Also set clip length if it was not set
+    if (hasJustStoppedRecording()){
+        addRecordedSequenceToSequence();
+    }
+    
+    // Check if Clip's player is cued to stop and call stopNow if needed
+    if (playhead.isCuedToStop()){
+        const auto parentSliceInBeats = playhead.getParentSlice();
+        if (parentSliceInBeats.contains(playhead.getStopAtCueBeats())){
+            stopNow();
+        }
+    }
+}
+
+
+void Clip::addRecordedSequenceToSequence()
+{
+    // If there are events in the recordedMidiSequence, add them to the sequence buffer and
+    // clear the recording buffer. Also set clip length if it was not set.
+    if (recordedMidiSequence.getNumEvents() > 0){
         midiSequence.addSequence(recordedMidiSequence, 0);
         if (clipLengthInBeats == 0.0) {
             clipLengthInBeats = std::ceil(midiSequence.getEndTime()); // Quantize it to next beat integer
         }
         recordedMidiSequence.clear();
     }
-    
-    // Check if Clip's recorder is cued to stop and call stopNow if needed
-    if (recorderPlayhead.isCuedToStop()){
-        const auto parentSliceInBeats = recorderPlayhead.getParentSlice();
-        if (parentSliceInBeats.contains(recorderPlayhead.getStopAtCueBeats())){
-            recorderPlayhead.stopNow();
-        }
+}
+
+
+bool Clip::hasJustStoppedRecording()
+{
+    // This funciton will return true the first time it is called after recording has been stopped
+    // Starting recording resets the flag (even if this function was never called)
+    if (hasJustStoppedRecordingFlag){
+        hasJustStoppedRecordingFlag = false;
+        return true;
+    } else {
+        return false;
     }
 }

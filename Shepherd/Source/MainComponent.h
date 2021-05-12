@@ -68,7 +68,6 @@ private:
     juce::Label midiOutChannelLabel;
     juce::TextButton midiOutChannelSetButton;
     juce::Label clipPlayheadLabel;
-    juce::Label clipRecorderPlayheadLabel;
     juce::TextButton clipClearButton;
     juce::TextButton clipRecordButton;
     juce::TextButton clipStartStopButton;

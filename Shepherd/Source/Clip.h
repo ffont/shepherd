@@ -30,29 +30,45 @@ public:
     void stopAt(double positionInParent);
     void togglePlayStop();
     
-    void recordNow();
-    void recordAt(double positionInParent);
+    void startRecordingNow();
+    void stopRecordingNow();
+    void startRecordingAt(double positionInClipPlayhead);
+    void stopRecordingAt(double positionInClipPlayhead);
     void toggleRecord();
     
-    void renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferSize);
+    bool isPlaying();
+    bool isCuedToPlay();
+    bool isCuedToStop();
+    bool isRecording();
+    bool isCuedToStartRecording();
+    bool isCuedToStopRecording();
+    
+    //void renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferSize);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
-    void recordFromBuffer(juce::MidiBuffer& incommingBuffer, int bufferSize);
+    //oid recordFromBuffer(juce::MidiBuffer& incommingBuffer, int bufferSize);
+    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize);
+    
     
     void clearSequence();
-    
-    Playhead* getPlayerPlayhead();
-    Playhead* getRecorderPlayhead();
-    
+    double getPlayheadPosition();
+    void resetPlayheadPosition();
     double getLengthInBeats();
     
 private:
     
-    Playhead playerPlayhead;
-    Playhead recorderPlayhead;
+    void addRecordedSequenceToSequence();
+    bool hasJustStoppedRecording();
+    
+    
+    Playhead playhead;
     
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
     double clipLengthInBeats = 0.0;
+    bool recording = false;
+    double willStartRecordingAt = -1.0;
+    double willStopRecordingAt = -1.0;
+    double hasJustStoppedRecordingFlag = false;
     
     juce::SortedSet<int> notesCurrentlyPlayed;
     std::function<double()> getGlobalBpm;

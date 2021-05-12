@@ -24,7 +24,6 @@ MainComponent::MainComponent()
     
     // Clip controls
     addAndMakeVisible (clipPlayheadLabel);
-    addAndMakeVisible (clipRecorderPlayheadLabel);
     addAndMakeVisible (clipRecordButton);
     clipRecordButton.onClick = [this] { midiClip->toggleRecord(); };
     clipRecordButton.setButtonText("Record");
@@ -135,7 +134,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             isPlaying = false;
         } else {
             playheadPositionInBeats = 0.0;
-            midiClip->getPlayerPlayhead()->resetSlice();
+            midiClip->resetPlayheadPosition();
             isPlaying = true;
         }
         shouldToggleIsPlaying = false;
@@ -143,8 +142,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Generate notes and/or record notes
     if (isPlaying){
-        midiClip->recordFromBuffer(incomingMidi, bufferToFill.numSamples);
-        midiClip->renderSliceIntoMidiBuffer(generatedMidi, bufferToFill.numSamples);
+        midiClip->processSlice(incomingMidi, generatedMidi, bufferToFill.numSamples);
     }
     
     // Copy all incoming MIDI notes to the output buffer for direct monitoring
@@ -210,7 +208,6 @@ void MainComponent::resized()
     tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
  
     clipPlayheadLabel.setBounds(16, 70, 200, 20);
-    clipRecorderPlayheadLabel.setBounds(16 + 110, 70, 200, 20);
     clipStartStopButton.setBounds(16 + 210, 70, 100, 20);
     clipRecordButton.setBounds(16 + 210 + 110, 70, 50, 20);
     clipClearButton.setBounds(16 + 210 + 60 + 110, 70, 50, 20);
@@ -222,14 +219,13 @@ void MainComponent::timerCallback()
     playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
     midiOutChannelLabel.setText ((juce::String)midiOutChannel, juce::dontSendNotification);
     
-    clipPlayheadLabel.setText ((juce::String)midiClip->getPlayerPlayhead()->getCurrentSlice().getStart() + "(" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
-    clipRecorderPlayheadLabel.setText ((juce::String)midiClip->getRecorderPlayhead()->getCurrentSlice().getStart(), juce::dontSendNotification);
+    clipPlayheadLabel.setText ((juce::String)midiClip->getPlayheadPosition() + "(" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
     
-    if ((midiClip->getRecorderPlayhead()->isPlaying()) && (!midiClip->getRecorderPlayhead()->isCuedToPlay()) && (!midiClip->getRecorderPlayhead()->isCuedToStop())){
+    if (midiClip->isRecording() && !midiClip->isCuedToStopRecording()) {
         clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::red);
-    } else if ((midiClip->getRecorderPlayhead()->isPlaying()) && (midiClip->getRecorderPlayhead()->isCuedToStop())){
+    } else if (midiClip->isRecording() && midiClip->isCuedToStopRecording()) {
         clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
-    } else if ((!midiClip->getRecorderPlayhead()->isPlaying()) && (midiClip->getRecorderPlayhead()->isCuedToPlay())){
+    } else if (!midiClip->isRecording() && midiClip->isCuedToStartRecording()) {
         clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
     } else {
         clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::white);
