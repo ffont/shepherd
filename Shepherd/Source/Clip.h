@@ -25,9 +25,9 @@ public:
     
     void playNow();
     void playNow(double sliceOffset);
-    void playAt(double positionInParent);
+    void playAt(double positionInGlobalPlayhead);
     void stopNow();
-    void stopAt(double positionInParent);
+    void stopAt(double positionInGlobalPlayhead);
     void togglePlayStop();
     
     void startRecordingNow();
@@ -43,15 +43,11 @@ public:
     bool isCuedToStartRecording();
     bool isCuedToStopRecording();
     
-    //void renderSliceIntoMidiBuffer(juce::MidiBuffer& bufferToFill, int bufferSize);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
-    //oid recordFromBuffer(juce::MidiBuffer& incommingBuffer, int bufferSize);
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize);
-    
-    
     void clearSequence();
-    double getPlayheadPosition();
     void resetPlayheadPosition();
+    double getPlayheadPosition();
     double getLengthInBeats();
     
 private:
@@ -77,4 +73,6 @@ private:
     std::function<int()> getMidiOutChannel;
     
     bool shouldClearSequence = false;
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };

@@ -11,6 +11,7 @@
 		1B8AE3B484852EFC1797ECA2 /* include_juce_audio_basics.mm */ = {isa = PBXBuildFile; fileRef = 4FEFA13EF7CE1CD569D95EA5; };
 		1BE376D7CCAF51ACB550911E /* include_juce_audio_processors.mm */ = {isa = PBXBuildFile; fileRef = EB06C6CF21063A2729F1DA5D; };
 		1E2E0B8328B47EC93E28E55D /* include_juce_gui_extra.mm */ = {isa = PBXBuildFile; fileRef = E86C13006901652FBA4B7731; };
+		203917DCA094127EBB5DC33C /* Track.cpp */ = {isa = PBXBuildFile; fileRef = 7959E7B0FCC83F0B2980B8EF; };
 		234F6C7D461BFA37C7231198 /* DiscRecording.framework */ = {isa = PBXBuildFile; fileRef = CC527982EC7EEBC1C0D1B2A8; };
 		2B4955CC9F1351D3C28281D1 /* include_juce_audio_formats.mm */ = {isa = PBXBuildFile; fileRef = 384F5E3E6884BB00C849A9F7; };
 		2C003623372CFC17DDBBA6DC /* Clip.cpp */ = {isa = PBXBuildFile; fileRef = 347D271E3822C98BF61CED41; };
@@ -59,6 +60,7 @@
 		6BB4688AD437D209106C4F92 /* AudioToolbox.framework */ /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		6BF2DD80853B37754681F414 /* Foundation.framework */ /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		74C923CDA21F8C2E766EA8CE /* include_juce_core.mm */ /* include_juce_core.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_core.mm; path = ../../JuceLibraryCode/include_juce_core.mm; sourceTree = SOURCE_ROOT; };
+		7959E7B0FCC83F0B2980B8EF /* Track.cpp */ /* Track.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = Track.cpp; path = ../../Source/Track.cpp; sourceTree = SOURCE_ROOT; };
 		79F8C866EEDCFAEFF254BA0C /* MainComponent.h */ /* MainComponent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MainComponent.h; path = ../../Source/MainComponent.h; sourceTree = SOURCE_ROOT; };
 		8139639C53A5B420A289B75D /* include_juce_audio_utils.mm */ /* include_juce_audio_utils.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_audio_utils.mm; path = ../../JuceLibraryCode/include_juce_audio_utils.mm; sourceTree = SOURCE_ROOT; };
 		87DDF9398F72D1EAB9701314 /* juce_audio_utils */ /* juce_audio_utils */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_utils; path = ../../3rdParty/JUCE/modules/juce_audio_utils; sourceTree = SOURCE_ROOT; };
@@ -69,6 +71,7 @@
 		9BE32A48F6118E7D18DC1D8B /* juce_events */ /* juce_events */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_events; path = ../../3rdParty/JUCE/modules/juce_events; sourceTree = SOURCE_ROOT; };
 		ACFEEB068DE2956CA772A600 /* include_juce_audio_devices.mm */ /* include_juce_audio_devices.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_audio_devices.mm; path = ../../JuceLibraryCode/include_juce_audio_devices.mm; sourceTree = SOURCE_ROOT; };
 		AE84BCA83B06020E6A8C2A7A /* CoreMIDI.framework */ /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = System/Library/Frameworks/CoreMIDI.framework; sourceTree = SDKROOT; };
+		B05E1DF74A57DBA57AC83DB8 /* Track.h */ /* Track.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Track.h; path = ../../Source/Track.h; sourceTree = SOURCE_ROOT; };
 		B243C41E9E97A60B33E4C0EF /* juce_audio_basics */ /* juce_audio_basics */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_basics; path = ../../3rdParty/JUCE/modules/juce_audio_basics; sourceTree = SOURCE_ROOT; };
 		B27EE9CD1F88E525910B12D0 /* Accelerate.framework */ /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		B55B4136B4867869FBF39898 /* juce_audio_formats */ /* juce_audio_formats */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_formats; path = ../../3rdParty/JUCE/modules/juce_audio_formats; sourceTree = SOURCE_ROOT; };
@@ -213,13 +216,15 @@
 			isa = PBXGroup;
 			children = (
 				511F075D71A0AE8CCBABDFDD,
+				B846BD05D97B63F98ABC68A2,
 				79F8C866EEDCFAEFF254BA0C,
 				F12CAA4810840C3006F52E0C,
 				2AE33E40AC8487429A60201C,
 				FD0C388EA33F976CD321632B,
 				347D271E3822C98BF61CED41,
 				4C66AB972C8E9BC837F8D209,
-				B846BD05D97B63F98ABC68A2,
+				7959E7B0FCC83F0B2980B8EF,
+				B05E1DF74A57DBA57AC83DB8,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -313,6 +318,7 @@
 				D0FEA7251068B7C50BCF8D8E,
 				53CD688FD348959432380A00,
 				2C003623372CFC17DDBBA6DC,
+				203917DCA094127EBB5DC33C,
 				1B8AE3B484852EFC1797ECA2,
 				4E8E80F9E3F516F841A7C8B1,
 				2B4955CC9F1351D3C28281D1,

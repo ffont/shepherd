@@ -3,7 +3,8 @@
 #include <JuceHeader.h>
 #include "Playhead.h"
 #include "Clip.h"
-#include "synthAudioSource.h"
+#include "Track.h"
+#include "SynthAudioSource.h"
 
 //==============================================================================
 /*
@@ -38,27 +39,26 @@ private:
     juce::MidiMessageCollector midiInCollector;
     int midiOutChannel = 1;
     
-    // Playhead and main app state
-    double bpm = 120.0;
-    double nextBpm = 0.0;
+    // Transport and basic audio settings
     double sampleRate = 44100.0;
     int samplesPerBlock = 0;
-    bool metronomeOn = true;
-    
-    // Clips and global playhead
+    double bpm = 120.0;
+    double nextBpm = 0.0;
     double playheadPositionInBeats = 0.0;
     bool isPlaying = true;
     bool shouldToggleIsPlaying = false;
-    std::unique_ptr<Clip> midiClip;
     
-    // Sequenced notes
-    std::vector<std::pair<int, float>> noteOnTimes = {};
-    juce::MidiMessageSequence recordedSequence = {};
-    juce::MidiMessageSequence recordingSequence = {};
-    bool isPlayingRecordedSequence = false;
-    bool willPlayRecordedSequence = true;
-    int beatRecordedSequenceLastTriggered = 0;
-    bool shouldClearSequence = false;
+    // Metronome
+    bool metronomeOn = true;
+    int metronomeMidiChannel = 1;
+    int metronomeMidiNote = 90;
+    float metronomeMidiVelocity = 1.0f;
+    int metronomeNoteLengthInSamples = 200;
+    
+    // Tracks
+    int nTestTracks = 8;
+    int selectedTrack = 0;
+    juce::OwnedArray<Track> tracks;
     
     // Desktop app UI
     juce::Slider tempoSlider;
@@ -67,13 +67,16 @@ private:
     juce::TextButton globalStartStopButton;
     juce::Label midiOutChannelLabel;
     juce::TextButton midiOutChannelSetButton;
-    juce::Label clipPlayheadLabel;
-    juce::TextButton clipClearButton;
-    juce::TextButton clipRecordButton;
-    juce::TextButton clipStartStopButton;
+    
+    juce::OwnedArray<juce::Label> midiClipsPlayheadLabels;
+    juce::OwnedArray<juce::TextButton> midiClipsClearButtons;
+    juce::OwnedArray<juce::TextButton> midiClipsStartStopButtons;
+    juce::OwnedArray<juce::TextButton> midiClipsRecordButtons;
+    bool clipControlElementsCreated = false;
     
     // Sine synth (for testing purposes only)
     juce::Synthesiser sineSynth;
+    int nSynthVoices = 32;
     
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

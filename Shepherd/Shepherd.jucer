@@ -5,6 +5,8 @@
   <MAINGROUP id="zLUL6I" name="Shepherd">
     <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Source">
       <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
+            file="Source/SynthAudioSource.h"/>
       <FILE id="yJw2cK" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="Oxy1mT" name="MainComponent.cpp" compile="1" resource="0"
             file="Source/MainComponent.cpp"/>
@@ -12,8 +14,8 @@
       <FILE id="qdmhPB" name="Playhead.h" compile="0" resource="0" file="Source/Playhead.h"/>
       <FILE id="n5QTpx" name="Clip.cpp" compile="1" resource="0" file="Source/Clip.cpp"/>
       <FILE id="uaC7wh" name="Clip.h" compile="0" resource="0" file="Source/Clip.h"/>
-      <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
-            file="Source/SynthAudioSource.h"/>
+      <FILE id="eX3VcW" name="Track.cpp" compile="1" resource="0" file="Source/Track.cpp"/>
+      <FILE id="TaTQuG" name="Track.h" compile="0" resource="0" file="Source/Track.h"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>

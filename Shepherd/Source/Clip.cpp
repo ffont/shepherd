@@ -24,6 +24,7 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
     getSamplesPerBlock = samplesPerBlockGetter;
     getMidiOutChannel = midiOutChannelGetter;
     
+    #if JUCE_DEBUG
     // Initialize midiSequence with some notes
     std::vector<std::pair<int, float>> noteOnTimes = {
         {0, 0.0},
@@ -37,14 +38,18 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
     };
     for (auto note: noteOnTimes) {
         // NOTE: don't care about the channel here because it is re-written when filling midi buffer
-        juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, 64, 1.0f);
+        int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
+        juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, midiNote, 1.0f);
         msgNoteOn.setTimeStamp(note.first + note.second);
         midiSequence.addEvent(msgNoteOn);
-        juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, 64, 0.0f);
+        juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, midiNote, 0.0f);
         msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
         midiSequence.addEvent(msgNoteOff);
     }
     clipLengthInBeats = std::ceil(midiSequence.getEndTime()); // Quantize it to next beat integer
+    #endif
+    
+    clipLengthInBeats = 8.0;
 }
 
 void Clip::playNow()
@@ -57,9 +62,9 @@ void Clip::playNow(double sliceOffset)
     playhead.playNow(sliceOffset);
 }
 
-void Clip::playAt(double positionInParent)
+void Clip::playAt(double positionInGlobalPlayhead)
 {
-    playhead.playAt(positionInParent);
+    playhead.playAt(positionInGlobalPlayhead);
 }
 
 void Clip::stopNow()
@@ -68,19 +73,25 @@ void Clip::stopNow()
         stopRecordingNow();
     }
     playhead.stopNow();
+    resetPlayheadPosition();
 }
 
-void Clip::stopAt(double positionInParent)
+void Clip::stopAt(double positionInGlobalPlayhead)
 {
-    playhead.stopAt(positionInParent);
+    playhead.stopAt(positionInGlobalPlayhead);
 }
 
 void Clip::togglePlayStop()
 {
+    
+    double globalPlayheadPosition = playhead.getParentSlice().getEnd();
+    double beatsRemainingForNextBar = 4.0 - std::fmod(globalPlayheadPosition, 4.0);
+    double positionInGlobalPlayhead = std::round(globalPlayheadPosition + beatsRemainingForNextBar);
+    
     if (isPlaying()){
-        stopNow();
+        stopAt(positionInGlobalPlayhead);
     } else {
-        playAt(std::round(playhead.getParentSlice().getEnd() + 1));
+        playAt(positionInGlobalPlayhead);
     }
 }
 
@@ -188,7 +199,8 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
     if (shouldClearSequence){
         midiSequence.clear();
         shouldClearSequence = false;
-        clipLengthInBeats = 0.0;
+        renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
+        //clipLengthInBeats = 0.0;
     }
     
     // Check if Clip's player is cued to play and call playNow if needed (accounting for potential offset in samples)

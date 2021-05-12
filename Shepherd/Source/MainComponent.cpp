@@ -21,21 +21,9 @@ MainComponent::MainComponent()
     addAndMakeVisible (midiOutChannelSetButton);
     midiOutChannelSetButton.setButtonText ("MIDI ch");
     midiOutChannelSetButton.onClick = [this] { midiOutChannel = midiOutChannel % 16 + 1; };
-    
-    // Clip controls
-    addAndMakeVisible (clipPlayheadLabel);
-    addAndMakeVisible (clipRecordButton);
-    clipRecordButton.onClick = [this] { midiClip->toggleRecord(); };
-    clipRecordButton.setButtonText("Record");
-    addAndMakeVisible (clipClearButton);
-    clipClearButton.onClick = [this] { midiClip->clearSequence(); };
-    clipClearButton.setButtonText("Clear");
-    addAndMakeVisible (clipStartStopButton);
-    clipStartStopButton.onClick = [this] { midiClip->togglePlayStop(); };
-    clipStartStopButton.setButtonText("Start/Stop");
         
     // Set UI size and start timer to print playhead position
-    setSize (800, 600);
+    setSize (665, 575);
     startTimer (50);
 
     // Some platforms require permissions to open input channels so request that here
@@ -82,7 +70,7 @@ MainComponent::MainComponent()
     
     // Init sine synth with 16 voices (used for testig purposes only)
     #if JUCE_DEBUG
-    for (auto i = 0; i < 16; ++i)
+    for (auto i = 0; i < nSynthVoices; ++i)
         sineSynth.addVoice (new SineWaveVoice());
     sineSynth.addSound (new SineWaveSound());
     #endif
@@ -102,12 +90,20 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
     midiInCollector.reset(_sampleRate);
     sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
     
-    midiClip.reset(new Clip([this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / bpm)}; },
-                            [this]{ return bpm; },
-                            [this]{ return sampleRate; },
-                            [this]{ return samplesPerBlock; },
-                            [this]{ return midiOutChannel; }
-                            ));
+    // Create some tracks
+    for (int i=0; i<nTestTracks; i++){
+        tracks.add(
+          new Track(
+               [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / bpm)}; },
+               [this]{ return bpm; },
+               [this]{ return sampleRate; },
+               [this]{ return samplesPerBlock; }
+        ));
+    }
+    
+    for (auto track: tracks){
+        track->prepareClips();
+    }
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
@@ -130,11 +126,15 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     if (shouldToggleIsPlaying){
         if (isPlaying){
-            midiClip->renderRemainingNoteOffsIntoMidiBuffer(generatedMidi);
+            for (auto track: tracks){
+                track->clipsRenderRemainingNoteOffsIntoMidiBuffer(generatedMidi);
+            }
             isPlaying = false;
         } else {
             playheadPositionInBeats = 0.0;
-            midiClip->resetPlayheadPosition();
+            for (auto track: tracks){
+                track->clipsResetPlayheadPosition();
+            }
             isPlaying = true;
         }
         shouldToggleIsPlaying = false;
@@ -142,14 +142,17 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Generate notes and/or record notes
     if (isPlaying){
-        midiClip->processSlice(incomingMidi, generatedMidi, bufferToFill.numSamples);
+        for (auto track: tracks){
+            track->clipsProcessSlice(incomingMidi, generatedMidi, bufferToFill.numSamples);
+        }
     }
     
-    // Copy all incoming MIDI notes to the output buffer for direct monitoring
+    // Copy all incoming MIDI notes to the output buffer for direct monitoring of the currently selected channel
     for (const auto metadata : incomingMidi)
     {
         auto msg = metadata.getMessage();
-        msg.setChannel(midiOutChannel);
+        int channel = tracks[selectedTrack]->getMidiOutChannel();
+        msg.setChannel(channel);
         generatedMidi.addEvent(msg, metadata.samplePosition);
     }
     
@@ -163,10 +166,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                 previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
             }
             if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
-                juce::MidiMessage msgOn = juce::MidiMessage::noteOn(1, 80.0f, 1.0f);
-                juce::MidiMessage msgOff = juce::MidiMessage::noteOff(1, 80.0f, 0.0f);
+                juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, metronomeMidiNote, metronomeMidiVelocity);
+                juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, metronomeMidiNote, 0.0f);
                 generatedMidi.addEvent(msgOn, i);
-                generatedMidi.addEvent(msgOff, i + 200);
+                generatedMidi.addEvent(msgOff, i + metronomeNoteLengthInSamples);
             }
             previousBeat = nextBeat;
         }
@@ -199,6 +202,36 @@ void MainComponent::paint (juce::Graphics& g)
 
 void MainComponent::resized()
 {
+    // Recreate clip contorl objects if tracks array has been filled
+    if (tracks.size() > 0 && !clipControlElementsCreated){
+        clipControlElementsCreated = true;
+        for (auto track: tracks){
+            for (int i=0; i<track->getNumberOfClips(); i++){
+                auto clipPlayheadLabel = new juce::Label();
+                auto clipRecordButton = new juce::TextButton();
+                auto clipClearButton = new juce::TextButton();
+                auto clipStartStopButton = new juce::TextButton();
+                
+                clipRecordButton->onClick = [track, i] { track->getClipAt(i)->toggleRecord(); };
+                clipRecordButton->setButtonText("Record");
+                clipClearButton->onClick = [track, i] { track->getClipAt(i)->clearSequence(); };
+                clipClearButton->setButtonText("Clear");
+                clipStartStopButton->onClick = [track, i] { track->getClipAt(i)->togglePlayStop(); };
+                clipStartStopButton->setButtonText("Start");
+                
+                addAndMakeVisible (clipPlayheadLabel);
+                addAndMakeVisible (clipRecordButton);
+                addAndMakeVisible (clipClearButton);
+                addAndMakeVisible (clipStartStopButton);
+                
+                midiClipsClearButtons.add(clipClearButton);
+                midiClipsRecordButtons.add(clipRecordButton);
+                midiClipsPlayheadLabels.add(clipPlayheadLabel);
+                midiClipsStartStopButtons.add(clipStartStopButton);
+            }
+        }
+    }
+    
     auto sliderLeft = 70;
     
     playheadLabel.setBounds(16, 20, 200, 20);
@@ -207,27 +240,59 @@ void MainComponent::resized()
     midiOutChannelSetButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
     tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
  
-    clipPlayheadLabel.setBounds(16, 70, 200, 20);
-    clipStartStopButton.setBounds(16 + 210, 70, 100, 20);
-    clipRecordButton.setBounds(16 + 210 + 110, 70, 50, 20);
-    clipClearButton.setBounds(16 + 210 + 60 + 110, 70, 50, 20);
+    if (clipControlElementsCreated){
+        for (int i=0; i<tracks.size(); i++){
+            int xoffset = 80 * i;
+            for (int j=0; j<tracks[i]->getNumberOfClips(); j++){
+                int yoffset = j * 120;
+                int componentIndex = tracks[i]->getNumberOfClips() * i + j;  // Note this can fail if tracks don't have same number of clips... just for quick testing...
+                midiClipsPlayheadLabels[componentIndex]->setBounds(16 + xoffset, 100 + yoffset, 70, 20);
+                midiClipsStartStopButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 25, 70, 20);
+                midiClipsRecordButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 50, 70, 20);
+                midiClipsClearButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 75, 70, 20);
+            }
+        }
+    }
 }
 
 //==============================================================================
 void MainComponent::timerCallback()
 {
+    if (!clipControlElementsCreated){
+        // Call resized methods so all the clip control componenets are created and drawn
+        resized();
+    }
+    
     playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
     midiOutChannelLabel.setText ((juce::String)midiOutChannel, juce::dontSendNotification);
     
-    clipPlayheadLabel.setText ((juce::String)midiClip->getPlayheadPosition() + "(" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
-    
-    if (midiClip->isRecording() && !midiClip->isCuedToStopRecording()) {
-        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::red);
-    } else if (midiClip->isRecording() && midiClip->isCuedToStopRecording()) {
-        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
-    } else if (!midiClip->isRecording() && midiClip->isCuedToStartRecording()) {
-        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
-    } else {
-        clipPlayheadLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    if (clipControlElementsCreated){
+        for (int i=0; i<tracks.size(); i++){
+            for (int j=0; j<tracks[i]->getNumberOfClips(); j++){
+                auto midiClip = tracks[i]->getClipAt(j);
+                int componentIndex = tracks[i]->getNumberOfClips() * i + j;  // Note this can fail if tracks don't have same number of clips... just for quick testing...
+                midiClipsPlayheadLabels[componentIndex]->setText ((juce::String)midiClip->getPlayheadPosition() + " (" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
+                if (midiClip->isRecording() && !midiClip->isCuedToStopRecording()) {
+                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::red);
+                } else if (midiClip->isRecording() && midiClip->isCuedToStopRecording()) {
+                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::yellow);
+                } else if (!midiClip->isRecording() && midiClip->isCuedToStartRecording()) {
+                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::orange);
+                } else {
+                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::white);
+                }
+                
+                if (midiClip->isPlaying() && !midiClip->isCuedToStop()){
+                    midiClipsStartStopButtons[componentIndex]->setButtonText("Stop");
+                    midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+                } else if (midiClip->isCuedToStop() || midiClip->isCuedToPlay()){
+                    midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+                } else {
+                    midiClipsStartStopButtons[componentIndex]->setButtonText("Start");
+                    midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::black);
+                }
+            }
+        }
     }
+
 }
