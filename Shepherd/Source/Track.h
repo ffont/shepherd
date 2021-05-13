@@ -44,7 +44,7 @@ private:
     std::function<double()> getSampleRate;
     std::function<int()> getSamplesPerBlock;
     
-    int nTestClips = 4;
+    int nTestClips = 8;
     juce::OwnedArray<Clip> midiClips;
     
     int midiOutChannel = 1;

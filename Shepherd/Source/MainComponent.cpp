@@ -477,6 +477,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("tracks");
             stateAsStringParts.add((juce::String)tracks.size());
+            stateAsStringParts.add((juce::String)selectedTrack);
             for (auto track: tracks){
                 stateAsStringParts.add("t");
                 stateAsStringParts.add((juce::String)track->getNumberOfClips());
