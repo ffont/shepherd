@@ -77,8 +77,9 @@ private:
     juce::Label tempoSliderLabel;
     juce::Label playheadLabel;
     juce::TextButton globalStartStopButton;
-    juce::Label midiOutChannelLabel;
-    juce::TextButton midiOutChannelSetButton;
+    juce::TextButton globalRecordButton;
+    juce::Label selectedTrackLabel;
+    juce::TextButton selectTrackButton;
     
     juce::OwnedArray<juce::Label> midiClipsPlayheadLabels;
     juce::OwnedArray<juce::TextButton> midiClipsClearButtons;

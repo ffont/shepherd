@@ -1,5 +1,33 @@
 #include "MainComponent.h"
 
+#define OSC_ADDRESS_TRANSPORT "/transport"
+#define OSC_ADDRESS_TRANSPORT_PLAY "/transport/play"
+#define OSC_ADDRESS_TRANSPORT_STOP "/transport/stop"
+#define OSC_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
+#define OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF "/transport/recordOnOff"
+#define OSC_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
+
+#define OSC_ADDRESS_CLIP "/clip"
+#define OSC_ADDRESS_CLIP_PLAY "/clip/play"
+#define OSC_ADDRESS_CLIP_STOP "/clip/stop"
+#define OSC_ADDRESS_CLIP_PLAY_STOP "/clip/playStop"
+#define OSC_ADDRESS_CLIP_RECORD_ON_OFF "/clip/recordOnOff"
+#define OSC_ADDRESS_CLIP_CLEAR "/clip/clear"
+
+#define OSC_ADDRESS_TRACK "/track"
+#define OSC_ADDRESS_TRACK_SELECT "/track/select"
+
+#define OSC_ADDRESS_METRONOME "/metronome"
+#define OSC_ADDRESS_METRONOME_ON "/metronome/on"
+#define OSC_ADDRESS_METRONOME_OFF "/metronome/off"
+#define OSC_ADDRESS_METRONOME_ON_OFF "/metronome/onOff"
+
+#define OSC_ADDRESS_STATE "/state"
+#define OSC_ADDRESS_STATE_TRACKS "/state/tracks"
+#define OSC_ADDRESS_STATE_TRANSPORT "/state/transport"
+
+
+
 //==============================================================================
 MainComponent::MainComponent()
 {
@@ -9,18 +37,37 @@ MainComponent::MainComponent()
     tempoSlider.setValue(bpm);
     tempoSlider.setTextValueSuffix (" bpm");
     tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 160, tempoSlider.getTextBoxHeight());
-    tempoSlider.onValueChange = [this] { nextBpm = tempoSlider.getValue(); };
+    tempoSlider.onValueChange = [this] {
+        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_SET_BPM);
+        message.addFloat32((float)tempoSlider.getValue());
+        oscMessageReceived(message);        
+    };
     addAndMakeVisible (tempoSliderLabel);
     tempoSliderLabel.setText ("Tempo", juce::dontSendNotification);
     tempoSliderLabel.attachToComponent (&tempoSlider, true);
     addAndMakeVisible (playheadLabel);
     addAndMakeVisible (globalStartStopButton);
-    globalStartStopButton.onClick = [this] { shouldToggleIsPlaying = true; };
+    globalStartStopButton.onClick = [this] {
+        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_PLAY_STOP);
+        oscMessageReceived(message);
+    };
     globalStartStopButton.setButtonText("Start/Stop");
-    addAndMakeVisible (midiOutChannelLabel);
-    addAndMakeVisible (midiOutChannelSetButton);
-    midiOutChannelSetButton.setButtonText ("MIDI ch");
-    midiOutChannelSetButton.onClick = [this] { midiOutChannel = midiOutChannel % 16 + 1; };
+    addAndMakeVisible (globalRecordButton);
+    globalRecordButton.onClick = [this] {
+        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF);
+        oscMessageReceived(message);
+    };
+    globalRecordButton.setButtonText("Record");
+    
+    addAndMakeVisible (selectedTrackLabel);
+    addAndMakeVisible (selectTrackButton);
+    selectTrackButton.setButtonText ("Track sel");
+    selectTrackButton.onClick = [this] {
+        int newSelectedTrack = (selectedTrack + 1) % tracks.size();
+        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRACK_SELECT);
+        message.addInt32(newSelectedTrack);
+        oscMessageReceived(message);
+    };
         
     // Set UI size and start timer to print playhead position
     setSize (665, 575);
@@ -109,7 +156,9 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
         ));
     }
     
-    for (auto track: tracks){
+    for (int i=0; i<tracks.size(); i++){
+        auto track = tracks[i];
+        track->setMidiOutChannel(i + 1);
         track->prepareClips();
     }
 }
@@ -136,10 +185,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         if (isPlaying){
             for (auto track: tracks){
                 track->clipsRenderRemainingNoteOffsIntoMidiBuffer(generatedMidi);
+                track->stopAllPlayingClips(true);
             }
             isPlaying = false;
-        } else {
             playheadPositionInBeats = 0.0;
+        } else {
             for (auto track: tracks){
                 track->clipsResetPlayheadPosition();
             }
@@ -165,7 +215,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     }
     
     // Add metronome ticks to the buffer
-    if (metronomeOn) {
+    if (metronomeOn && isPlaying) {
         double previousBeat = playheadPositionInBeats;
         double beatsPerSample = 1 / (60.0 * sampleRate / bpm);
         for (int i=0; i<bufferToFill.numSamples; i++){
@@ -213,18 +263,34 @@ void MainComponent::resized()
     // Recreate clip contorl objects if tracks array has been filled
     if (tracks.size() > 0 && !clipControlElementsCreated){
         clipControlElementsCreated = true;
-        for (auto track: tracks){
+        for (int j=0; j<tracks.size(); j++){
+            auto track = tracks[j];
             for (int i=0; i<track->getNumberOfClips(); i++){
                 auto clipPlayheadLabel = new juce::Label();
                 auto clipRecordButton = new juce::TextButton();
                 auto clipClearButton = new juce::TextButton();
                 auto clipStartStopButton = new juce::TextButton();
                 
-                clipRecordButton->onClick = [track, i] { track->getClipAt(i)->toggleRecord(); };
+                clipRecordButton->onClick = [this, j, i] {
+                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_RECORD_ON_OFF);
+                    message.addInt32(j);
+                    message.addInt32(i);
+                    oscMessageReceived(message);
+                };
                 clipRecordButton->setButtonText("Record");
-                clipClearButton->onClick = [track, i] { track->getClipAt(i)->clearSequence(); };
+                clipClearButton->onClick = [this, j, i] {
+                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_CLEAR);
+                    message.addInt32(j);
+                    message.addInt32(i);
+                    oscMessageReceived(message);
+                };
                 clipClearButton->setButtonText("Clear");
-                clipStartStopButton->onClick = [track, i] { track->getClipAt(i)->togglePlayStop(); };
+                clipStartStopButton->onClick = [this, j, i] {
+                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_PLAY_STOP);
+                    message.addInt32(j);
+                    message.addInt32(i);
+                    oscMessageReceived(message);
+                };
                 clipStartStopButton->setButtonText("Start");
                 
                 addAndMakeVisible (clipPlayheadLabel);
@@ -242,10 +308,11 @@ void MainComponent::resized()
     
     auto sliderLeft = 70;
     
-    playheadLabel.setBounds(16, 20, 200, 20);
-    globalStartStopButton.setBounds(16 + 210, 20, 100, 20);
-    midiOutChannelLabel.setBounds(16 + 210 + 110, 20, 50, 20);
-    midiOutChannelSetButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
+    playheadLabel.setBounds(16, 20, 90, 20);
+    globalStartStopButton.setBounds(16 + 100, 20, 100, 20);
+    globalRecordButton.setBounds(16 + 210, 20, 100, 20);
+    selectedTrackLabel.setBounds(16 + 210 + 110, 20, 50, 20);
+    selectTrackButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
     tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
  
     if (clipControlElementsCreated){
@@ -272,7 +339,7 @@ void MainComponent::timerCallback()
     }
     
     playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
-    midiOutChannelLabel.setText ((juce::String)midiOutChannel, juce::dontSendNotification);
+    selectedTrackLabel.setText ((juce::String)selectedTrack, juce::dontSendNotification);
     
     if (clipControlElementsCreated){
         for (int i=0; i<tracks.size(); i++){
@@ -280,20 +347,23 @@ void MainComponent::timerCallback()
                 auto midiClip = tracks[i]->getClipAt(j);
                 int componentIndex = tracks[i]->getNumberOfClips() * i + j;  // Note this can fail if tracks don't have same number of clips... just for quick testing...
                 midiClipsPlayheadLabels[componentIndex]->setText ((juce::String)midiClip->getPlayheadPosition() + " (" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
-                if (midiClip->isRecording() && !midiClip->isCuedToStopRecording()) {
+                
+                juce::String clipStatus = midiClip->getStatus();
+                
+                if (clipStatus.contains(CLIP_STATUS_RECORDING)){
                     midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::red);
-                } else if (midiClip->isRecording() && midiClip->isCuedToStopRecording()) {
-                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::yellow);
-                } else if (!midiClip->isRecording() && midiClip->isCuedToStartRecording()) {
+                } else if (clipStatus.contains(CLIP_STATUS_CUED_TO_RECORD)){
                     midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::orange);
+                } else if (clipStatus.contains(CLIP_STATUS_CUED_TO_STOP_RECORDING)){
+                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::yellow);
                 } else {
                     midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::white);
                 }
                 
-                if (midiClip->isPlaying() && !midiClip->isCuedToStop()){
+                if (clipStatus.contains(CLIP_STATUS_PLAYING)){
                     midiClipsStartStopButtons[componentIndex]->setButtonText("Stop");
                     midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::green);
-                } else if (midiClip->isCuedToStop() || midiClip->isCuedToPlay()){
+                } else if ((clipStatus.contains(CLIP_STATUS_CUED_TO_PLAY)) || (clipStatus.contains(CLIP_STATUS_CUED_TO_STOP))){
                     midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
                 } else {
                     midiClipsStartStopButtons[componentIndex]->setButtonText("Start");
@@ -302,11 +372,6 @@ void MainComponent::timerCallback()
             }
         }
     }
-}
-
-void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
-{
-    std::cout << message.getAddressPattern().toString() << std::endl;
 }
 
 void MainComponent::sendOscMessage (const juce::OSCMessage& message)
@@ -319,4 +384,124 @@ void MainComponent::sendOscMessage (const juce::OSCMessage& message)
     if (oscSenderIsConnected){
         oscSender.send (message);
     }
+}
+
+void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
+{
+    const juce::String address = message.getAddressPattern().toString();
+    
+    if (address.startsWith(OSC_ADDRESS_CLIP)) {
+        jassert(message.size() == 2);
+        int trackNum = message[0].getInt32();
+        int clipNum = message[1].getInt32();
+        if (trackNum < tracks.size()){
+            auto track = tracks[trackNum];
+            if (clipNum < track->getNumberOfClips()){
+                auto clip = track->getClipAt(clipNum);
+                if (address == OSC_ADDRESS_CLIP_PLAY){
+                    if (!clip->isPlaying()){
+                        track->stopAllPlayingClipsExceptFor(clipNum, false);
+                        clip->togglePlayStop();
+                    }
+                } else if (address == OSC_ADDRESS_CLIP_STOP){
+                    if (clip->isPlaying()){
+                        clip->togglePlayStop();
+                    }
+                } else if (address == OSC_ADDRESS_CLIP_PLAY_STOP){
+                    if (!clip->isPlaying()){
+                        track->stopAllPlayingClipsExceptFor(clipNum, false);
+                    }
+                    clip->togglePlayStop();
+                } else if (address == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
+                    clip->toggleRecord();
+                } else if (address == OSC_ADDRESS_CLIP_CLEAR){
+                    clip->clearSequence();
+                }
+            }
+        }
+        
+    } else if (address.startsWith(OSC_ADDRESS_TRACK)) {
+        jassert(message.size() == 1);
+        int trackNum = message[0].getInt32();
+        if (trackNum < tracks.size() && trackNum >= 0){
+            if (address == OSC_ADDRESS_TRACK_SELECT){
+                selectedTrack = trackNum;
+            }
+        }
+         
+    } else if (address.startsWith(OSC_ADDRESS_TRANSPORT)) {
+        if (address == OSC_ADDRESS_TRANSPORT_PLAY){
+            jassert(message.size() == 0);
+            if (!isPlaying){
+                shouldToggleIsPlaying = true;
+            }
+        } else if (address == OSC_ADDRESS_TRANSPORT_STOP){
+            jassert(message.size() == 0);
+            if (isPlaying){
+                shouldToggleIsPlaying = true;
+            }
+        } else if (address == OSC_ADDRESS_TRANSPORT_PLAY_STOP){
+            jassert(message.size() == 0);
+            shouldToggleIsPlaying = true;
+        } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF){
+            auto track = tracks[selectedTrack];
+            std::vector<int> currentlyPlayingClipIndexes = track->getCurrentlyPlayingClipsIndex();
+            jassert(currentlyPlayingClipIndexes.size() <= 1);  // Only one clip per track should be playing at a time
+            for (auto clipNum: currentlyPlayingClipIndexes){
+                track->getClipAt(clipNum)->toggleRecord();
+            }
+        } else if (address == OSC_ADDRESS_TRANSPORT_SET_BPM){
+            jassert(message.size() == 1);
+            float newBpm = message[0].getFloat32();
+            if (newBpm > 0.0 && newBpm < 400.0){
+                nextBpm = (double)newBpm;
+            }
+        }
+        
+    } else if (address.startsWith(OSC_ADDRESS_METRONOME)) {
+        if (address == OSC_ADDRESS_METRONOME_ON){
+            jassert(message.size() == 0);
+            metronomeOn = true;
+        } else if (address == OSC_ADDRESS_METRONOME_OFF){
+            jassert(message.size() == 0);
+            metronomeOn = false;
+        } else if (address == OSC_ADDRESS_METRONOME_ON_OFF){
+            jassert(message.size() == 0);
+            metronomeOn = !metronomeOn;
+        }
+        
+    } else if (address.startsWith(OSC_ADDRESS_STATE)) {
+        if (address == OSC_ADDRESS_STATE_TRACKS){
+            jassert(message.size() == 0);
+            
+            juce::StringArray stateAsStringParts = {};
+            stateAsStringParts.add("tracks");
+            stateAsStringParts.add((juce::String)tracks.size());
+            for (auto track: tracks){
+                stateAsStringParts.add("t");
+                stateAsStringParts.add((juce::String)track->getNumberOfClips());
+                for (int i=0; i<track->getNumberOfClips(); i++){
+                    stateAsStringParts.add(track->getClipAt(i)->getStatus());
+                }
+            }
+            juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
+            returnMessage.addString(stateAsStringParts.joinIntoString(","));
+            sendOscMessage(returnMessage);
+            
+        } else if (address == OSC_ADDRESS_STATE_TRANSPORT){
+            jassert(message.size() == 0);
+            
+            juce::StringArray stateAsStringParts = {};
+            stateAsStringParts.add("transport");
+            stateAsStringParts.add(isPlaying ? "p":"s");
+            stateAsStringParts.add((juce::String)bpm);
+            stateAsStringParts.add((juce::String)playheadPositionInBeats);
+            
+            juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
+            returnMessage.addString(stateAsStringParts.joinIntoString(","));
+            sendOscMessage(returnMessage);
+            
+        }
+    }
+    
 }

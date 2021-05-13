@@ -84,8 +84,14 @@ void Clip::stopAt(double positionInGlobalPlayhead)
 void Clip::togglePlayStop()
 {
     
-    double globalPlayheadPosition = playhead.getParentSlice().getEnd();
-    double beatsRemainingForNextBar = 4.0 - std::fmod(globalPlayheadPosition, 4.0);
+    double globalPlayheadPosition = playhead.getParentSlice().getStart();
+    double beatsRemainingForNextBar;
+    if (globalPlayheadPosition == 0.0){
+        // Edge case in which global playhead is stopped
+        beatsRemainingForNextBar = 0.0;
+    } else {
+        beatsRemainingForNextBar = 4.0 - std::fmod(globalPlayheadPosition, 4.0);
+    }
     double positionInGlobalPlayhead = std::round(globalPlayheadPosition + beatsRemainingForNextBar);
     
     if (isPlaying()){
@@ -164,6 +170,35 @@ bool Clip::isCuedToStartRecording()
 bool Clip::isCuedToStopRecording()
 {
     return willStopRecordingAt >= 0.0;
+}
+
+
+juce::String Clip::getStatus()
+{
+    juce::String playStatus = "";
+    juce::String recordStatus = "";
+    
+    if (isCuedToStartRecording()) {
+        recordStatus = CLIP_STATUS_CUED_TO_RECORD;
+    } else if (isCuedToStopRecording()) {
+        recordStatus = CLIP_STATUS_CUED_TO_STOP_RECORDING;
+    } else if (isRecording()) {
+        recordStatus = CLIP_STATUS_RECORDING;
+    } else {
+        recordStatus = CLIP_STATUS_NO_RECORDING;
+    }
+    
+    if (isCuedToPlay()) {
+        playStatus = CLIP_STATUS_CUED_TO_PLAY;
+    } else if (isCuedToStop()) {
+        playStatus = CLIP_STATUS_CUED_TO_STOP;
+    } else if (isPlaying()) {
+        playStatus = CLIP_STATUS_PLAYING;
+    } else {
+        playStatus = CLIP_STATUS_STOPPED;
+    }
+    
+    return playStatus + recordStatus;
 }
 
 void Clip::clearSequence()

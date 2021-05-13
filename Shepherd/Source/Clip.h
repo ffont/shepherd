@@ -13,6 +13,15 @@
 #include <JuceHeader.h>
 #include "Playhead.h"
 
+#define CLIP_STATUS_PLAYING "p"
+#define CLIP_STATUS_STOPPED "s"
+#define CLIP_STATUS_CUED_TO_PLAY "c"
+#define CLIP_STATUS_CUED_TO_STOP "C"
+#define CLIP_STATUS_RECORDING "r"
+#define CLIP_STATUS_CUED_TO_RECORD "w"
+#define CLIP_STATUS_CUED_TO_STOP_RECORDING "W"
+#define CLIP_STATUS_NO_RECORDING "n"
+
 class Clip
 {
 public:
@@ -42,6 +51,7 @@ public:
     bool isRecording();
     bool isCuedToStartRecording();
     bool isCuedToStopRecording();
+    juce::String getStatus();
     
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize);

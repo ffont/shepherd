@@ -22,6 +22,8 @@ public:
           std::function<int()> samplesPerBlockGetter
           );
     
+    void setMidiOutChannel(int newMidiOutChannel);
+    
     void prepareClips();
     int getNumberOfClips();
     int getMidiOutChannel();
@@ -31,6 +33,9 @@ public:
     void clipsResetPlayheadPosition();
     
     Clip* getClipAt(int clipN);
+    void stopAllPlayingClips(bool now);
+    void stopAllPlayingClipsExceptFor(int clipN, bool now);
+    std::vector<int> getCurrentlyPlayingClipsIndex();
 
 private:
     
