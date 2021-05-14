@@ -494,6 +494,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("transport");
             stateAsStringParts.add(isPlaying ? "p":"s");
+            stateAsStringParts.add(isPlaying ? "p":"s");  // TODO: compute some is recording
             stateAsStringParts.add((juce::String)bpm);
             stateAsStringParts.add((juce::String)playheadPositionInBeats);
             
