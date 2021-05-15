@@ -46,18 +46,18 @@
         <CONFIGURATION isDebug="0" name="Release"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_osc"/>
-        <MODULEPATH id="juce_gui_extra"/>
-        <MODULEPATH id="juce_gui_basics"/>
-        <MODULEPATH id="juce_graphics"/>
-        <MODULEPATH id="juce_events"/>
-        <MODULEPATH id="juce_data_structures"/>
-        <MODULEPATH id="juce_core"/>
-        <MODULEPATH id="juce_audio_utils"/>
-        <MODULEPATH id="juce_audio_processors"/>
-        <MODULEPATH id="juce_audio_formats"/>
-        <MODULEPATH id="juce_audio_devices"/>
-        <MODULEPATH id="juce_audio_basics"/>
+        <MODULEPATH id="juce_osc" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="3rdParty/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="3rdParty/JUCE/modules"/>
       </MODULEPATHS>
     </LINUX_MAKE>
   </EXPORTFORMATS>
