@@ -177,6 +177,7 @@ juce::String Clip::getStatus()
 {
     juce::String playStatus = "";
     juce::String recordStatus = "";
+    juce::String isEmpty = "";
     
     if (isCuedToStartRecording()) {
         recordStatus = CLIP_STATUS_CUED_TO_RECORD;
@@ -198,7 +199,13 @@ juce::String Clip::getStatus()
         playStatus = CLIP_STATUS_STOPPED;
     }
     
-    return playStatus + recordStatus;
+    if (midiSequence.getNumEvents() > 0){
+        isEmpty = CLIP_STATUS_IS_NOT_EMPTY;
+    } else {
+        isEmpty = CLIP_STATUS_IS_EMPTY;
+    }
+    
+    return playStatus + recordStatus + isEmpty;
 }
 
 void Clip::clearSequence()
