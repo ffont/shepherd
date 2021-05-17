@@ -221,9 +221,9 @@ juce::String Clip::getStatus()
     }
     
     if (isEmpty()){
-        emptyStatus = CLIP_STATUS_IS_NOT_EMPTY;
-    } else {
         emptyStatus = CLIP_STATUS_IS_EMPTY;
+    } else {
+        emptyStatus = CLIP_STATUS_IS_NOT_EMPTY;
     }
     
     return playStatus + recordStatus + emptyStatus;
