@@ -59,6 +59,10 @@ private:
     bool isPlaying = false;
     bool shouldToggleIsPlaying = false;
     
+    bool doingCountIn = false;
+    double countInLengthInBeats = 4.0;
+    double countInplayheadPositionInBeats = 0.0;
+    
     // Metronome
     #if !RPI_BUILD
     bool metronomeOn = true;

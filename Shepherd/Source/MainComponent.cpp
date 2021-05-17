@@ -1,8 +1,6 @@
 #include "MainComponent.h"
 
 #define OSC_ADDRESS_TRANSPORT "/transport"
-#define OSC_ADDRESS_TRANSPORT_PLAY "/transport/play"
-#define OSC_ADDRESS_TRANSPORT_STOP "/transport/stop"
 #define OSC_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
 #define OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF "/transport/recordOnOff"
 #define OSC_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
@@ -209,12 +207,25 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Generate MIDI output buffer
     juce::MidiBuffer generatedMidi;  // TODO: Is this thread safe?
     
-    // Do global start/stop if requested and change of tempo
+    // Check if tempo should be updated
     if (nextBpm > 0.0){
         bpm = nextBpm;
         nextBpm = 0.0;
     }
+    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / bpm);
     
+    // Check if count-in finished and global playhead should be toggled
+    if (!isPlaying && doingCountIn){
+        if (countInLengthInBeats >= countInplayheadPositionInBeats && countInLengthInBeats < countInplayheadPositionInBeats + bufferLengthInBeats){
+            // Count in finishes in the current getNextAudioBlock execution
+            playheadPositionInBeats = 0.0; // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            shouldToggleIsPlaying = true;
+            doingCountIn = false;
+            countInplayheadPositionInBeats = 0.0;
+        }
+    }
+    
+    // Check if global playhead should be start/stopped
     if (shouldToggleIsPlaying){
         if (isPlaying){
             for (auto track: tracks){
@@ -255,8 +266,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         generatedMidi.addEvent(msgOff, metronomePendingNoteOffSamplePosition);
         metronomePendingNoteOffSamplePosition = -1;
     }
-    if (metronomeOn && isPlaying) {
-        double previousBeat = playheadPositionInBeats;
+    if (metronomeOn && (isPlaying || doingCountIn)) {
+        
+        double previousBeat = isPlaying ? playheadPositionInBeats : countInplayheadPositionInBeats;
         double beatsPerSample = 1 / (60.0 * sampleRate / bpm);
         for (int i=0; i<bufferToFill.numSamples; i++){
             double nextBeat = previousBeat + beatsPerSample;
@@ -292,7 +304,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Update playhead positions
     if (isPlaying){
-        playheadPositionInBeats += bufferToFill.numSamples / (60.0 * sampleRate / bpm);
+        playheadPositionInBeats += bufferLengthInBeats;
+    } else {
+        if (doingCountIn) {
+            countInplayheadPositionInBeats += bufferLengthInBeats;
+        }
     }
 }
 
@@ -388,7 +404,12 @@ void MainComponent::timerCallback()
         resized();
     }
     
-    playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
+    if (doingCountIn){
+        playheadLabel.setText ((juce::String)(-1 * (countInLengthInBeats - countInplayheadPositionInBeats)), juce::dontSendNotification);
+    } else {
+        playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
+    }
+    
     selectedTrackLabel.setText ((juce::String)selectedTrack, juce::dontSendNotification);
     
     if (clipControlElementsCreated){
@@ -480,26 +501,46 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         }
          
     } else if (address.startsWith(OSC_ADDRESS_TRANSPORT)) {
-        if (address == OSC_ADDRESS_TRANSPORT_PLAY){
-            jassert(message.size() == 0);
-            if (!isPlaying){
-                shouldToggleIsPlaying = true;
-            }
-        } else if (address == OSC_ADDRESS_TRANSPORT_STOP){
+        if (address == OSC_ADDRESS_TRANSPORT_PLAY_STOP){
             jassert(message.size() == 0);
             if (isPlaying){
+                // If it is playing, stop it
                 shouldToggleIsPlaying = true;
+            } else{
+                // If it is not playing, check if there are record-armed clips and, if so, do count-in before playing
+                bool recordCuedClipsFound = false;
+                for (auto track: tracks){
+                    if (track->hasClipsCuedToRecord()){
+                        recordCuedClipsFound = true;
+                        break;
+                    }
+                }
+                if (recordCuedClipsFound){
+                    doingCountIn = true;
+                } else {
+                    shouldToggleIsPlaying = true;
+                }
             }
-        } else if (address == OSC_ADDRESS_TRANSPORT_PLAY_STOP){
-            jassert(message.size() == 0);
-            shouldToggleIsPlaying = true;
         } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF){
             auto track = tracks[selectedTrack];
             std::vector<int> currentlyPlayingClipIndexes = track->getCurrentlyPlayingClipsIndex();
             jassert(currentlyPlayingClipIndexes.size() <= 1);  // Only one clip per track should be playing at a time
-            for (auto clipNum: currentlyPlayingClipIndexes){
-                track->getClipAt(clipNum)->toggleRecord();
+            if (currentlyPlayingClipIndexes.size() == 1){
+                // If currently selected track has a playing clip, toggle recording on that clip
+                for (auto clipNum: currentlyPlayingClipIndexes){
+                    track->getClipAt(clipNum)->toggleRecord();
+                }
+            } else {
+                // If currently selected track has no playing clip, it also means no clip is recording. Toggle recording on the first non-empty clip
+                for (int i=0; i<track->getNumberOfClips(); i++){
+                    auto clip = track->getClipAt(i);
+                    if (clip->isEmpty()){
+                        clip->toggleRecord();
+                        break;
+                    }
+                }
             }
+            
         } else if (address == OSC_ADDRESS_TRANSPORT_SET_BPM){
             jassert(message.size() == 1);
             float newBpm = message[0].getFloat32();

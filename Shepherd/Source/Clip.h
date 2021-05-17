@@ -57,6 +57,7 @@ public:
     bool isRecording();
     bool isCuedToStartRecording();
     bool isCuedToStopRecording();
+    bool isEmpty();
     juce::String getStatus();
     
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);

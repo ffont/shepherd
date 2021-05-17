@@ -128,3 +128,13 @@ std::vector<int> Track::getCurrentlyPlayingClipsIndex()
     }
     return currentlyPlayingClips;
 }
+
+bool Track::hasClipsCuedToRecord()
+{
+    for (auto clip: midiClips){
+        if (clip->isCuedToStartRecording()){
+            return true;
+        }
+    }
+    return false;
+}

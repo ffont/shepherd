@@ -36,6 +36,8 @@ public:
     void stopAllPlayingClips(bool now, bool deCue, bool reCue);
     void stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue);
     std::vector<int> getCurrentlyPlayingClipsIndex();
+    
+    bool hasClipsCuedToRecord();
 
 private:
     

@@ -77,7 +77,6 @@ void Clip::stopAt(double positionInGlobalPlayhead)
 
 void Clip::togglePlayStop()
 {
-    
     double globalPlayheadPosition = playhead.getParentSlice().getStart();
     double beatsRemainingForNextBar;
     if (globalPlayheadPosition == 0.0){
@@ -139,9 +138,13 @@ void Clip::toggleRecord()
         }
     } else {
         if (clipLengthInBeats > 0.0){
-            startRecordingAt(0.0);  // Start recording when clip loops
+            startRecordingAt(0.0);  // Start recording when clip loops or starts
         } else {
             startRecordingNow();
+        }
+        if (!isPlaying()){
+            // If clip is not playing, toggle play
+            togglePlayStop();
         }
     }
 }
@@ -186,12 +189,16 @@ bool Clip::isCuedToStopRecording()
     return willStopRecordingAt >= 0.0;
 }
 
+bool Clip::isEmpty()
+{
+    return midiSequence.getNumEvents() == 0;
+}
 
 juce::String Clip::getStatus()
 {
     juce::String playStatus = "";
     juce::String recordStatus = "";
-    juce::String isEmpty = "";
+    juce::String emptyStatus = "";
     
     if (isCuedToStartRecording()) {
         recordStatus = CLIP_STATUS_CUED_TO_RECORD;
@@ -213,18 +220,24 @@ juce::String Clip::getStatus()
         playStatus = CLIP_STATUS_STOPPED;
     }
     
-    if (midiSequence.getNumEvents() > 0){
-        isEmpty = CLIP_STATUS_IS_NOT_EMPTY;
+    if (isEmpty()){
+        emptyStatus = CLIP_STATUS_IS_NOT_EMPTY;
     } else {
-        isEmpty = CLIP_STATUS_IS_EMPTY;
+        emptyStatus = CLIP_STATUS_IS_EMPTY;
     }
     
-    return playStatus + recordStatus + isEmpty;
+    return playStatus + recordStatus + emptyStatus;
 }
 
 void Clip::clearSequence()
 {
-    shouldClearSequence = true;
+    if (isPlaying()){
+        // If is playing, clear sequence at the start of next process block
+        shouldClearSequence = true;
+    } else {
+        // If not playing, clear sequence immediately
+        midiSequence.clear();
+    }
 }
 
 double Clip::getPlayheadPosition()
