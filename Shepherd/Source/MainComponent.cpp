@@ -263,7 +263,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     if (metronomePendingNoteOffSamplePosition){
         // If there was a noteOff metronome message pending from previous block, add it now to the buffer
         juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, metronomePendingNoteOffIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
+        #if !RPI_BUILD
         generatedMidi.addEvent(msgOff, metronomePendingNoteOffSamplePosition);
+        #endif
         metronomePendingNoteOffSamplePosition = -1;
     }
     if (metronomeOn && (isPlaying || doingCountIn)) {
@@ -281,7 +283,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                 generatedMidi.addEvent(msgOn, i);
                 if (i + metronomeTickLengthInSamples < bufferToFill.numSamples){
                     juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
+                    #if !RPI_BUILD
                     generatedMidi.addEvent(msgOff, i + metronomeTickLengthInSamples);
+                    #endif
                 } else {
                     metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - bufferToFill.numSamples;
                     metronomePendingNoteOffIsHigh = tickIsHigh;
