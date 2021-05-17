@@ -88,9 +88,16 @@ void Clip::togglePlayStop()
     double positionInGlobalPlayhead = std::round(globalPlayheadPosition + beatsRemainingForNextBar);
     
     if (isPlaying()){
+        // If clip is playing, cue it to stop
         stopAt(positionInGlobalPlayhead);
     } else {
-        playAt(positionInGlobalPlayhead);
+        if (playhead.isCuedToPlay()){
+            // If clip is not playing but it is already cued to start, cancel the cue
+            playhead.clearPlayCue();
+        } else {
+            // If not already cued, cue it now
+            playAt(positionInGlobalPlayhead);
+        }
     }
 }
 
