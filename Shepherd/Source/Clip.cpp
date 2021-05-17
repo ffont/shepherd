@@ -24,17 +24,13 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
     getSamplesPerBlock = samplesPerBlockGetter;
     getMidiOutChannel = midiOutChannelGetter;
     
-    #if JUCE_DEBUG
+    clipLengthInBeats = 16.0;
+    
+    #if !RPI_BUILD
     // Initialize midiSequence with some notes
-    std::vector<std::pair<int, float>> noteOnTimes = {
-        {0, 0.0},
-        {1, 0.0},
-        {2, 0.0},
-        {3, 0.0},
-        {4, 0.0},
-        {5, 0.0},
-        {6, 0.0},
-        {7, 0.0}
+    std::vector<std::pair<int, float>> noteOnTimes = {};
+    for (int i=0; i<clipLengthInBeats; i++){
+        noteOnTimes.push_back({i, 0.0});
     };
     for (auto note: noteOnTimes) {
         // NOTE: don't care about the channel here because it is re-written when filling midi buffer
@@ -46,10 +42,8 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
         msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
         midiSequence.addEvent(msgNoteOff);
     }
-    clipLengthInBeats = std::ceil(midiSequence.getEndTime()); // Quantize it to next beat integer
     #endif
-    
-    clipLengthInBeats = 8.0;
+
 }
 
 void Clip::playNow()
@@ -101,16 +95,26 @@ void Clip::togglePlayStop()
     }
 }
 
+void Clip::clearPlayCue()
+{
+    playhead.clearPlayCue();
+}
+
+void Clip::clearStopCue()
+{
+    playhead.clearStopCue();
+}
+
 void Clip::startRecordingNow()
 {
-    willStartRecordingAt = -1.0;
+    clearStartRecordingCue();
     recording = true;
     hasJustStoppedRecordingFlag = false;
 }
 
 void Clip::stopRecordingNow()
 {
-    willStopRecordingAt = -1.0;
+    clearStopRecordingCue();
     recording = false;
     hasJustStoppedRecordingFlag = true;
 }
@@ -140,6 +144,16 @@ void Clip::toggleRecord()
             startRecordingNow();
         }
     }
+}
+
+void Clip::clearStartRecordingCue()
+{
+    willStartRecordingAt = -1.0;
+}
+
+void Clip::clearStopRecordingCue()
+{
+    willStopRecordingAt = -1.0;
 }
 
 bool Clip::isPlaying()

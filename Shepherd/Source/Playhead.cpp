@@ -84,6 +84,16 @@ double Playhead::getStopAtCueBeats() const
     return willStopAt;
 }
 
+void Playhead::clearPlayCue()
+{
+    willPlayAt = -1.0;
+}
+
+void Playhead::clearStopCue()
+{
+    willStopAt = -1.0;
+}
+
 void Playhead::captureSlice()
 {
     if (! playing)

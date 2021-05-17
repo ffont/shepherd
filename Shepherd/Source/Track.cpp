@@ -79,23 +79,39 @@ Clip* Track::getClipAt(int clipN)
     return midiClips[clipN];
 }
 
-void Track::stopAllPlayingClips(bool now)
+void Track::stopAllPlayingClips(bool now, bool deCue, bool reCue)
 {
-    stopAllPlayingClipsExceptFor(-1, now);
+    // See stopAllPlayingClipsExceptFor for docs
+    stopAllPlayingClipsExceptFor(-1, now, deCue, reCue);
 }
 
-void Track::stopAllPlayingClipsExceptFor(int clipN, bool now)
+void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue)
 {
+    /* Stop all clips that are currently playing in the track clips.
+     If "now" is set, stop them immediately, otherwise wait until next quatized step.
+     If "deCue" is set, also de-cue all clips cued to play but that are not "yet" playing.
+     If "reCue" is set, re cue all clips that where stopped at next 0.0 global beat.
+     */
     jassert(clipN < midiClips.size());
     for (int i=0; i<midiClips.size(); i++){
         if (i != clipN){
             auto clip = midiClips[i];
+            bool wasPlaying = false;
             if (clip->isPlaying()){
+                wasPlaying = true;
                 if (!now){
                     clip->togglePlayStop();
                 } else {
                     clip->stopNow();
                 }
+            }
+            if (deCue){
+                if (clip->isCuedToPlay()){
+                    clip->clearPlayCue();
+                }
+            }
+            if (reCue && wasPlaying){
+                clip->playAt(0.0);
             }
         }
     }

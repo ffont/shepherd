@@ -33,8 +33,8 @@ public:
     void clipsResetPlayheadPosition();
     
     Clip* getClipAt(int clipN);
-    void stopAllPlayingClips(bool now);
-    void stopAllPlayingClipsExceptFor(int clipN, bool now);
+    void stopAllPlayingClips(bool now, bool deCue, bool reCue);
+    void stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue);
     std::vector<int> getCurrentlyPlayingClipsIndex();
 
 private:
@@ -44,7 +44,11 @@ private:
     std::function<double()> getSampleRate;
     std::function<int()> getSamplesPerBlock;
     
+    #if RPI_BUILD
     int nTestClips = 8;
+    #else
+    int nTestClips = 4;
+    #endif
     juce::OwnedArray<Clip> midiClips;
     
     int midiOutChannel = 1;

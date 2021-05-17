@@ -40,12 +40,16 @@ public:
     void stopNow();
     void stopAt(double positionInGlobalPlayhead);
     void togglePlayStop();
+    void clearPlayCue();
+    void clearStopCue();
     
     void startRecordingNow();
     void stopRecordingNow();
     void startRecordingAt(double positionInClipPlayhead);
     void stopRecordingAt(double positionInClipPlayhead);
     void toggleRecord();
+    void clearStartRecordingCue();
+    void clearStopRecordingCue();
     
     bool isPlaying();
     bool isCuedToPlay();

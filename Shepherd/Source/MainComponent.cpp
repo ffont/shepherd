@@ -40,7 +40,7 @@ MainComponent::MainComponent()
     tempoSlider.onValueChange = [this] {
         juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_SET_BPM);
         message.addFloat32((float)tempoSlider.getValue());
-        oscMessageReceived(message);        
+        oscMessageReceived(message);
     };
     addAndMakeVisible (tempoSliderLabel);
     tempoSliderLabel.setText ("Tempo", juce::dontSendNotification);
@@ -68,7 +68,22 @@ MainComponent::MainComponent()
         message.addInt32(newSelectedTrack);
         oscMessageReceived(message);
     };
-        
+    
+    addAndMakeVisible (metronomeToggleButton);
+    metronomeToggleButton.setButtonText ("Metro on/off");
+    metronomeToggleButton.onClick = [this] {
+        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_METRONOME_ON_OFF);
+        oscMessageReceived(message);
+    };
+    
+    addAndMakeVisible (internalSynthButton);
+    internalSynthButton.setButtonText ("Synth on/off");
+    internalSynthButton.onClick = [this] {
+        renderWithInternalSynth = !renderWithInternalSynth;
+        // NOTE: we don't use OSC interface here because this setting is only meant for testing
+        // purposes and is not included in "release" builds using OSC interface
+    };
+    
     // Set UI size and start timer to print playhead position
     setSize (665, 575);
     startTimer (50);
@@ -95,7 +110,12 @@ MainComponent::MainComponent()
     }
     
     // Setup MIDI devices
+    // TODO: read device names from config file instead of hardcoding them
+    #if RPI_BUILD
+    const juce::String outDeviceName = "MIDIFACE 2X2 MIDI 1";
+    #else
     const juce::String outDeviceName = "IAC Driver Bus 1";
+    #endif
     juce::String outDeviceIdentifier = "";
     auto midiOutputs = juce::MidiOutput::getAvailableDevices();
     std::cout << "Available MIDI OUT devices:" << std::endl;
@@ -106,8 +126,17 @@ MainComponent::MainComponent()
         }
     }
     midiOutA = juce::MidiOutput::openDevice(outDeviceIdentifier);
-    
+    if (midiOutA != nullptr){
+        std::cout << "Connected to:" << midiOutA.get()->getName() << std::endl;
+    } else {
+        std::cout << "Could not connect to " << outDeviceName << std::endl;
+    }
+        
+    #if RPI_BUILD
+    const juce::String inDeviceName = "MIDIFACE 2X2 MIDI 1";
+    #else
     const juce::String inDeviceName = "iCON iKEY V1.02";
+    #endif
     juce::String inDeviceIdentifier = "";
     auto midiInputs = juce::MidiInput::getAvailableDevices();
     std::cout << "Available MIDI IN devices:" << std::endl;
@@ -119,12 +148,15 @@ MainComponent::MainComponent()
     }
     midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
     if (midiIn != nullptr){
+        std::cout << "Connected to:" << midiIn.get()->getName() << std::endl;
         std::cout << "Starting MIDI in callback" << std::endl;
         midiIn.get()->start();
+    } else {
+        std::cout << "Could not connect to " << inDeviceName << std::endl;
     }
     
     // Init sine synth with 16 voices (used for testig purposes only)
-    #if JUCE_DEBUG
+    #if !RPI_BUILD
     for (auto i = 0; i < nSynthVoices; ++i)
         sineSynth.addVoice (new SineWaveVoice());
     sineSynth.addSound (new SineWaveSound());
@@ -139,6 +171,8 @@ MainComponent::~MainComponent()
 //==============================================================================
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRate)
 {
+    std::cout << "Prepare to play called with samples per block " << samplesPerBlockExpected << " and sample rate " << _sampleRate << std::endl;
+
     sampleRate = _sampleRate;
     samplesPerBlock = samplesPerBlockExpected;
     
@@ -185,7 +219,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         if (isPlaying){
             for (auto track: tracks){
                 track->clipsRenderRemainingNoteOffsIntoMidiBuffer(generatedMidi);
-                track->stopAllPlayingClips(true);
+                track->stopAllPlayingClips(true, true, true);
             }
             isPlaying = false;
             playheadPositionInBeats = 0.0;
@@ -215,6 +249,12 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     }
     
     // Add metronome ticks to the buffer
+    if (metronomePendingNoteOffSamplePosition){
+        // If there was a noteOff metronome message pending from previous block, add it now to the buffer
+        juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, metronomePendingNoteOffIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
+        generatedMidi.addEvent(msgOff, metronomePendingNoteOffSamplePosition);
+        metronomePendingNoteOffSamplePosition = -1;
+    }
     if (metronomeOn && isPlaying) {
         double previousBeat = playheadPositionInBeats;
         double beatsPerSample = 1 / (60.0 * sampleRate / bpm);
@@ -224,10 +264,16 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                 previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
             }
             if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
-                juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, metronomeMidiNote, metronomeMidiVelocity);
-                juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, metronomeMidiNote, 0.0f);
+                bool tickIsHigh = int(std::floor(nextBeat)) % 4 == 0;
+                juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
                 generatedMidi.addEvent(msgOn, i);
-                generatedMidi.addEvent(msgOff, i + metronomeNoteLengthInSamples);
+                if (i + metronomeTickLengthInSamples < bufferToFill.numSamples){
+                    juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
+                    generatedMidi.addEvent(msgOff, i + metronomeTickLengthInSamples);
+                } else {
+                    metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - bufferToFill.numSamples;
+                    metronomePendingNoteOffIsHigh = tickIsHigh;
+                }
             }
             previousBeat = nextBeat;
         }
@@ -237,9 +283,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     if (midiOutA != nullptr)
         midiOutA.get()->sendBlockOfMessagesNow(generatedMidi);
     
-    #if JUCE_DEBUG
-    // Render the generated MIDI buffer with the sine synth
-    sineSynth.renderNextBlock (*bufferToFill.buffer, generatedMidi, bufferToFill.startSample, bufferToFill.numSamples);
+    #if !RPI_BUILD
+    if (renderWithInternalSynth){
+        // Render the generated MIDI buffer with the sine synth for quick testing
+        sineSynth.renderNextBlock (*bufferToFill.buffer, generatedMidi, bufferToFill.startSample, bufferToFill.numSamples);
+    }
     #endif
     
     // Update playhead positions
@@ -314,6 +362,8 @@ void MainComponent::resized()
     selectedTrackLabel.setBounds(16 + 210 + 110, 20, 50, 20);
     selectTrackButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
     tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
+    metronomeToggleButton.setBounds(16 + 210 + 110 + 60 + 60, 20, 50, 20);
+    internalSynthButton.setBounds(16 + 210 + 110 + 60 + 60 + 60, 20, 50, 20);
  
     if (clipControlElementsCreated){
         for (int i=0; i<tracks.size(); i++){
@@ -400,7 +450,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                 auto clip = track->getClipAt(clipNum);
                 if (address == OSC_ADDRESS_CLIP_PLAY){
                     if (!clip->isPlaying()){
-                        track->stopAllPlayingClipsExceptFor(clipNum, false);
+                        track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
                         clip->togglePlayStop();
                     }
                 } else if (address == OSC_ADDRESS_CLIP_STOP){
@@ -409,7 +459,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     }
                 } else if (address == OSC_ADDRESS_CLIP_PLAY_STOP){
                     if (!clip->isPlaying()){
-                        track->stopAllPlayingClipsExceptFor(clipNum, false);
+                        track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
                     }
                     clip->togglePlayStop();
                 } else if (address == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
@@ -497,6 +547,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add(isPlaying ? "p":"s");
             stateAsStringParts.add((juce::String)bpm);
             stateAsStringParts.add((juce::String)playheadPositionInBeats);
+            stateAsStringParts.add(metronomeOn ? "p":"s");
+            stateAsStringParts.add((juce::String)selectedTrack);
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
@@ -504,5 +556,4 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             
         }
     }
-    
 }

@@ -31,6 +31,8 @@ public:
     bool hasJustStopped();
     double getPlayAtCueBeats() const;
     double getStopAtCueBeats() const;
+    void clearPlayCue();
+    void clearStopCue();
 
     void captureSlice();
     void releaseSlice();

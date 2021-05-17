@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <JuceHeader.h>
@@ -55,15 +56,22 @@ private:
     double bpm = 120.0;
     double nextBpm = 0.0;
     double playheadPositionInBeats = 0.0;
-    bool isPlaying = true;
+    bool isPlaying = false;
     bool shouldToggleIsPlaying = false;
     
     // Metronome
+    #if !RPI_BUILD
     bool metronomeOn = true;
-    int metronomeMidiChannel = 1;
-    int metronomeMidiNote = 90;
+    #else
+    bool metronomeOn = false;
+    #endif
+    int metronomeMidiChannel = 16;
+    int metronomeLowMidiNote = 67;
+    int metronomeHighMidiNote = 80;
     float metronomeMidiVelocity = 1.0f;
-    int metronomeNoteLengthInSamples = 200;
+    int metronomeTickLengthInSamples = 100;
+    int metronomePendingNoteOffSamplePosition = -1;
+    bool metronomePendingNoteOffIsHigh = false;
     
     // Tracks
     int nTestTracks = 8;
@@ -80,6 +88,8 @@ private:
     juce::TextButton globalRecordButton;
     juce::Label selectedTrackLabel;
     juce::TextButton selectTrackButton;
+    juce::TextButton metronomeToggleButton;
+    juce::TextButton internalSynthButton;
     
     juce::OwnedArray<juce::Label> midiClipsPlayheadLabels;
     juce::OwnedArray<juce::TextButton> midiClipsClearButtons;
@@ -89,8 +99,8 @@ private:
     
     // Sine synth (for testing purposes only)
     juce::Synthesiser sineSynth;
+    bool renderWithInternalSynth = true;
     int nSynthVoices = 32;
     
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
