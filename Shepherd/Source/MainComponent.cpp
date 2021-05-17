@@ -131,7 +131,7 @@ MainComponent::MainComponent()
     }
         
     #if RPI_BUILD
-    const juce::String inDeviceName = "MIDIFACE 2X2 MIDI 1";
+    const juce::String inDeviceName = "LUMI Keys BLOCK MIDI 1";
     #else
     const juce::String inDeviceName = "iCON iKEY V1.02";
     #endif
