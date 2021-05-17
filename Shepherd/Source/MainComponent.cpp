@@ -218,7 +218,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     if (!isPlaying && doingCountIn){
         if (countInLengthInBeats >= countInplayheadPositionInBeats && countInLengthInBeats < countInplayheadPositionInBeats + bufferLengthInBeats){
             // Count in finishes in the current getNextAudioBlock execution
-            playheadPositionInBeats = 0.0; // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            playheadPositionInBeats = -(countInLengthInBeats - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
             shouldToggleIsPlaying = true;
             doingCountIn = false;
             countInplayheadPositionInBeats = 0.0;
