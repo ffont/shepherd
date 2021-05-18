@@ -27,20 +27,23 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
     clipLengthInBeats = 16.0;
     
     #if !RPI_BUILD
-    // Initialize midiSequence with some notes
-    std::vector<std::pair<int, float>> noteOnTimes = {};
-    for (int i=0; i<clipLengthInBeats; i++){
-        noteOnTimes.push_back({i, 0.0});
-    };
-    for (auto note: noteOnTimes) {
-        // NOTE: don't care about the channel here because it is re-written when filling midi buffer
-        int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
-        juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, midiNote, 1.0f);
-        msgNoteOn.setTimeStamp(note.first + note.second);
-        midiSequence.addEvent(msgNoteOn);
-        juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, midiNote, 0.0f);
-        msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
-        midiSequence.addEvent(msgNoteOff);
+    // Certain chance to initialize midiSequence with some notes
+    // This makes testing quicker
+    if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
+        std::vector<std::pair<int, float>> noteOnTimes = {};
+        for (int i=0; i<clipLengthInBeats; i++){
+            noteOnTimes.push_back({i, 0.0});
+        };
+        for (auto note: noteOnTimes) {
+            // NOTE: don't care about the channel here because it is re-written when filling midi buffer
+            int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
+            juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, midiNote, 1.0f);
+            msgNoteOn.setTimeStamp(note.first + note.second);
+            midiSequence.addEvent(msgNoteOn);
+            juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, midiNote, 0.0f);
+            msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
+            midiSequence.addEvent(msgNoteOff);
+        }
     }
     #endif
 
@@ -114,8 +117,14 @@ void Clip::togglePlayStop()
             // If clip is not playing but it is already cued to start, cancel the cue
             playhead.clearPlayCue();
         } else {
-            // If not already cued, cue it now
-            playAt(positionInGlobalPlayhead);
+            
+            if (midiSequence.getNumEvents() > 0 || isCuedToStartRecording()){
+                // If not already cued and clip has recorded notes or it is cued to record, cue to play as well
+                playAt(positionInGlobalPlayhead);
+            } else {
+                // If clip has no notes and it is not cued to record, don't cue to play either
+                // Do nothing...
+            }
         }
     }
 }
