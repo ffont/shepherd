@@ -376,6 +376,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
         for (int i=0; i < midiSequence.getNumEvents(); i++){
             juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
             double eventPositionInBeats = msg.getTimeStamp();
+            
             bool sliceContainsEvent = sliceInBeats.contains(eventPositionInBeats);
             bool sliceContainsLoopedEvent = sliceInBeats.contains(eventPositionInBeats + clipLengthInBeats);
             
@@ -387,16 +388,28 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                 } else {
                     eventPositionInSliceInBeats = eventPositionInBeats + clipLengthInBeats - sliceInBeats.getStart();
                 }
+                double eventPositionInGlobalPlayheadInBeats = eventPositionInSliceInBeats + playhead.getParentSlice().getStart();
+                if (isCuedToStop() && eventPositionInGlobalPlayheadInBeats >= playhead.getStopAtCueBeats()){
+                    // Edge case in which the current event of the sequence falls inside the current slice, but the clip is cued to stop
+                    // at some point in the middle of the slice therefore some notes of the sequence should not be triggered if they are after the stop point
+                } else if (isCuedToPlay() && eventPositionInGlobalPlayheadInBeats < playhead.getPlayAtCueBeats()) {
+                    // Edge case in which the current event of the sequence falls inside the current slice, but the clip is cued to start
+                    // at some point in the middle of the slice therefore some notes of the sequence should not be triggered if they are before the start point
+                } else {
+                    // Normal case in which notes should be triggered
                     
-                int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getSampleRate() / getGlobalBpm());
-                jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
-                
-                msg.setChannel(getMidiOutChannel()); // Re-write MIDI channel (in might have changed...)
-                bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
-                
-                // Store notes currently played
-                if      (msg.isNoteOn())  notesCurrentlyPlayed.add (msg.getNoteNumber());
-                else if (msg.isNoteOff()) notesCurrentlyPlayed.removeValue (msg.getNoteNumber());
+                    // Calculate note position for the midi buffer (in samples)
+                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getSampleRate() / getGlobalBpm());
+                    jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
+                    
+                    // Re-write MIDI channel (in might have changed...) and add note to the buffer
+                    msg.setChannel(getMidiOutChannel());
+                    bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
+                    
+                    // Keep track of notes currently played so later we can send note offs if needed
+                    if      (msg.isNoteOn())  notesCurrentlyPlayed.add (msg.getNoteNumber());
+                    else if (msg.isNoteOff()) notesCurrentlyPlayed.removeValue (msg.getNoteNumber());
+                }
             }
         }
         
