@@ -24,12 +24,11 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
     getSamplesPerBlock = samplesPerBlockGetter;
     getMidiOutChannel = midiOutChannelGetter;
     
-    clipLengthInBeats = 16.0;
-    
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
     // This makes testing quicker
     if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
+        clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
         std::vector<std::pair<int, float>> noteOnTimes = {};
         for (int i=0; i<clipLengthInBeats; i++){
             noteOnTimes.push_back({i, 0.0});
@@ -46,7 +45,6 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
         }
     }
     #endif
-
 }
 
 /** Return a pointer to a "cloned" version of the current clip which has the same MIDI sequence
@@ -117,7 +115,6 @@ void Clip::togglePlayStop()
             // If clip is not playing but it is already cued to start, cancel the cue
             playhead.clearPlayCue();
         } else {
-            
             if (midiSequence.getNumEvents() > 0 || isCuedToStartRecording()){
                 // If not already cued and clip has recorded notes or it is cued to record, cue to play as well
                 playAt(positionInGlobalPlayhead);
@@ -165,18 +162,24 @@ void Clip::stopRecordingAt(double positionInClipPlayhead)
 
 void Clip::toggleRecord()
 {
-    if (isRecording()){
-        if (clipLengthInBeats > 0.0){
-            stopRecordingAt(std::fmod(std::floor(playhead.getCurrentSlice().getEnd()) + 1, clipLengthInBeats));  // Record until next integer beat
-        } else {
-            stopRecordingNow();
-        }
+    double globalPlayheadPosition = playhead.getParentSlice().getStart();
+    double nextBeatPosition;
+    if (globalPlayheadPosition == 0.0){
+        nextBeatPosition = 0.0;  // Edge case in which global playhead has not yet started and it is exactly 0.0 (happens when arming clip to record with global playhead stopped)
     } else {
         if (clipLengthInBeats > 0.0){
-            startRecordingAt(std::fmod(std::floor(playhead.getCurrentSlice().getEnd()) + 1, clipLengthInBeats));  // Start recording at next beat integer
+            // If clip has length, it could loop, therefore make sure that next beat position will also "loop"
+            nextBeatPosition = std::fmod(std::floor(playhead.getCurrentSlice().getStart()) + 1, clipLengthInBeats);
         } else {
-            startRecordingNow();
+            // If clip has no length, no need to account for potential "loop" of nextBeatPosition
+            nextBeatPosition = std::floor(playhead.getCurrentSlice().getStart()) + 1;
         }
+    }
+    if (isRecording()){
+        stopRecordingNow();
+        //stopRecordingAt(nextBeatPosition);  // Record until next integer beat
+    } else {
+        startRecordingAt(nextBeatPosition);  // Start recording at next beat integer
         if (!isPlaying()){
             // If clip is not playing, toggle play
             togglePlayStop();
@@ -272,7 +275,12 @@ void Clip::clearSequence()
         shouldClearSequence = true;
     } else {
         // If not playing, clear sequence immediately
-        midiSequence.clear();
+        // If clip has no events, reset clip length
+        if (midiSequence.getNumEvents() > 0){
+            midiSequence.clear();
+        } else {
+            clipLengthInBeats = 0.0;
+        }
     }
 }
 
@@ -336,7 +344,12 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
 void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize)
 {
     if (shouldClearSequence){
-        midiSequence.clear();
+        if (midiSequence.getNumEvents() > 0){
+            midiSequence.clear();
+        } else {
+            clipLengthInBeats = 0.0;
+            stopNow();
+        }
         shouldClearSequence = false;
         renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }
@@ -421,8 +434,8 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
         // Note that in the next slice clip will start with an offset of some samples (positive) because the
         // loop point falls before the end of the current slice and we need to compensate for that.
         if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats))){
-            playhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
             addRecordedSequenceToSequence();
+            playhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
         }
         
         // Release slice as we finished processing it
@@ -436,7 +449,9 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
     }
     
     if (hasJustStoppedRecording()){
+        // If it has just stopped recording, add the notes to the sequence and re-set playhead to loop
         addRecordedSequenceToSequence();
+        playhead.resetSlice(clipLengthInBeats - playhead.getCurrentSlice().getEnd());
     }
     
     // Check if Clip's player is cued to stop and call stopNow if needed
