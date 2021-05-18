@@ -46,6 +46,25 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
 
 }
 
+/** Return a pointer to a "cloned" version of the current clip which has the same MIDI sequence
+ Note that the playhead status is not copied therefore the new clip will have same MIDI sequence and length, but it will be stopped, etc.
+    @param clipN         position where to insert the new clip
+    @param clip           clip to insert at clipN
+*/
+Clip* Clip::clone() const
+{
+    auto newClip = new Clip(
+        this->playhead.getParentSlice,
+        this->getGlobalBpm,
+        this->getSampleRate,
+        this->getSamplesPerBlock,
+        this->getMidiOutChannel
+    );
+    newClip->replaceSequence(this->midiSequence, this->clipLengthInBeats);
+    return newClip;
+}
+
+
 void Clip::playNow()
 {
     playhead.playNow();
@@ -139,13 +158,13 @@ void Clip::toggleRecord()
 {
     if (isRecording()){
         if (clipLengthInBeats > 0.0){
-            stopRecordingAt(clipLengthInBeats);  // Record until next clip length
+            stopRecordingAt(std::fmod(std::floor(playhead.getCurrentSlice().getEnd()) + 1, clipLengthInBeats));  // Record until next integer beat
         } else {
             stopRecordingNow();
         }
     } else {
         if (clipLengthInBeats > 0.0){
-            startRecordingAt(0.0);  // Start recording when clip loops or starts
+            startRecordingAt(std::fmod(std::floor(playhead.getCurrentSlice().getEnd()) + 1, clipLengthInBeats));  // Start recording at next beat integer
         } else {
             startRecordingNow();
         }
@@ -238,6 +257,7 @@ juce::String Clip::getStatus()
 
 void Clip::clearSequence()
 {
+    // Removes all midi events from the midi sequence (but clip length remains the same)
     if (isPlaying()){
         // If is playing, clear sequence at the start of next process block
         shouldClearSequence = true;
@@ -245,6 +265,40 @@ void Clip::clearSequence()
         // If not playing, clear sequence immediately
         midiSequence.clear();
     }
+}
+
+void Clip::doubleSequenceHelper()
+{
+    juce::MidiMessageSequence doubledSequence;
+    for (int i=0; i < midiSequence.getNumEvents(); i++){
+        juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
+        // Add original event
+        doubledSequence.addEvent(msg);
+        // Add event delayed by length of clip
+        msg.setTimeStamp(msg.getTimeStamp() + clipLengthInBeats);
+        doubledSequence.addEvent(msg);
+    }
+    midiSequence = doubledSequence;
+    clipLengthInBeats = clipLengthInBeats * 2;
+}
+
+void Clip::doubleSequence()
+{
+    // Makes the midi sequence twice as long and duplicates existing events in the second repetition of it
+    if (isPlaying()){
+        // If is playing, double sequence at the start of next process block
+        shouldDoubleSequence = true;
+    } else {
+        // If not playing, double sequence immediately
+        doubleSequenceHelper();
+    }
+}
+
+void Clip::replaceSequence(juce::MidiMessageSequence newSequence, double newLength)
+{
+    // TODO: update this in the process slice block instead of here using "shouldReplaceSequence"
+    midiSequence = newSequence;
+    clipLengthInBeats = newLength;
 }
 
 double Clip::getPlayheadPosition()
@@ -276,7 +330,11 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
         midiSequence.clear();
         shouldClearSequence = false;
         renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
-        //clipLengthInBeats = 0.0;
+    }
+    
+    if (shouldDoubleSequence){
+        doubleSequenceHelper();
+        shouldDoubleSequence = false;
     }
     
     // Check if Clip's player is cued to play and call playNow if needed (accounting for potential offset in samples)

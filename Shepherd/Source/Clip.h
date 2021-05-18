@@ -33,6 +33,7 @@ public:
          std::function<int()> samplesPerBlockGetter,
          std::function<int()> midiOutChannelGetter
          );
+    Clip* clone() const;
     
     void playNow();
     void playNow(double sliceOffset);
@@ -63,6 +64,8 @@ public:
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize);
     void clearSequence();
+    void doubleSequence();
+    void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
     void resetPlayheadPosition();
     double getPlayheadPosition();
     double getLengthInBeats();
@@ -71,7 +74,6 @@ private:
     
     void addRecordedSequenceToSequence();
     bool hasJustStoppedRecording();
-    
     
     Playhead playhead;
     
@@ -90,6 +92,8 @@ private:
     std::function<int()> getMidiOutChannel;
     
     bool shouldClearSequence = false;
+    void doubleSequenceHelper();
+    bool shouldDoubleSequence = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };

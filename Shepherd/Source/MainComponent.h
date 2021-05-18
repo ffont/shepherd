@@ -58,7 +58,6 @@ private:
     double playheadPositionInBeats = 0.0;
     bool isPlaying = false;
     bool shouldToggleIsPlaying = false;
-    
     bool doingCountIn = false;
     double countInLengthInBeats = 4.0;
     double countInplayheadPositionInBeats = 0.0;
@@ -82,9 +81,18 @@ private:
     int selectedTrack = 0;
     juce::OwnedArray<Track> tracks;
     
-    // Desktop app UI
-    void timerCallback() override;  // Callback used to update UI
+    // Scenes
+    void playScene(int sceneN);
+    void duplicateScene(int sceneN);
+    #if RPI_BUILD
+    int nScenes = 8;
+    #else
+    int nScenes = 4;
+    #endif
+    int selectedScene = 0;
     
+    // Desktop app UI
+    void timerCallback() override;  // Callback used to update UI components
     juce::Slider tempoSlider;
     juce::Label tempoSliderLabel;
     juce::Label playheadLabel;
@@ -94,11 +102,14 @@ private:
     juce::TextButton selectTrackButton;
     juce::TextButton metronomeToggleButton;
     juce::TextButton internalSynthButton;
-    
     juce::OwnedArray<juce::Label> midiClipsPlayheadLabels;
     juce::OwnedArray<juce::TextButton> midiClipsClearButtons;
+    juce::OwnedArray<juce::TextButton> midiClipsDoubleButtons;
     juce::OwnedArray<juce::TextButton> midiClipsStartStopButtons;
     juce::OwnedArray<juce::TextButton> midiClipsRecordButtons;
+    juce::OwnedArray<juce::TextButton> sceneTriggerButtons;
+    juce::OwnedArray<juce::TextButton> scenePlayButtons;
+    juce::OwnedArray<juce::TextButton> sceneDuplicateButtons;
     bool clipControlElementsCreated = false;
     
     // Sine synth (for testing purposes only)

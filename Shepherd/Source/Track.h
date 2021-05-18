@@ -19,7 +19,8 @@ public:
     Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
           std::function<double()> globalBpmGetter,
           std::function<double()> sampleRateGetter,
-          std::function<int()> samplesPerBlockGetter
+          std::function<int()> samplesPerBlockGetter,
+          int nClips
           );
     
     void setMidiOutChannel(int newMidiOutChannel);
@@ -36,6 +37,7 @@ public:
     void stopAllPlayingClips(bool now, bool deCue, bool reCue);
     void stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue);
     std::vector<int> getCurrentlyPlayingClipsIndex();
+    void insertClipAt(int clipN, Clip* clip);
     
     bool hasClipsCuedToRecord();
 
@@ -46,11 +48,7 @@ private:
     std::function<double()> getSampleRate;
     std::function<int()> getSamplesPerBlock;
     
-    #if RPI_BUILD
-    int nTestClips = 8;
-    #else
-    int nTestClips = 4;
-    #endif
+    int nClips = 0;
     juce::OwnedArray<Clip> midiClips;
     
     int midiOutChannel = 1;

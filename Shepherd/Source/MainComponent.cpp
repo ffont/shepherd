@@ -11,9 +11,14 @@
 #define OSC_ADDRESS_CLIP_PLAY_STOP "/clip/playStop"
 #define OSC_ADDRESS_CLIP_RECORD_ON_OFF "/clip/recordOnOff"
 #define OSC_ADDRESS_CLIP_CLEAR "/clip/clear"
+#define OSC_ADDRESS_CLIP_DOUBLE "/clip/double"
 
 #define OSC_ADDRESS_TRACK "/track"
 #define OSC_ADDRESS_TRACK_SELECT "/track/select"
+
+#define OSC_ADDRESS_SCENE "/scene"
+#define OSC_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
+#define OSC_ADDRESS_SCENE_PLAY "/scene/play"
 
 #define OSC_ADDRESS_METRONOME "/metronome"
 #define OSC_ADDRESS_METRONOME_ON "/metronome/on"
@@ -83,7 +88,7 @@ MainComponent::MainComponent()
     };
     
     // Set UI size and start timer to print playhead position
-    setSize (665, 575);
+    setSize (710, 575);
     startTimer (50);
 
     // Some platforms require permissions to open input channels so request that here
@@ -184,7 +189,8 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
                [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / bpm)}; },
                [this]{ return bpm; },
                [this]{ return sampleRate; },
-               [this]{ return samplesPerBlock; }
+               [this]{ return samplesPerBlock; },
+               nScenes
         ));
     }
     
@@ -340,8 +346,9 @@ void MainComponent::resized()
             for (int i=0; i<track->getNumberOfClips(); i++){
                 auto clipPlayheadLabel = new juce::Label();
                 auto clipRecordButton = new juce::TextButton();
-                auto clipClearButton = new juce::TextButton();
                 auto clipStartStopButton = new juce::TextButton();
+                auto clipClearButton = new juce::TextButton();
+                auto clipDoubleButton = new juce::TextButton();
                 
                 clipRecordButton->onClick = [this, j, i] {
                     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_RECORD_ON_OFF);
@@ -350,13 +357,6 @@ void MainComponent::resized()
                     oscMessageReceived(message);
                 };
                 clipRecordButton->setButtonText("Record");
-                clipClearButton->onClick = [this, j, i] {
-                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_CLEAR);
-                    message.addInt32(j);
-                    message.addInt32(i);
-                    oscMessageReceived(message);
-                };
-                clipClearButton->setButtonText("Clear");
                 clipStartStopButton->onClick = [this, j, i] {
                     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_PLAY_STOP);
                     message.addInt32(j);
@@ -364,17 +364,57 @@ void MainComponent::resized()
                     oscMessageReceived(message);
                 };
                 clipStartStopButton->setButtonText("Start");
+                clipClearButton->onClick = [this, j, i] {
+                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_CLEAR);
+                    message.addInt32(j);
+                    message.addInt32(i);
+                    oscMessageReceived(message);
+                };
+                clipClearButton->setButtonText("C");
+                clipDoubleButton->onClick = [this, j, i] {
+                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_DOUBLE);
+                    message.addInt32(j);
+                    message.addInt32(i);
+                    oscMessageReceived(message);
+                };
+                clipDoubleButton->setButtonText("D");
                 
                 addAndMakeVisible (clipPlayheadLabel);
                 addAndMakeVisible (clipRecordButton);
                 addAndMakeVisible (clipClearButton);
                 addAndMakeVisible (clipStartStopButton);
+                addAndMakeVisible (clipDoubleButton);
                 
                 midiClipsClearButtons.add(clipClearButton);
+                midiClipsDoubleButtons.add(clipDoubleButton);
                 midiClipsRecordButtons.add(clipRecordButton);
                 midiClipsPlayheadLabels.add(clipPlayheadLabel);
                 midiClipsStartStopButtons.add(clipStartStopButton);
             }
+        }
+        for (int i=0; i<nScenes; i++){
+            auto scenePlayButton = new juce::TextButton();
+            auto sceneDuplicateButton = new juce::TextButton();
+            
+            scenePlayButton->onClick = [this, i] {
+                juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SCENE_PLAY);
+                message.addInt32(i);
+                oscMessageReceived(message);
+            };
+            scenePlayButton->setButtonText("Tri");
+            
+            sceneDuplicateButton->onClick = [this, i] {
+                juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SCENE_DUPLICATE);
+                message.addInt32(i);
+                oscMessageReceived(message);
+            };
+            sceneDuplicateButton->setButtonText("Dup");
+            
+            addAndMakeVisible (scenePlayButton);
+            addAndMakeVisible (sceneDuplicateButton);
+            
+            scenePlayButtons.add(scenePlayButton);
+            sceneDuplicateButtons.add(sceneDuplicateButton);
         }
     }
     
@@ -398,8 +438,15 @@ void MainComponent::resized()
                 midiClipsPlayheadLabels[componentIndex]->setBounds(16 + xoffset, 100 + yoffset, 70, 20);
                 midiClipsStartStopButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 25, 70, 20);
                 midiClipsRecordButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 50, 70, 20);
-                midiClipsClearButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 75, 70, 20);
+                midiClipsClearButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 75, 30, 20);
+                midiClipsDoubleButtons[componentIndex]->setBounds(16 + xoffset + 40, 100 + yoffset + 75, 30, 20);
             }
+        }
+        
+        for (int i=0; i<nScenes; i++){
+            int yoffset = 120 * i;
+            scenePlayButtons[i]->setBounds(16 + 80 * 8, 100 + yoffset, 40, 20);
+            sceneDuplicateButtons[i]->setBounds(16 + 80 * 8, 100 + yoffset + 25, 40, 20);
         }
     }
 }
@@ -453,6 +500,7 @@ void MainComponent::timerCallback()
     }
 }
 
+//==============================================================================
 void MainComponent::sendOscMessage (const juce::OSCMessage& message)
 {
     if (!oscSenderIsConnected){
@@ -495,6 +543,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     clip->toggleRecord();
                 } else if (address == OSC_ADDRESS_CLIP_CLEAR){
                     clip->clearSequence();
+                } else if (address == OSC_ADDRESS_CLIP_DOUBLE){
+                    clip->doubleSequence();
                 }
             }
         }
@@ -506,6 +556,15 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             if (address == OSC_ADDRESS_TRACK_SELECT){
                 selectedTrack = trackNum;
             }
+        }
+         
+    } else if (address.startsWith(OSC_ADDRESS_SCENE)) {
+        jassert(message.size() == 1);
+        int sceneNum = message[0].getInt32();
+        if (address == OSC_ADDRESS_SCENE_PLAY){
+            playScene(sceneNum);
+        } else if (address == OSC_ADDRESS_SCENE_DUPLICATE){
+            duplicateScene(sceneNum);
         }
          
     } else if (address.startsWith(OSC_ADDRESS_TRANSPORT)) {
@@ -598,6 +657,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add((juce::String)playheadPositionInBeats);
             stateAsStringParts.add(metronomeOn ? "p":"s");
             stateAsStringParts.add((juce::String)selectedTrack);
+            stateAsStringParts.add((juce::String)selectedScene);
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
@@ -605,4 +665,35 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             
         }
     }
+}
+
+//==============================================================================
+void MainComponent::playScene(int sceneN)
+{
+    jassert(sceneN < nScenes);
+    selectedScene = sceneN;
+    for (auto track: tracks){
+        auto clip = track->getClipAt(sceneN);
+        if (!clip->isPlaying()){
+            track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
+            clip->togglePlayStop();
+        }
+    }
+}
+
+void MainComponent::duplicateScene(int sceneN)
+{
+    jassert(sceneN < nScenes);
+    
+    if (sceneN < nScenes - 1){
+        // Do not duplicate if the selected scene is the very last as there's no more space to accomodate new clips
+        // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
+        // sceneN.
+        for (auto track: tracks){
+            auto clip = track->getClipAt(sceneN);
+            track->insertClipAt(sceneN, clip->clone());
+        }
+        selectedScene = sceneN + 1;
+    }
+    
 }
