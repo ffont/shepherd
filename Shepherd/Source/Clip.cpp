@@ -179,10 +179,20 @@ void Clip::toggleRecord()
         stopRecordingNow();
         //stopRecordingAt(nextBeatPosition);  // Record until next integer beat
     } else {
-        startRecordingAt(nextBeatPosition);  // Start recording at next beat integer
-        if (!isPlaying()){
-            // If clip is not playing, toggle play
-            togglePlayStop();
+        
+        if (isCuedToStartRecording()){
+            // If clip is already cued to start recording but it has not started, cancel the cue
+            clearStartRecordingCue();
+            if (isCuedToPlay()){
+                clearPlayCue();
+            }
+        } else {
+            // Otherwise, cue the clip to start recording
+            startRecordingAt(nextBeatPosition);  // Start recording at next beat integer
+            if (!isPlaying()){
+                // If clip is not playing, toggle play
+                togglePlayStop();
+            }
         }
     }
 }
@@ -464,9 +474,13 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
     }
     
     if (hasJustStoppedRecording()){
-        // If it has just stopped recording, add the notes to the sequence and re-set playhead to loop
+        // If it has just stopped recording, add the notes to the sequence
+        double previousLength = clipLengthInBeats;
         addRecordedSequenceToSequence();
-        playhead.resetSlice(clipLengthInBeats - playhead.getCurrentSlice().getEnd());
+        if (previousLength == 0.0 && clipLengthInBeats > 0.0 && clipLengthInBeats > playhead.getCurrentSlice().getEnd()){
+            // If the clip had no length and after stopping recording now it has, check if we should reset the playeahd for lopping
+            playhead.resetSlice(clipLengthInBeats - playhead.getCurrentSlice().getEnd());
+        }
     }
     
     // Check if Clip's player is cued to stop and call stopNow if needed
