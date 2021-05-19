@@ -63,11 +63,7 @@ private:
     double countInplayheadPositionInBeats = 0.0;
     
     // Metronome
-    #if !RPI_BUILD
     bool metronomeOn = true;
-    #else
-    bool metronomeOn = false;
-    #endif
     int metronomeMidiChannel = 16;
     int metronomeLowMidiNote = 67;
     int metronomeHighMidiNote = 80;

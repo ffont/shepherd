@@ -115,7 +115,7 @@ void Clip::togglePlayStop()
             // If clip is not playing but it is already cued to start, cancel the cue
             playhead.clearPlayCue();
         } else {
-            if (midiSequence.getNumEvents() > 0 || isCuedToStartRecording()){
+            if (!isEmpty() || isCuedToStartRecording()){
                 // If not already cued and clip has recorded notes or it is cued to record, cue to play as well
                 playAt(positionInGlobalPlayhead);
             } else {
@@ -229,7 +229,9 @@ bool Clip::isCuedToStopRecording()
 
 bool Clip::isEmpty()
 {
-    return midiSequence.getNumEvents() == 0;
+    // A clip is empty when it's length is 0.0 beats
+    // If a clip does not have midi events but still has some length, then it is not empty
+    return clipLengthInBeats == 0.0;
 }
 
 juce::String Clip::getStatus()
