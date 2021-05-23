@@ -467,6 +467,10 @@ void MainComponent::timerCallback()
     
     selectedTrackLabel.setText ((juce::String)selectedTrack, juce::dontSendNotification);
     
+    if (tempoSlider.getValue() != bpm){
+        tempoSlider.setValue(bpm);
+    }
+    
     if (clipControlElementsCreated){
         for (int i=0; i<tracks.size(); i++){
             for (int j=0; j<tracks[i]->getNumberOfClips(); j++){
