@@ -144,7 +144,7 @@ Then run:
 
 Create file...
 
-    sudo nano /lib/systemd/system/shepherd_cotroller.service
+    sudo nano /lib/systemd/system/shepherd_controller.service
 
 ...with these contents:
 
