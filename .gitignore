@@ -3,3 +3,6 @@ build
 xcuserdata/
 Shepherd/Projucer alias
 *.xcuserstate
+settings.json
+favourite_presets.json
+__pycache__/
