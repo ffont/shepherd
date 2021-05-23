@@ -27,9 +27,12 @@ class SettingsMode(definitions.ShepherdControllerMode):
     # - Rerun MIDI initial configuration
 
     # About panel
-    # - definitions.VERSION info
     # - Save current settings
-    #  - FPS
+    # - Controller version
+    # - Repo commit
+    # - SW update
+    # - App restart
+    # - FPS
 
     current_page = 0
     n_pages = 3
@@ -118,7 +121,8 @@ class SettingsMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.BLACK)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.RED, animation=definitions.DEFAULT_ANIMATION)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.OFF_BTN_COLOR)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.RED, animation=definitions.DEFAULT_ANIMATION)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
@@ -256,8 +260,11 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     show_title(ctx, part_x, h, 'SW UPDATE')
                     if self.is_running_sw_update:
                         show_value(ctx, part_x, h, 'Running... ', color)
+
+                elif i == 4:  # Restart app(s)
+                    show_title(ctx, part_x, h, 'RESTART')
                 
-                elif i == 4:  # FPS indicator
+                elif i == 5:  # FPS indicator
                     show_title(ctx, part_x, h, 'FPS')
                     show_value(ctx, part_x, h, self.app.actual_frame_rate, color)
 
@@ -456,10 +463,20 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 self.is_running_sw_update = True
                 run_sw_update()
                 return True
+            
+            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_5:
+                # Restart apps
+                restart_apps()
+                return True
+
+
+def restart_apps():
+    print('- restarting apps')
+    os.system('sudo systemctl restart shepherd')
+    os.system('sudo systemctl restart shepherd_controller')
 
 
 def run_sw_update():
-    """Runs "git pull" in the current directory to retrieve latest code, then restart process"""
     print('Running SW update...')
     print('- pulling from repository')
     os.system('git pull')
@@ -468,7 +485,5 @@ def run_sw_update():
     print('Building Shepherd backend')
     os.system('cd /home/pi/shepherd/Shepherd/Builds/LinuxMakefile; git pull; make CONFIG=Release -j4;')
     os.system('sudo systemctl restart shepherd')
-    print('- restarting processes')
-    os.system('sudo systemctl restart shepherd')
-    os.system('sudo systemctl restart shepherd_controller')
+    restart_apps()
 
