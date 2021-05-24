@@ -190,7 +190,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_DOWN, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_UP, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_SHIFT, definitions.BLACK)
+        self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.BLACK)
 
         # Clear note mapping in Shepherd backend
         self.clear_pads_backend_mapping()
@@ -226,10 +226,10 @@ class MelodicMode(definitions.ShepherdControllerMode):
 
     def update_modulation_wheel_mode_button(self):
         if self.modulation_wheel_mode:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SHIFT, definitions.BLACK)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SHIFT, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SHIFT, definitions.OFF_BTN_COLOR)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.OFF_BTN_COLOR)
 
     def update_buttons(self):
         self.update_octave_buttons()
@@ -321,7 +321,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
             self.app.add_display_notification("Fixed velocity: {0}".format('On' if self.fixed_velocity_mode else 'Off'))
             return True
 
-        elif button_name == push2_python.constants.BUTTON_SHIFT:
+        elif button_name == push2_python.constants.BUTTON_SELECT:
             self.modulation_wheel_mode = not self.modulation_wheel_mode
             if self.modulation_wheel_mode:
                 self.push.touchstrip.set_modulation_wheel_mode()

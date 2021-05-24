@@ -153,4 +153,13 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
  
     def on_button_pressed(self, button_name):
         if button_name in self.track_button_names:
-            self.select_track(self.track_button_names.index(button_name))
+            if not self.app.main_controls_mode.shift_button_pressed:
+                # If button shift not pressed, select the track
+                self.select_track(self.track_button_names.index(button_name))
+            else:
+                # If shift button is being pressed, send all notes off to that track
+                msg = mido.Message('control_change', control=123 - 1, value=0, channel=self.get_current_track_info()['midi_channel'])
+                print(msg)
+                self.app.send_midi(msg)
+
+

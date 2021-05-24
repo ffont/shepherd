@@ -8,6 +8,7 @@ MELODIC_RHYTHMIC_TOGGLE_BUTTON = push2_python.constants.BUTTON_NOTE
 TRACK_TRIGGERING_BUTTON = push2_python.constants.BUTTON_SESSION
 PRESET_SELECTION_MODE_BUTTON = push2_python.constants.BUTTON_ADD_DEVICE
 DDRM_TONE_SELECTION_MODE_BUTTON = push2_python.constants.BUTTON_DEVICE
+SHIFT_BUTTON = push2_python.constants.BUTTON_SHIFT
 
 
 class MainControlsMode(definitions.ShepherdControllerMode):
@@ -17,6 +18,8 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     button_quick_press_time = 0.400
 
     last_tap_tempo_times = []
+
+    shift_button_pressed = False
 
     def activate(self):
         self.update_buttons()
@@ -32,16 +35,24 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_METRONOME, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_TAP_TEMPO, definitions.BLACK)
+        self.push.buttons.set_button_color(push2_python.constants.BUTTON_SHIFT, definitions.BLACK)
 
     def update_buttons(self):
         # Note button, to toggle melodic/rhythmic mode
         self.push.buttons.set_button_color(MELODIC_RHYTHMIC_TOGGLE_BUTTON, definitions.WHITE)
 
-        # Mute button, to toggle display on/off
+        # Button to toggle display on/off
         if self.app.use_push2_display:
             self.push.buttons.set_button_color(TOGGLE_DISPLAY_BUTTON, definitions.WHITE)
         else:
             self.push.buttons.set_button_color(TOGGLE_DISPLAY_BUTTON, definitions.OFF_BTN_COLOR)
+
+        # Shift button
+        if self.shift_button_pressed:
+            self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.BLACK)
+            self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
+        else:
+            self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.OFF_BTN_COLOR)
 
         # Settings button, to toggle settings mode
         if self.app.is_mode_active(self.app.settings_mode):
@@ -98,6 +109,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             if not self.app.use_push2_display:
                 self.push.display.send_to_display(self.push.display.prepare_frame(self.push.display.make_black_frame()))
             self.app.buttons_need_update = True
+            return True
+
+        elif button_name == SHIFT_BUTTON:
+            self.shift_button_pressed = True
             return True
 
         elif button_name == TRACK_TRIGGERING_BUTTON:
@@ -194,6 +209,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                 self.app.unset_preset_selection_mode()
                 self.app.buttons_need_update = True
 
+            return True
+
+        elif button_name == SHIFT_BUTTON:
+            self.shift_button_pressed = False
             return True
 
     def on_encoder_rotated(self, encoder_name, increment):

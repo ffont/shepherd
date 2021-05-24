@@ -38,7 +38,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
     current_page = 0
     n_pages = 3
     encoders_state = {}
-    shift_being_pressed = False
 
     def move_to_next_page(self):
         self.app.buttons_need_update = True
@@ -382,9 +381,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
     def on_button_pressed(self, button_name):
 
-        if button_name == push2_python.constants.BUTTON_SHIFT:
-            self.shift_being_pressed = True
-
         if self.current_page == 0:  # Performance settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
                 self.app.melodic_mode.set_root_midi_note(self.app.melodic_mode.root_midi_note + 1)
@@ -465,17 +461,14 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 # Run software update code
                 global is_running_sw_update
                 is_running_sw_update = "Starting"
-                run_sw_update(do_pip_install=self.shift_being_pressed)
+                run_sw_update(do_pip_install=False)
+                # TODO: add some way to call this with do_pip_install=True (?)
                 return True
             
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_5:
                 # Restart apps
                 restart_apps()
                 return True
-
-    def on_button_released(self, button_name):
-        if button_name == push2_python.constants.BUTTON_SHIFT:
-            self.shift_being_pressed = False
 
 
 def restart_apps():
