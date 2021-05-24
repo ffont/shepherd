@@ -26,7 +26,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
     times_pad_pressed = {}
     ignore_next_pad_release = {}
-    pad_pressing_action_time = 0.2
+    pad_pressing_action_time = 0.5
 
     def activate(self):
         self.clear_clip_button_being_pressed = False
