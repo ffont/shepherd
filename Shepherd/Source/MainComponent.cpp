@@ -283,7 +283,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     pushMidiInCollector.removeNextBlockOfMessages (incomingMidiPush, bufferToFill.numSamples);
 
     // Process keys MIDI input and add it to combined incomming buffer
-    incomingMidi.addEvents(incomingMidiKeys, 0, bufferToFill.numSamples, 0);
     for (const auto metadata : incomingMidiKeys)
     {
         auto msg = metadata.getMessage();
@@ -300,6 +299,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         
         if (msg.isController() && msg.getControllerValue() == 64){
             // If sustain pedal, we always pass it to the output as is
+            incomingMidi.addEvent(msg, metadata.samplePosition);
+        } else if (msg.isController() && msg.getControllerValue() == 1){
+            // If modulation wheel, we always pass it to the output as is
             incomingMidi.addEvent(msg, metadata.samplePosition);
         } else if (msg.isPitchWheel()){
             // If pitch wheel, we always pass it to the output as is
