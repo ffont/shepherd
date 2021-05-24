@@ -300,7 +300,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         if (msg.isController() && msg.getControllerValue() == 64){
             // If sustain pedal, we always pass it to the output as is
             incomingMidi.addEvent(msg, metadata.samplePosition);
-        } else if (msg.isController() && msg.getControllerValue() == 1){
+        } else if (msg.isController() && msg.getControllerNumber() == 1){
             // If modulation wheel, we always pass it to the output as is
             incomingMidi.addEvent(msg, metadata.samplePosition);
         } else if (msg.isPitchWheel()){
@@ -387,7 +387,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     }
     
     // Add metronome ticks to the buffer
-    if (metronomePendingNoteOffSamplePosition){
+    if (metronomePendingNoteOffSamplePosition > -1){
         // If there was a noteOff metronome message pending from previous block, add it now to the buffer
         juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, metronomePendingNoteOffIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
         #if !RPI_BUILD

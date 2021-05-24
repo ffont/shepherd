@@ -21,15 +21,13 @@ class MIDICCControl(object):
     vmin = 0
     vmax = 127
     get_color_func = None
-    send_midi_func = None
     value_labels_map = {}
 
-    def __init__(self, cc_number, name, section_name, get_color_func, send_midi_func):
+    def __init__(self, cc_number, name, section_name, get_color_func):
         self.cc_number = cc_number
         self.name = name
         self.section = section_name
         self.get_color_func = get_color_func
-        self.send_midi_func = send_midi_func
 
     def draw(self, ctx, x_part):
         margin_top = 25
@@ -120,7 +118,7 @@ class MIDICCMode(ShepherdControllerMode):
                 for section in midi_cc:
                     section_name = section['section']
                     for name, cc_number in section['controls']:
-                        control = MIDICCControl(cc_number, name, section_name, self.get_current_track_color_helper, self.app.send_midi)
+                        control = MIDICCControl(cc_number, name, section_name, self.get_current_track_color_helper)
                         if section.get('control_value_label_maps', {}).get(name, False):
                             control.value_labels_map = section['control_value_label_maps'][name]
                         self.instrument_midi_control_ccs[instrument_short_name].append(control)
@@ -131,7 +129,7 @@ class MIDICCMode(ShepherdControllerMode):
                 for i in range(0, 128):
                     section_s = (i // 16) * 16
                     section_e = section_s + 15
-                    control = MIDICCControl(i, 'CC {0}'.format(i), '{0} to {1}'.format(section_s, section_e), self.get_current_track_color_helper, self.app.send_midi)
+                    control = MIDICCControl(i, 'CC {0}'.format(i), '{0} to {1}'.format(section_s, section_e), self.get_current_track_color_helper)
                     self.instrument_midi_control_ccs[instrument_short_name].append(control)
                 print('Loaded default MIDI cc mappings for instrument {0}'.format(instrument_short_name))
       
