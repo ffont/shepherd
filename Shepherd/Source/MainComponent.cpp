@@ -822,8 +822,9 @@ void MainComponent::playScene(int sceneN)
     selectedScene = sceneN;
     for (auto track: tracks){
         auto clip = track->getClipAt(sceneN);
+        track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
+        clip->clearStopCue();
         if (!clip->isPlaying() && !clip->isCuedToPlay()){
-            track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
             clip->togglePlayStop();
         }
     }

@@ -108,7 +108,10 @@ void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool r
             if (clip->isPlaying()){
                 wasPlaying = true;
                 if (!now){
-                    clip->togglePlayStop();
+                    if (!clip->isCuedToStop()){
+                        // Only toggle if not already cued to stop
+                        clip->togglePlayStop();
+                    }
                 } else {
                     clip->stopNow();
                 }
