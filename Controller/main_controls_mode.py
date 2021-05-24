@@ -49,28 +49,24 @@ class MainControlsMode(definitions.ShepherdControllerMode):
 
         # Shift button
         if self.shift_button_pressed:
-            self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.BLACK)
             self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.OFF_BTN_COLOR)
 
         # Settings button, to toggle settings mode
         if self.app.is_mode_active(self.app.settings_mode):
-            self.push.buttons.set_button_color(SETTINGS_BUTTON, definitions.BLACK)
             self.push.buttons.set_button_color(SETTINGS_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(SETTINGS_BUTTON, definitions.OFF_BTN_COLOR)
 
         # Track triggering mode
         if self.app.is_mode_active(self.app.track_triggering_mode):
-            self.push.buttons.set_button_color(TRACK_TRIGGERING_BUTTON, definitions.BLACK)
             self.push.buttons.set_button_color(TRACK_TRIGGERING_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(TRACK_TRIGGERING_BUTTON, definitions.OFF_BTN_COLOR)
 
         # Preset selection mode
         if self.app.is_mode_active(self.app.preset_selection_mode):
-            self.push.buttons.set_button_color(PRESET_SELECTION_MODE_BUTTON, definitions.BLACK)
             self.push.buttons.set_button_color(PRESET_SELECTION_MODE_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(PRESET_SELECTION_MODE_BUTTON, definitions.OFF_BTN_COLOR)
@@ -78,7 +74,6 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         # DDRM tone selector mode
         if self.app.ddrm_tone_selector_mode.should_be_enabled():
             if self.app.is_mode_active(self.app.ddrm_tone_selector_mode):
-                self.push.buttons.set_button_color(DDRM_TONE_SELECTION_MODE_BUTTON, definitions.BLACK)
                 self.push.buttons.set_button_color(DDRM_TONE_SELECTION_MODE_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
             else:
                 self.push.buttons.set_button_color(DDRM_TONE_SELECTION_MODE_BUTTON, definitions.OFF_BTN_COLOR)

@@ -219,14 +219,12 @@ class MelodicMode(definitions.ShepherdControllerMode):
 
     def update_accent_button(self):
         if self.fixed_velocity_mode:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.BLACK)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.OFF_BTN_COLOR)
 
     def update_modulation_wheel_mode_button(self):
         if self.modulation_wheel_mode:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.BLACK)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.OFF_BTN_COLOR)

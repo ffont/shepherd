@@ -71,7 +71,6 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
         if not self.clear_clip_button_being_pressed:
             self.push.buttons.set_button_color(self.clear_clip_button, definitions.OFF_BTN_COLOR)
         else:
-            self.push.buttons.set_button_color(self.clear_clip_button, definitions.BLACK)
             self.push.buttons.set_button_color(self.clear_clip_button, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
 
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_DUPLICATE, definitions.OFF_BTN_COLOR)        
@@ -79,7 +78,6 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
         if not self.double_clip_button_being_pressed:
             self.push.buttons.set_button_color(self.double_clip_button, definitions.OFF_BTN_COLOR)
         else:
-            self.push.buttons.set_button_color(self.double_clip_button, definitions.BLACK)
             self.push.buttons.set_button_color(self.double_clip_button, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
 
 
