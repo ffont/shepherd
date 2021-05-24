@@ -9,6 +9,7 @@ import subprocess
 
 from display_utils import show_title, show_value, draw_text_at
 
+is_running_sw_update = ''
 
 class SettingsMode(definitions.ShepherdControllerMode):
 
@@ -37,8 +38,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
     current_page = 0
     n_pages = 3
     encoders_state = {}
-    is_running_sw_update = False
-    is_running_sw_update_shepherd = False
 
     def move_to_next_page(self):
         self.app.buttons_need_update = True
@@ -258,8 +257,8 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
                 elif i == 3:  # Software update
                     show_title(ctx, part_x, h, 'SW UPDATE')
-                    if self.is_running_sw_update:
-                        show_value(ctx, part_x, h, 'Running... ', color)
+                    if is_running_sw_update:
+                        show_value(ctx, part_x, h, is_running_sw_update, color)
 
                 elif i == 4:  # Restart app(s)
                     show_title(ctx, part_x, h, 'RESTART')
@@ -382,6 +381,9 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
     def on_button_pressed(self, button_name):
 
+        if button_name == push2_python.constants.BUTTON_SHIFT:
+            self.shift_being_pressed = True
+
         if self.current_page == 0:  # Performance settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
                 self.app.melodic_mode.set_root_midi_note(self.app.melodic_mode.root_midi_note + 1)
@@ -460,14 +462,19 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_4:
                 # Run software update code
-                self.is_running_sw_update = True
-                run_sw_update()
+                global is_running_sw_update
+                is_running_sw_update = "Starting"
+                run_sw_update(do_pip_install=self.shift_being_pressed)
                 return True
             
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_5:
                 # Restart apps
                 restart_apps()
                 return True
+
+    def on_button_released(self, button_name):
+        if button_name == push2_python.constants.BUTTON_SHIFT:
+            self.shift_being_pressed = False
 
 
 def restart_apps():
@@ -476,14 +483,20 @@ def restart_apps():
     os.system('sudo systemctl restart shepherd_controller')
 
 
-def run_sw_update():
+def run_sw_update(do_pip_install=True):
+    global is_running_sw_update
     print('Running SW update...')
     print('- pulling from repository')
+    is_running_sw_update = 'Pulling'
     os.system('git pull')
-    print('- installing dependencies')
-    os.system('pip3 install -r requirements.txt --no-cache')
+    if do_pip_install:
+        print('- installing dependencies')
+        is_running_sw_update = 'PIP install'
+        os.system('pip3 install -r requirements.txt --no-cache')
     print('Building Shepherd backend')
+    is_running_sw_update = 'Building'
     os.system('cd /home/pi/shepherd/Shepherd/Builds/LinuxMakefile; git pull; make CONFIG=Release -j4;')
+    is_running_sw_update = 'Restarting'
     os.system('sudo systemctl restart shepherd')
     restart_apps()
 
