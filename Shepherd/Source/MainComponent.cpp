@@ -297,7 +297,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     {
         auto msg = metadata.getMessage();
         
-        if (msg.isController() && msg.getControllerValue() == 64){
+        if (msg.isController() && msg.getControllerNumber() == 64){
             // If sustain pedal, we always pass it to the output as is
             incomingMidi.addEvent(msg, metadata.samplePosition);
         } else if (msg.isController() && msg.getControllerNumber() == 1){
