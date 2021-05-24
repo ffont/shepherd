@@ -5,9 +5,6 @@ import subprocess
 VERSION = '0.30'
 CURRENT_COMMIT = str(subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip())[2:-1]
 
-
-
-
 DELAYED_ACTIONS_APPLY_TIME = 1.0  # Encoder changes won't be applied until this time has passed since last moved
 
 LAYOUT_MELODIC = 'lmelodic'

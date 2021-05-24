@@ -149,6 +149,17 @@ class MelodicMode(definitions.ShepherdControllerMode):
             self.root_midi_note = 0
         elif self.root_midi_note > 127:
             self.root_midi_note = 127
+        self.update_pads_backend_mapping()
+
+    def update_pads_backend_mapping(self):
+        mapping = []
+        for i in range(0, 8):
+            for j in range(0, 8):
+                mapping.append(self.pad_ij_to_midi_note((7 - i, j)))
+        self.app.shepherd_interface.set_push_pads_mapping(mapping)
+
+    def clear_pads_backend_mapping(self):
+        self.app.shepherd_interface.set_push_pads_mapping([-1 for i in range(0, 64)])
 
     def activate(self):
 
@@ -172,11 +183,17 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.update_buttons()
         self.update_pads()
 
+        # Update note mapping in Shepherd backend
+        self.update_pads_backend_mapping()
+
     def deactivate(self):
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_DOWN, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_UP, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.BLACK)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_SHIFT, definitions.BLACK)
+
+        # Clear note mapping in Shepherd backend
+        self.clear_pads_backend_mapping()
 
     def check_for_delayed_actions(self):
         if self.last_time_at_params_edited is not None and time.time() - self.last_time_at_params_edited > definitions.DELAYED_ACTIONS_APPLY_TIME:
@@ -252,9 +269,8 @@ class MelodicMode(definitions.ShepherdControllerMode):
                 # light the currently presed pad). However, if "notes_midi_in" input is not configured, we do want to liht the pad as we won't have
                 # notes info comming from any other source
                 self.add_note_being_played(midi_note, 'push')
-            msg = mido.Message('note_on', note=midi_note, velocity=velocity if not self.fixed_velocity_mode else 127)
-            self.app.send_midi(msg)
             self.update_pads()  # Directly calling update pads method because we want user to feel feedback as quick as possible
+            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
             return True
 
     def on_pad_released(self, pad_n, pad_ij, velocity):
@@ -263,36 +279,19 @@ class MelodicMode(definitions.ShepherdControllerMode):
             if self.app.track_selection_mode.get_current_track_info().get('illuminate_local_notes', True) or self.app.notes_midi_in is None:
                 # see comment in "on_pad_pressed" above
                 self.remove_note_being_played(midi_note, 'push')
-            msg = mido.Message('note_off', note=midi_note, velocity=velocity)
-            self.app.send_midi(msg)
             self.update_pads()  # Directly calling update pads method because we want user to feel feedback as quick as possible
+            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
             return True
 
     def on_pad_aftertouch(self, pad_n, pad_ij, velocity):
         if pad_n is not None:
             # polyAT mode
             self.latest_poly_at_value = (time.time(), velocity)
-            midi_note = self.pad_ij_to_midi_note(pad_ij)
-            if midi_note is not None:
-                msg = mido.Message('polytouch', note=midi_note, value=velocity)
+            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
         else:
             # channel AT mode
             self.latest_channel_at_value = (time.time(), velocity)
-            msg = mido.Message('aftertouch', value=velocity)
-        self.app.send_midi(msg)
-        return True
-
-    def on_touchstrip(self, value):
-        if self.modulation_wheel_mode:
-            msg = mido.Message('control_change', control=1, value=value)
-        else:
-            msg = mido.Message('pitchwheel', pitch=value)
-        self.app.send_midi(msg)
-        return True
-
-    def on_sustain_pedal(self, sustain_on):
-        msg = mido.Message('control_change', control=64, value=127 if sustain_on else 0)
-        self.app.send_midi(msg)
+            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
         return True
 
     def on_button_pressed(self, button_name):
@@ -316,6 +315,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
 
         elif button_name == push2_python.constants.BUTTON_ACCENT:
             self.fixed_velocity_mode = not self.fixed_velocity_mode
+            self.app.shepherd_interface.set_fixed_velocity(127 if self.fixed_velocity_mode else -1) 
             self.app.buttons_need_update = True
             self.app.pads_need_update = True
             self.app.add_display_notification("Fixed velocity: {0}".format('On' if self.fixed_velocity_mode else 'Off'))

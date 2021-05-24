@@ -427,7 +427,8 @@ class ShepherdControllerApp(object):
 
     def init_push(self):
         print('Configuring Push...')
-        self.push = push2_python.Push2(run_simulator=platform.system() != "Linux")
+        use_simulator = run_simulator=platform.system() != "Linux"
+        self.push = push2_python.Push2(run_simulator=use_simulator, simulator_use_virtual_midi_out=use_simulator)
         if platform.system() == "Linux":
             # When this app runs in Linux is because it is running on the Raspberrypi
             #  I've overved problems trying to reconnect many times withotu success on the Raspberrypi, resulting in

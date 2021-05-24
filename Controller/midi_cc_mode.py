@@ -89,11 +89,7 @@ class MIDICCControl(object):
             self.value = self.vmin
         else:
             self.value += increment
-
-        # Send cc message, subtract 1 to number because MIDO works from 0 - 127
-        msg = mido.Message('control_change', control=self.cc_number, value=self.value)
-        self.send_midi_func(msg)
-
+        # NOTE: we do not send MIDI messages here because these will be received directly in Shepherd backend and mapped to correct MIDI CC
 
 class MIDICCMode(ShepherdControllerMode):
 
@@ -185,6 +181,7 @@ class MIDICCMode(ShepherdControllerMode):
         self.current_selected_section_and_page[self.get_current_track_instrument_short_name_helper()] = result
         self.active_midi_control_ccs = self.get_midi_cc_controls_for_current_track_section_and_page()
         self.app.buttons_need_update = True
+        self.update_encoders_backend_mapping()
 
     def get_should_show_midi_cc_next_prev_pages_for_section(self):
         all_section_controls = self.get_midi_cc_controls_for_current_track_and_section()
@@ -200,12 +197,23 @@ class MIDICCMode(ShepherdControllerMode):
     def new_track_selected(self):
         self.active_midi_control_ccs = self.get_midi_cc_controls_for_current_track_section_and_page()
 
+    def update_encoders_backend_mapping(self):
+        mapping = []
+        for encoder_num in range(0, 8):
+            mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
+        self.app.shepherd_interface.set_push_encoders_mapping(mapping)
+
+    def clear_encoders_backend_mapping(self):
+        self.app.shepherd_interface.set_push_encoders_mapping([-1 for i in range(0, 8)])
+
     def activate(self):
         self.update_buttons()
+        self.update_encoders_backend_mapping()
 
     def deactivate(self):
         for button_name in self.midi_cc_button_names + [push2_python.constants.BUTTON_PAGE_LEFT, push2_python.constants.BUTTON_PAGE_RIGHT]:
             self.push.buttons.set_button_color(button_name, definitions.BLACK)
+        self.clear_encoders_backend_mapping()
 
     def update_buttons(self):
 

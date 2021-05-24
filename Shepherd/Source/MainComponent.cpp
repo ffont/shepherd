@@ -25,9 +25,15 @@
 #define OSC_ADDRESS_METRONOME_OFF "/metronome/off"
 #define OSC_ADDRESS_METRONOME_ON_OFF "/metronome/onOff"
 
+#define OSC_ADDRESS_SETTINGS "/settings"
+#define OSC_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
+#define OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
+#define OSC_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
+
 #define OSC_ADDRESS_STATE "/state"
 #define OSC_ADDRESS_STATE_TRACKS "/state/tracks"
 #define OSC_ADDRESS_STATE_TRANSPORT "/state/transport"
+
 
 
 
@@ -113,6 +119,9 @@ MainComponent::MainComponent()
     }
     
     // Setup MIDI devices
+    auto midiInputs = juce::MidiInput::getAvailableDevices();
+    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
+    
     // TODO: read device names from config file instead of hardcoding them
     #if RPI_BUILD
     const juce::String outDeviceName = "MIDIFACE 2X2 MIDI 1";
@@ -120,7 +129,6 @@ MainComponent::MainComponent()
     const juce::String outDeviceName = "IAC Driver Bus 1";
     #endif
     juce::String outDeviceIdentifier = "";
-    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
     std::cout << "Available MIDI OUT devices:" << std::endl;
     for (int i=0; i<midiOutputs.size(); i++){
         std::cout << " - " << midiOutputs[i].name << std::endl;
@@ -135,14 +143,14 @@ MainComponent::MainComponent()
         std::cout << "Could not connect to " << outDeviceName << std::endl;
     }
         
+    // Keyboard MIDI in
     #if RPI_BUILD
     const juce::String inDeviceName = "LUMI Keys BLOCK MIDI 1";
     #else
     const juce::String inDeviceName = "iCON iKEY V1.02";
     #endif
     juce::String inDeviceIdentifier = "";
-    auto midiInputs = juce::MidiInput::getAvailableDevices();
-    std::cout << "Available MIDI IN devices:" << std::endl;
+    std::cout << "Available MIDI IN devices for Keys input:" << std::endl;
     for (int i=0; i<midiInputs.size(); i++){
         std::cout << " - " << midiInputs[i].name << std::endl;
         if (midiInputs[i].name == inDeviceName){
@@ -157,6 +165,29 @@ MainComponent::MainComponent()
     } else {
         std::cout << "Could not connect to " << inDeviceName << std::endl;
     }
+
+    // Push messages MIDI in (used for triggering notes and encoders if mode is active)
+    #if RPI_BUILD
+    const juce::String pushInDeviceName = "Ableton Push 2 MIDI 1";
+    #else
+    const juce::String pushInDeviceName = "Push2Simulator";
+    #endif
+    juce::String pushInDeviceIdentifier = "";
+    std::cout << "Available MIDI IN devices for Push input:" << std::endl;
+    for (int i=0; i<midiInputs.size(); i++){
+        std::cout << " - " << midiInputs[i].name << std::endl;
+        if (midiInputs[i].name == pushInDeviceName){
+            pushInDeviceIdentifier = midiInputs[i].identifier;
+        }
+    }
+    midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
+    if (midiInPush != nullptr){
+        std::cout << "Connected to:" << midiInPush.get()->getName() << std::endl;
+        std::cout << "Starting MIDI in callback" << std::endl;
+        midiInPush.get()->start();
+    } else {
+        std::cout << "Could not connect to " << pushInDeviceName << std::endl;
+    }
     
     // Init sine synth with 16 voices (used for testig purposes only)
     #if !RPI_BUILD
@@ -164,6 +195,10 @@ MainComponent::MainComponent()
         sineSynth.addVoice (new SineWaveVoice());
     sineSynth.addSound (new SineWaveSound());
     #endif
+    
+    // Send OSC message to frontend indiating that Shepherd is ready
+    juce::OSCMessage returnMessage = juce::OSCMessage("/shepherdReady");
+    sendOscMessage(returnMessage);
 }
 
 MainComponent::~MainComponent()
@@ -180,6 +215,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
     samplesPerBlock = samplesPerBlockExpected;
     
     midiInCollector.reset(_sampleRate);
+    pushMidiInCollector.reset(_sampleRate);
     sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
     
     // Create some tracks
@@ -205,13 +241,68 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 {
     // Clear audio buffers
     bufferToFill.clearActiveBufferRegion();
-    
-    // Collect messages from MIDI input
-    juce::MidiBuffer incomingMidi;
-    midiInCollector.removeNextBlockOfMessages (incomingMidi, bufferToFill.numSamples);
-    
+
     // Generate MIDI output buffer
-    juce::MidiBuffer generatedMidi;  // TODO: Is this thread safe?
+    juce::MidiBuffer generatedMidi;
+    
+    // Collect messages from MIDI input (keys and push)
+    juce::MidiBuffer incomingMidi;
+
+    juce::MidiBuffer incomingMidiKeys;
+    midiInCollector.removeNextBlockOfMessages (incomingMidiKeys, bufferToFill.numSamples);
+
+    juce::MidiBuffer incomingMidiPush;
+    pushMidiInCollector.removeNextBlockOfMessages (incomingMidiPush, bufferToFill.numSamples);
+
+    // Process keys MIDI input and add it to combined incomming buffer
+    incomingMidi.addEvents(incomingMidiKeys, 0, bufferToFill.numSamples, 0);
+    for (const auto metadata : incomingMidiKeys)
+    {
+        auto msg = metadata.getMessage();
+        if (msg.isNoteOnOrOff() && fixedVelocity > -1){
+            msg.setVelocity((float)fixedVelocity/127.0f);
+        }
+        incomingMidi.addEvent(msg, metadata.samplePosition);
+    }
+
+    // Process push MIDI input and add it to combined incomming buffer
+    for (const auto metadata : incomingMidiPush)
+    {
+        auto msg = metadata.getMessage();
+        
+        if (msg.isController() && msg.getControllerValue() == 64){
+            // If sustain pedal, we always pass it to the output as is
+            incomingMidi.addEvent(msg, metadata.samplePosition);
+        } else if (msg.isPitchWheel()){
+            // If pitch wheel, we always pass it to the output as is
+            incomingMidi.addEvent(msg, metadata.samplePosition);
+        } else if (msg.isNoteOnOrOff() || msg.isAftertouch() || msg.isChannelPressure()){
+            if (msg.getNoteNumber() >= 36 && msg.getNoteNumber() <= 99){
+                // If midi message is a note on/off, aftertouch or channel pressure from one of the 64 pads, check if there's any mapping active
+                // and use it (or discard the message).
+                int mappedNote = pushPadsNoteMapping[msg.getNoteNumber()-36];
+                if (mappedNote > -1){
+                    msg.setNoteNumber(mappedNote);
+                    if (fixedVelocity > -1){
+                        msg.setVelocity((float)fixedVelocity/127.0f);
+                    }
+                    incomingMidi.addEvent(msg, metadata.samplePosition);
+                }
+            }
+            
+        } else if (msg.isController()){
+            if (msg.getControllerNumber() >= 71 && msg.getControllerNumber() <= 78){
+                // If midi message is a control change from one of the 8 encoders above the display, check if there's any mapping active
+                // and use it (or discard the message).
+                int mappedCCNumber = pushEncodersCCMapping[msg.getControllerNumber() - 71];
+                if (mappedCCNumber > -1){
+                    auto newMsg = juce::MidiMessage::controllerEvent (msg.getChannel(), mappedCCNumber, msg.getControllerValue());
+                    newMsg.setTimeStamp (msg.getTimeStamp());
+                    incomingMidi.addEvent(newMsg, metadata.samplePosition);
+                }
+            }
+        }
+    }
     
     // Check if tempo should be updated
     if (nextBpm > 0.0){
@@ -255,8 +346,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             track->clipsProcessSlice(incomingMidi, generatedMidi, bufferToFill.numSamples);
         }
     }
-    
-    // Copy all incoming MIDI notes to the output buffer for direct monitoring of the currently selected channel
+
+    // Add incoming midi to output
     for (const auto metadata : incomingMidi)
     {
         auto msg = metadata.getMessage();
@@ -630,6 +721,22 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         } else if (address == OSC_ADDRESS_METRONOME_ON_OFF){
             jassert(message.size() == 0);
             metronomeOn = !metronomeOn;
+        }
+        
+    } else if (address.startsWith(OSC_ADDRESS_SETTINGS)) {
+        if (address == OSC_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
+            jassert(message.size() == 64);
+            for (int i=0; i<64; i++){
+                pushPadsNoteMapping[i] = message[i].getInt32();
+            }
+        } else if (address == OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING){
+            jassert(message.size() == 8);
+            for (int i=0; i<8; i++){
+                pushEncodersCCMapping[i] = message[i].getInt32();
+            }
+        } else if (address == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
+            jassert(message.size() == 1);
+            fixedVelocity = message[0].getInt32();
         }
         
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {

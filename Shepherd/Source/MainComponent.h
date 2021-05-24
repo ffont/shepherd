@@ -45,10 +45,15 @@ private:
     bool oscSenderIsConnected = false;
     
     // Midi devices and other midi stuff
-    std::unique_ptr<juce::MidiOutput> midiOutA;
     std::unique_ptr<juce::MidiInput> midiIn;
     juce::MidiMessageCollector midiInCollector;
+    std::unique_ptr<juce::MidiOutput> midiOutA;
     int midiOutChannel = 1;
+    std::unique_ptr<juce::MidiInput> midiInPush;
+    juce::MidiMessageCollector pushMidiInCollector;
+    std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
+    std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
+    int fixedVelocity = -1;
     
     // Transport and basic audio settings
     double sampleRate = 44100.0;

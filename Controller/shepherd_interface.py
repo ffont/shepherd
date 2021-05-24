@@ -32,8 +32,9 @@ class ShepherdInterface(object):
 
         self.osc_server = OSCThreadServer()
         sock = self.osc_server.listen(address='0.0.0.0', port=osc_receive_port, default=True)
+        self.osc_server.bind(b'/shepherdReady', self.receive_shepherd_ready)
         self.osc_server.bind(b'/stateFromShepherd', self.receive_state_from_shepherd)
-
+        
         self.run_get_state_transport_thread()
         self.run_get_state_tracks_thread()
 
@@ -55,8 +56,12 @@ class ShepherdInterface(object):
             time.sleep(1.0/tracks_state_fps)
             self.osc_sender.send_message('/state/tracks', [])
 
-    def receive_state_from_shepherd(self, values):
+    def receive_shepherd_ready(self):
+        # When shepherd is ready, re-activate all modes to make sure we initialize things in the backend if needed
+        for mode in self.app.active_modes:
+            mode.activate()
 
+    def receive_state_from_shepherd(self, values):
         state = values.decode("utf-8")
         if state.startswith("transport"):
             parts = state.split(',')
@@ -149,6 +154,17 @@ class ShepherdInterface(object):
     def metronome_on_off(self):
         self.osc_sender.send_message('/metronome/onOff', [])
 
+    def set_push_pads_mapping(self, new_mapping=[]):
+        if new_mapping:
+            self.osc_sender.send_message('/settings/pushNotesMapping', new_mapping)
+
+    def set_push_encoders_mapping(self, new_mapping=[]):
+        if new_mapping:
+            self.osc_sender.send_message('/settings/pushEncodersMapping', new_mapping)
+
+    def set_fixed_velocity(self, velocity):
+        self.osc_sender.send_message('/settings/fixedVelocity', [velocity])
+        
     def get_buttons_state(self):
         is_playing = self.parsed_state.get('isPlaying', False)
         is_recording = self.parsed_state.get('isRecording', False)
