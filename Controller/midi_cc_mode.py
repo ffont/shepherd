@@ -303,6 +303,7 @@ class MIDICCMode(ShepherdControllerMode):
             ].index(encoder_name)
             if self.active_midi_control_ccs:
                 self.active_midi_control_ccs[encoder_num].update_value(increment)
+            return True  # Always return True because encoder should not be used in any other mode if this is first active
         except ValueError: 
             pass  # Encoder not in list 
-        return True  # Always return True because encoder should not be used in any other mode if this is first active
+        

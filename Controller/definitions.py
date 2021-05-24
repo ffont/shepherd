@@ -1,9 +1,20 @@
 import push2_python
 import colorsys
 import subprocess
+import platform
 
 VERSION = '0.30'
 CURRENT_COMMIT = str(subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip())[2:-1]
+
+RUNNING_ON_RPI = platform.system() == "Linux"  # TODO: do a more specific check
+'''
+def is_raspberrypi():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'raspberry pi' in m.read().lower(): return True
+    except Exception: pass
+    return False
+'''
 
 DELAYED_ACTIONS_APPLY_TIME = 1.0  # Encoder changes won't be applied until this time has passed since last moved
 
@@ -14,7 +25,7 @@ LAYOUT_SLICES = 'lslices'
 NOTIFICATION_TIME = 3
 
 BLACK_RGB = [0, 0, 0]
-GRAY_DARK_RGB = [30, 30, 30]
+GRAY_DARK_RGB = [30, 30, 30] if RUNNING_ON_RPI else [90, 90, 90] 
 GRAY_LIGHT_RGB = [180, 180, 180]
 WHITE_RGB = [255, 255, 255]
 YELLOW_RGB = [255, 241, 0]

@@ -1,6 +1,5 @@
 import json
 import os
-import platform
 import time
 import traceback
 
@@ -427,11 +426,11 @@ class ShepherdControllerApp(object):
 
     def init_push(self):
         print('Configuring Push...')
-        use_simulator = run_simulator=platform.system() != "Linux"
+        use_simulator = not definitions.RUNNING_ON_RPI
         self.push = push2_python.Push2(run_simulator=use_simulator, simulator_use_virtual_midi_out=use_simulator)
-        if platform.system() == "Linux":
+        if definitions.RUNNING_ON_RPI:
             # When this app runs in Linux is because it is running on the Raspberrypi
-            #  I've overved problems trying to reconnect many times withotu success on the Raspberrypi, resulting in
+            # I've overved problems trying to reconnect many times without success on the Raspberrypi, resulting in
             # "ALSA lib seq_hw.c:466:(snd_seq_hw_open) open /dev/snd/seq failed: Cannot allocate memory" issues.
             # A work around is make the reconnection time bigger, but a better solution should probably be found.
             self.push.set_push2_reconnect_call_interval(2)
