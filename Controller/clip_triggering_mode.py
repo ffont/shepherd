@@ -1,23 +1,8 @@
 import definitions
-import mido
 import push2_python
-import time
-import math
-import os
-import json
 
 
-class TrackState(object):
-
-    track_num = 0
-    has_content = False
-    is_playing = False
-
-    def __init__(self, track_num=0):
-        self.track_num = track_num
-
-
-class TrackTriggeringMode(definitions.ShepherdControllerMode):
+class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
     xor_group = 'pads'
 
@@ -37,9 +22,6 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
 
     double_clip_button_being_pressed = False
     double_clip_button = push2_python.constants.BUTTON_DOUBLE_LOOP
-
-    def pad_ij_to_track_num(self, pad_ij):
-        return pad_ij[0] * 8 + pad_ij[1]
 
     def activate(self):
         self.clear_clip_button_being_pressed = False
@@ -82,7 +64,7 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
 
 
     def update_pads(self):
-        # Update pads according to track state
+        # Update pads according to clip state
         color_matrix = []
         animation_matrix = []
         for i in range(0, 8):
@@ -98,7 +80,7 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
                     # Is empty
                     cell_color = definitions.BLACK
                 else:
-                    cell_color = track_color + '_darker1'
+                    cell_color = track_color + '_darker2' if definitions.RUNNING_ON_RPI else track_color + '_darker1'
 
                 if 'p' in state:
                     # Is playing

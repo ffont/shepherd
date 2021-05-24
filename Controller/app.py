@@ -11,7 +11,7 @@ import push2_python
 
 from melodic_mode import MelodicMode
 from track_selection_mode import TrackSelectionMode
-from track_triggering_mode import TrackTriggeringMode
+from clip_triggering_mode import ClipTriggeringMode
 from rhythmic_mode import RhythmicMode
 from slice_notes_mode import SliceNotesMode
 from settings_mode import SettingsMode
@@ -97,7 +97,7 @@ class ShepherdControllerApp(object):
         self.set_melodic_mode()
 
         self.track_selection_mode = TrackSelectionMode(self, settings=settings)
-        self.track_triggering_mode = TrackTriggeringMode(self, settings=settings)
+        self.clip_triggering_mode = ClipTriggeringMode(self, settings=settings)
         self.preset_selection_mode = PresetSelectionMode(self, settings=settings)
         self.midi_cc_mode = MIDICCMode(self, settings=settings)  # Must be initialized after track selection mode so it gets info about loaded tracks
         self.active_modes += [self.track_selection_mode, self.midi_cc_mode]
@@ -212,11 +212,11 @@ class ShepherdControllerApp(object):
     def set_slice_notes_mode(self):
         self.set_mode_for_xor_group(self.slice_notes_mode)
 
-    def set_track_triggering_mode(self):
-        self.set_mode_for_xor_group(self.track_triggering_mode)
+    def set_clip_triggering_mode(self):
+        self.set_mode_for_xor_group(self.clip_triggering_mode)
 
-    def unset_track_triggering_mode(self):
-        self.unset_mode_for_xor_group(self.track_triggering_mode)
+    def unset_clip_triggering_mode(self):
+        self.unset_mode_for_xor_group(self.clip_triggering_mode)
 
     def set_preset_selection_mode(self):
         self.set_mode_for_xor_group(self.preset_selection_mode)

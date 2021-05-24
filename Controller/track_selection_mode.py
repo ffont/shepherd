@@ -118,9 +118,9 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         try:
             self.app.midi_cc_mode.new_track_selected()
             self.app.preset_selection_mode.new_track_selected()
-            self.app.track_triggering_mode.new_track_selected()
+            self.app.clip_triggering_mode.new_track_selected()
         except AttributeError:
-            # Might fail if MIDICCMode/PresetSelectionMode/TrackTriggeringMode not initialized
+            # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
             pass
         
     def activate(self):
