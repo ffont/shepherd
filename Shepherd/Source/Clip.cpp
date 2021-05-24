@@ -519,6 +519,23 @@ void Clip::addRecordedSequenceToSequence()
     if (recordedMidiSequence.getNumEvents() > 0){
         midiSequence.addSequence(recordedMidiSequence, 0);
         recordedMidiSequence.clear();
+        
+        // Now double check that there are no unmatched note on/offs in the sequence and remove them if that is the case
+        std::vector<int> eventsToRemove = {};
+        midiSequence.updateMatchedPairs();
+        for (int i=0; i < midiSequence.getNumEvents(); i++){
+            juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
+            if (msg.isNoteOn()){
+                int noteOffIndex = midiSequence.getIndexOfMatchingKeyUp(i);
+                if (noteOffIndex == -1){
+                    eventsToRemove.push_back(i);
+                }
+            }
+        }
+        for (int i=0; i < eventsToRemove.size(); i++){
+            midiSequence.deleteEvent(eventsToRemove[i], false);
+        }
+        
     }
 }
 
