@@ -281,16 +281,21 @@ juce::String Clip::getStatus()
 void Clip::clearSequence()
 {
     // Removes all midi events from the midi sequence (but clip length remains the same)
+    // If clearing when there are no events in the sequence, it also sets the length to 0
     if (isPlaying()){
         // If is playing, clear sequence at the start of next process block
         shouldClearSequence = true;
     } else {
         // If not playing, clear sequence immediately
-        // If clip has no events, reset clip length
+        // If clip has no events, reset clip length and clear all cues
         if (midiSequence.getNumEvents() > 0){
             midiSequence.clear();
         } else {
             clipLengthInBeats = 0.0;
+            clearPlayCue();
+            clearStopCue();
+            clearStartRecordingCue();
+            clearStartRecordingCue();
         }
     }
 }
@@ -359,6 +364,10 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
             midiSequence.clear();
         } else {
             clipLengthInBeats = 0.0;
+            clearPlayCue();
+            clearStopCue();
+            clearStartRecordingCue();
+            clearStartRecordingCue();
             stopNow();
         }
         shouldClearSequence = false;
