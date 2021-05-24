@@ -38,6 +38,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
     current_page = 0
     n_pages = 3
     encoders_state = {}
+    shift_being_pressed = False
 
     def move_to_next_page(self):
         self.app.buttons_need_update = True
