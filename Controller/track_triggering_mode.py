@@ -33,7 +33,7 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
     ]
     
     clear_clip_button_being_pressed = False
-    clear_clip_button = push2_python.constants.BUTTON_MASTER
+    clear_clip_button = push2_python.constants.BUTTON_DELETE
 
     double_clip_button_being_pressed = False
     double_clip_button = push2_python.constants.BUTTON_DOUBLE_LOOP
@@ -74,8 +74,14 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(self.clear_clip_button, definitions.BLACK)
             self.push.buttons.set_button_color(self.clear_clip_button, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
 
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_DUPLICATE, definitions.WHITE)        
-        self.push.buttons.set_button_color(self.double_clip_button, definitions.WHITE)
+        self.push.buttons.set_button_color(push2_python.constants.BUTTON_DUPLICATE, definitions.OFF_BTN_COLOR)        
+
+        if not self.double_clip_button_being_pressed:
+            self.push.buttons.set_button_color(self.double_clip_button, definitions.OFF_BTN_COLOR)
+        else:
+            self.push.buttons.set_button_color(self.double_clip_button, definitions.BLACK)
+            self.push.buttons.set_button_color(self.double_clip_button, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
+
 
     def update_pads(self):
         # Update pads according to track state
@@ -110,15 +116,16 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
         if button_name in self.scene_trigger_buttons:
             triggered_scene_row = self.scene_trigger_buttons.index(button_name)
             self.app.shepherd_interface.scene_play(triggered_scene_row)
-            self.app.pads_need_update = True
             return True  # Prevent other modes to get this event
 
         elif button_name == self.clear_clip_button:
             self.clear_clip_button_being_pressed = True
+            self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
         elif button_name == self.double_clip_button:
             self.double_clip_button_being_pressed = True
+            self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
         elif button_name == push2_python.constants.BUTTON_DUPLICATE:
@@ -126,12 +133,15 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
             return True  # Prevent other modes to get this event
 
     def on_button_released(self, button_name):
+
         if button_name == self.clear_clip_button:
             self.clear_clip_button_being_pressed = False
+            self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
             
         elif button_name == self.double_clip_button:
             self.double_clip_button_being_pressed = False
+            self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity):
