@@ -95,7 +95,7 @@ private:
     #if RPI_BUILD
     int nScenes = 8;
     #else
-    int nScenes = 4;
+    int nScenes = 8;  // Note that 4 of the scences are hidden in the test app JUCE UI
     #endif
     int selectedScene = 0;
     

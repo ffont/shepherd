@@ -162,10 +162,9 @@ void Clip::stopRecordingAt(double positionInClipPlayhead)
 
 void Clip::toggleRecord()
 {
-    double globalPlayheadPosition = playhead.getParentSlice().getStart();
     double nextBeatPosition;
-    if (globalPlayheadPosition == 0.0){
-        nextBeatPosition = 0.0;  // Edge case in which global playhead has not yet started and it is exactly 0.0 (happens when arming clip to record with global playhead stopped)
+    if (playhead.getCurrentSlice().getStart() == 0.0){
+        nextBeatPosition = 0.0;  // Edge case in which the clip playhead has not yet started and it is exactly 0.0 (happens when arming clip to record with global playhead stopped, or when arming clip to record while clip is stopped (and will start playing at the same time as recording))
     } else {
         if (clipLengthInBeats > 0.0){
             // If clip has length, it could loop, therefore make sure that next beat position will also "loop"
@@ -476,6 +475,10 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
     if (hasJustStoppedRecording()){
         // If it has just stopped recording, add the notes to the sequence
         double previousLength = clipLengthInBeats;
+        if (clipLengthInBeats == 0.0){
+            // If clip had no length, set it to the current time quantized to the next beat integer
+            clipLengthInBeats = std::ceil(playhead.getCurrentSlice().getEnd());
+        }
         addRecordedSequenceToSequence();
         if (previousLength == 0.0 && clipLengthInBeats > 0.0 && clipLengthInBeats > playhead.getCurrentSlice().getEnd()){
             // If the clip had no length and after stopping recording now it has, check if we should reset the playeahd for lopping
@@ -496,12 +499,9 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
 void Clip::addRecordedSequenceToSequence()
 {
     // If there are events in the recordedMidiSequence, add them to the sequence buffer and
-    // clear the recording buffer. Also set clip length if it was not set.
+    // clear the recording buffer
     if (recordedMidiSequence.getNumEvents() > 0){
         midiSequence.addSequence(recordedMidiSequence, 0);
-        if (clipLengthInBeats == 0.0) {
-            clipLengthInBeats = std::ceil(midiSequence.getEndTime()); // Quantize it to next beat integer
-        }
         recordedMidiSequence.clear();
     }
 }
