@@ -673,10 +673,16 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                         clip->togglePlayStop();
                     }
                 } else if (address == OSC_ADDRESS_CLIP_PLAY_STOP){
-                    if (!clip->isPlaying()){
+                    if (!clip->isEmpty()){
+                        if (!clip->isPlaying()){
+                            track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
+                        }
+                        clip->togglePlayStop();
+                    } else {
                         track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
+                        clip->toggleRecord();
                     }
-                    clip->togglePlayStop();
+                    
                 } else if (address == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
                     clip->toggleRecord();
                 } else if (address == OSC_ADDRESS_CLIP_CLEAR){

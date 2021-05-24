@@ -86,31 +86,45 @@ class TrackTriggeringMode(definitions.ShepherdControllerMode):
     def update_pads(self):
         # Update pads according to track state
         color_matrix = []
+        animation_matrix = []
         for i in range(0, 8):
             row_colors = []
+            row_animation = []
             for j in range(0, 8):
                 state = self.app.shepherd_interface.get_clip_state(j, i)
 
+                track_color = self.app.track_selection_mode.get_track_color(j)
+                cell_animation = 0
+
                 if 'E' in state:
+                    # Is empty
                     cell_color = definitions.BLACK
                 else:
-                    cell_color = definitions.WHITE
+                    cell_color = track_color + '_darker1'
 
                 if 'p' in state:
-                    cell_color = definitions.GREEN
+                    # Is playing
+                    cell_color = track_color
 
                 if 'c' in state or 'C' in state:
-                    cell_color = definitions.YELLOW
+                    # Will start or will stop playing
+                    cell_color = track_color
+                    cell_animation = definitions.DEFAULT_ANIMATION
 
                 if 'w' in state or 'W' in state:
-                    cell_color = definitions.ORANGE
+                    # Will start or will stop recording
+                    cell_color = definitions.RED
+                    cell_animation = definitions.DEFAULT_ANIMATION
 
                 if 'r' in state:
+                    # Is recording
                     cell_color = definitions.RED
 
                 row_colors.append(cell_color)
+                row_animation.append(cell_animation)
             color_matrix.append(row_colors)
-        self.push.pads.set_pads_color(color_matrix)
+            animation_matrix.append(row_animation)
+        self.push.pads.set_pads_color(color_matrix, animation_matrix)
 
     def on_button_pressed(self, button_name):
         if button_name in self.scene_trigger_buttons:

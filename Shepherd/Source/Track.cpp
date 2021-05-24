@@ -83,7 +83,7 @@ Clip* Track::getClipAt(int clipN)
 
 /** Stop all track clips that are currently playing
     @param now             stop clips immediately, otherwise wait until next quatized step
-    @param deCue         de-cue all clips cued to play but that did not yet start playing
+    @param deCue         de-cue all clips cued to play or record but that did not yet start playing or recording
     @param reCue         re-cue all clips that where stopped at next 0.0 global beat position (so they start playing when global playhead is started)
 */
 void Track::stopAllPlayingClips(bool now, bool deCue, bool reCue)
@@ -95,7 +95,7 @@ void Track::stopAllPlayingClips(bool now, bool deCue, bool reCue)
 /** Stop all track clips that are currently playing
     @param clipN         do not stop this clip
     @param now             stop clips immediately, otherwise wait until next quatized step
-    @param deCue         de-cue all clips cued to play but that did not yet start playing
+    @param deCue         de-cue all clips cued to play or record but that did not yet start playing or recording
     @param reCue         re-cue all clips that where stopped at next 0.0 global beat position (so they start playing when global playhead is started)
 */
 void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue)
@@ -116,6 +116,9 @@ void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool r
             if (deCue){
                 if (clip->isCuedToPlay()){
                     clip->clearPlayCue();
+                }
+                if (clip->isCuedToStartRecording()){
+                    clip->clearStartRecordingCue();
                 }
             }
             if (reCue && wasPlaying){
