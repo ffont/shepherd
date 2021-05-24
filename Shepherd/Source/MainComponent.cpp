@@ -40,6 +40,8 @@
 //==============================================================================
 MainComponent::MainComponent()
 {
+    #if !RPI_BUILD
+    
     // Main transport controls
     addAndMakeVisible (tempoSlider);
     tempoSlider.setRange (40, 300);
@@ -92,6 +94,7 @@ MainComponent::MainComponent()
         // NOTE: we don't use OSC interface here because this setting is only meant for testing
         // purposes and is not included in "release" builds using OSC interface
     };
+    #endif
     
     // Set UI size and start timer to print playhead position
     setSize (710, 575);
@@ -110,84 +113,9 @@ MainComponent::MainComponent()
         setAudioChannels (2, 2);
     }
     
-    // Setup OSC rserver
-    if (! connect (oscReceivePort)){
-        DBG("ERROR starting OSC server");
-    } else {
-        DBG("Started OSC server, listening at 0.0.0.0:" << oscReceivePort);
-        addListener (this);
-    }
-    
-    // Setup MIDI devices
-    auto midiInputs = juce::MidiInput::getAvailableDevices();
-    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
-    
-    // TODO: read device names from config file instead of hardcoding them
-    #if RPI_BUILD
-    const juce::String outDeviceName = "MIDIFACE 2X2 MIDI 1";
-    #else
-    const juce::String outDeviceName = "IAC Driver Bus 1";
-    #endif
-    juce::String outDeviceIdentifier = "";
-    std::cout << "Available MIDI OUT devices:" << std::endl;
-    for (int i=0; i<midiOutputs.size(); i++){
-        std::cout << " - " << midiOutputs[i].name << std::endl;
-        if (midiOutputs[i].name == outDeviceName){
-            outDeviceIdentifier = midiOutputs[i].identifier;
-        }
-    }
-    midiOutA = juce::MidiOutput::openDevice(outDeviceIdentifier);
-    if (midiOutA != nullptr){
-        std::cout << "Connected to:" << midiOutA.get()->getName() << std::endl;
-    } else {
-        std::cout << "Could not connect to " << outDeviceName << std::endl;
-    }
-        
-    // Keyboard MIDI in
-    #if RPI_BUILD
-    const juce::String inDeviceName = "LUMI Keys BLOCK MIDI 1";
-    #else
-    const juce::String inDeviceName = "iCON iKEY V1.02";
-    #endif
-    juce::String inDeviceIdentifier = "";
-    std::cout << "Available MIDI IN devices for Keys input:" << std::endl;
-    for (int i=0; i<midiInputs.size(); i++){
-        std::cout << " - " << midiInputs[i].name << std::endl;
-        if (midiInputs[i].name == inDeviceName){
-            inDeviceIdentifier = midiInputs[i].identifier;
-        }
-    }
-    midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
-    if (midiIn != nullptr){
-        std::cout << "Connected to:" << midiIn.get()->getName() << std::endl;
-        std::cout << "Starting MIDI in callback" << std::endl;
-        midiIn.get()->start();
-    } else {
-        std::cout << "Could not connect to " << inDeviceName << std::endl;
-    }
-
-    // Push messages MIDI in (used for triggering notes and encoders if mode is active)
-    #if RPI_BUILD
-    const juce::String pushInDeviceName = "Ableton Push 2 MIDI 1";
-    #else
-    const juce::String pushInDeviceName = "Push2Simulator";
-    #endif
-    juce::String pushInDeviceIdentifier = "";
-    std::cout << "Available MIDI IN devices for Push input:" << std::endl;
-    for (int i=0; i<midiInputs.size(); i++){
-        std::cout << " - " << midiInputs[i].name << std::endl;
-        if (midiInputs[i].name == pushInDeviceName){
-            pushInDeviceIdentifier = midiInputs[i].identifier;
-        }
-    }
-    midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
-    if (midiInPush != nullptr){
-        std::cout << "Connected to:" << midiInPush.get()->getName() << std::endl;
-        std::cout << "Starting MIDI in callback" << std::endl;
-        midiInPush.get()->start();
-    } else {
-        std::cout << "Could not connect to " << pushInDeviceName << std::endl;
-    }
+    // Init OSC and MIDI
+    initializeOSC();
+    initializeMIDI();
     
     // Init sine synth with 16 voices (used for testig purposes only)
     #if !RPI_BUILD
@@ -204,6 +132,106 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     shutdownAudio();
+}
+
+void MainComponent::initializeOSC()
+{
+    std::cout << "Initializing OSC server" << std::endl;
+    
+    // Setup OSC server
+    if (! connect (oscReceivePort)){
+        std::cout << "ERROR starting OSC server" << std::endl;
+    } else {
+        std::cout << "Started OSC server, listening at 0.0.0.0:" << oscReceivePort << std::endl;
+        addListener (this);
+    }
+    // OSC sender is not set up here because it is done lazily when trying to send a message
+}
+
+void MainComponent::initializeMIDI()
+{
+    std::cout << "Initializing MIDI devices" << std::endl;
+    
+    lastTimeMidiInitializationAttempted = juce::Time::getCurrentTime().toMilliseconds();
+    
+    // TODO: read device names from config file instead of hardcoding them
+    
+    // Setup MIDI devices
+    auto midiInputs = juce::MidiInput::getAvailableDevices();
+    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
+    
+    if (!midiOutAIsConnected){
+        #if RPI_BUILD
+        const juce::String outDeviceName = "MIDIFACE 2X2 MIDI 1";
+        #else
+        const juce::String outDeviceName = "IAC Driver Bus 1";
+        #endif
+        juce::String outDeviceIdentifier = "";
+        std::cout << "Available MIDI OUT devices:" << std::endl;
+        for (int i=0; i<midiOutputs.size(); i++){
+            std::cout << " - " << midiOutputs[i].name << std::endl;
+            if (midiOutputs[i].name == outDeviceName){
+                outDeviceIdentifier = midiOutputs[i].identifier;
+            }
+        }
+        midiOutA = juce::MidiOutput::openDevice(outDeviceIdentifier);
+        if (midiOutA != nullptr){
+            std::cout << "Connected to:" << midiOutA.get()->getName() << std::endl;
+            midiOutAIsConnected = true;
+        } else {
+            std::cout << "Could not connect to " << outDeviceName << std::endl;
+        }
+    }
+    
+    if (!midiInIsConnected){ // Keyboard MIDI in
+        #if RPI_BUILD
+        const juce::String inDeviceName = "LUMI Keys BLOCK MIDI 1";
+        #else
+        const juce::String inDeviceName = "iCON iKEY V1.02";
+        #endif
+        juce::String inDeviceIdentifier = "";
+        std::cout << "Available MIDI IN devices for Keys input:" << std::endl;
+        for (int i=0; i<midiInputs.size(); i++){
+            std::cout << " - " << midiInputs[i].name << std::endl;
+            if (midiInputs[i].name == inDeviceName){
+                inDeviceIdentifier = midiInputs[i].identifier;
+            }
+        }
+        midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
+        if (midiIn != nullptr){
+            std::cout << "Connected to:" << midiIn.get()->getName() << std::endl;
+            std::cout << "Starting MIDI in callback" << std::endl;
+            midiIn.get()->start();
+            midiInIsConnected = true;
+        } else {
+            std::cout << "Could not connect to " << inDeviceName << std::endl;
+        }
+    }
+
+    if (!midiInPushIsConnected){ // Push messages MIDI in (used for triggering notes and encoders if mode is active)
+        #if RPI_BUILD
+        const juce::String pushInDeviceName = "Ableton Push 2 MIDI 1";
+        #else
+        const juce::String pushInDeviceName = "Push2Simulator";
+        #endif
+        juce::String pushInDeviceIdentifier = "";
+        std::cout << "Available MIDI IN devices for Push input:" << std::endl;
+        for (int i=0; i<midiInputs.size(); i++){
+            std::cout << " - " << midiInputs[i].name << std::endl;
+            if (midiInputs[i].name == pushInDeviceName){
+                pushInDeviceIdentifier = midiInputs[i].identifier;
+            }
+        }
+        midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
+        if (midiInPush != nullptr){
+            std::cout << "Connected to:" << midiInPush.get()->getName() << std::endl;
+            std::cout << "Starting MIDI in callback" << std::endl;
+            midiInPush.get()->start();
+            midiInPushIsConnected = true;
+        } else {
+            std::cout << "Could not connect to " << pushInDeviceName << std::endl;
+        }
+    }
 }
 
 //==============================================================================
@@ -545,6 +573,18 @@ void MainComponent::resized()
 //==============================================================================
 void MainComponent::timerCallback()
 {
+    // Things that need periodic checks
+    if (!midiInIsConnected || !midiInPushIsConnected || !midiOutAIsConnected){
+        if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInitializationAttempted > 2000){
+            // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
+            // time we tried to initialize them, try to initialize again
+            initializeMIDI();
+        }
+    }
+    
+    #if !RPI_BUILD
+    // Backend test UI stuff (not to be run in RPI builds)
+
     if (!clipControlElementsCreated){
         // Call resized methods so all the clip control componenets are created and drawn
         resized();
@@ -593,6 +633,7 @@ void MainComponent::timerCallback()
             }
         }
     }
+    #endif
 }
 
 //==============================================================================
