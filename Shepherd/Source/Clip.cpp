@@ -482,16 +482,23 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
     }
     
     if (hasJustStoppedRecording()){
-        // If it has just stopped recording, add the notes to the sequence
-        double previousLength = clipLengthInBeats;
-        if (clipLengthInBeats == 0.0){
-            // If clip had no length, set it to the current time quantized to the next beat integer
-            clipLengthInBeats = std::ceil(playhead.getCurrentSlice().getEnd());
-        }
-        addRecordedSequenceToSequence();
-        if (previousLength == 0.0 && clipLengthInBeats > 0.0 && clipLengthInBeats > playhead.getCurrentSlice().getEnd()){
-            // If the clip had no length and after stopping recording now it has, check if we should reset the playeahd for lopping
-            playhead.resetSlice(clipLengthInBeats - playhead.getCurrentSlice().getEnd());
+        if (recordedMidiSequence.getNumEvents() > 0){
+            // If it has just stopped recording and there are notes to add to the sequence, do it now and set new length
+            double previousLength = clipLengthInBeats;
+            if (clipLengthInBeats == 0.0){
+                // If clip had no length, set it to the current time quantized to the next beat integer
+                clipLengthInBeats = std::ceil(playhead.getCurrentSlice().getEnd());
+            }
+            addRecordedSequenceToSequence();
+            if (previousLength == 0.0 && clipLengthInBeats > 0.0 && clipLengthInBeats > playhead.getCurrentSlice().getEnd()){
+                // If the clip had no length and after stopping recording now it has, check if we should reset the playeahd for lopping
+                playhead.resetSlice(clipLengthInBeats - playhead.getCurrentSlice().getEnd());
+            }
+        } else {
+            // If stopping to record, the clip is new and no new notes have been added, trigger clear clip to stop playing, etc.
+            if (clipLengthInBeats == 0.0){
+                shouldClearSequence = true;
+            }
         }
     }
     

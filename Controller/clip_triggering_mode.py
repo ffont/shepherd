@@ -1,5 +1,6 @@
 import definitions
 import push2_python
+import time
 
 
 class ClipTriggeringMode(definitions.ShepherdControllerMode):
@@ -22,6 +23,10 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
     double_clip_button_being_pressed = False
     double_clip_button = push2_python.constants.BUTTON_DOUBLE_LOOP
+
+    times_pad_pressed = {}
+    ignore_next_pad_release = {}
+    pad_pressing_action_time = 0.2
 
     def activate(self):
         self.clear_clip_button_being_pressed = False
@@ -80,7 +85,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     # Is empty
                     cell_color = definitions.BLACK
                 else:
-                    cell_color = track_color + '_darker2' if definitions.RUNNING_ON_RPI else track_color + '_darker1'
+                    cell_color = track_color + '_darker1'
 
                 if 'p' in state:
                     # Is playing
@@ -139,14 +144,29 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             return True  # Prevent other modes to get this event
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity):
+        if self.clear_clip_button_being_pressed:
+            # Send clip clear in shepherd
+            self.app.shepherd_interface.clip_clear(pad_ij[1], pad_ij[0])
+            self.ignore_next_pad_release[pad_n] = True
+        elif self.double_clip_button_being_pressed:
+            # Send clip double in shepherd
+            self.app.shepherd_interface.clip_double(pad_ij[1], pad_ij[0])
+            self.ignore_next_pad_release[pad_n] = True
+        # NOTE: the clip play/stop actions are sent on pad release, in this way we can distinguish long vs short presses
+        self.times_pad_pressed[pad_n] = time.time()
 
+    def on_pad_released(self, pad_n, pad_ij, velocity):
         if not self.clear_clip_button_being_pressed and not self.double_clip_button_being_pressed:
-            # Send clip play/stop in shepherd
-            self.app.shepherd_interface.clip_play_stop(pad_ij[1], pad_ij[0])
-        else:
-            if self.clear_clip_button_being_pressed:
-                # Send clip clear in shepherd
-                self.app.shepherd_interface.clip_clear(pad_ij[1], pad_ij[0])
-            elif self.double_clip_button_being_pressed:
-                # Send clip double in shepherd
-                self.app.shepherd_interface.clip_double(pad_ij[1], pad_ij[0])
+            if not self.ignore_next_pad_release.get(pad_n, False):
+                last_time_pressed = self.times_pad_pressed.get(pad_n, 0)
+                pressing_time = time.time() - last_time_pressed
+                self.times_pad_pressed[pad_n] = 0
+                if pressing_time > self.pad_pressing_action_time:
+                    # Long press, toggle recording
+                    self.app.shepherd_interface.clip_record_on_off(pad_ij[1], pad_ij[0])
+                else:
+                    # Short press, send play/stop
+                    self.app.shepherd_interface.clip_play_stop(pad_ij[1], pad_ij[0])
+            
+        if self.ignore_next_pad_release.get(pad_n, False):
+            self.ignore_next_pad_release[pad_n] = False  # Revert to false so next time pad release is triggered normally

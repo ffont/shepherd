@@ -124,6 +124,9 @@ class ShepherdInterface(object):
     def clip_play_stop(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/playStop', [track_number, clip_number])
 
+    def clip_record_on_off(self, track_number, clip_number):
+        self.osc_sender.send_message('/clip/recordOnOff', [track_number, clip_number])
+
     def clip_clear(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/clear', [track_number, clip_number])
 

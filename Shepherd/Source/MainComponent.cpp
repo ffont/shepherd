@@ -673,17 +673,14 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                         clip->togglePlayStop();
                     }
                 } else if (address == OSC_ADDRESS_CLIP_PLAY_STOP){
-                    if (!clip->isEmpty()){
-                        if (!clip->isPlaying()){
-                            track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
-                        }
-                        clip->togglePlayStop();
-                    } else {
+                    if (!clip->isPlaying()){
                         track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
-                        clip->toggleRecord();
                     }
-                    
+                    clip->togglePlayStop();
                 } else if (address == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
+                    if (!clip->isPlaying()){
+                        track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
+                    }
                     clip->toggleRecord();
                 } else if (address == OSC_ADDRESS_CLIP_CLEAR){
                     clip->clearSequence();
@@ -740,15 +737,6 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                 // If currently selected track has a playing clip, toggle recording on that clip
                 for (auto clipNum: currentlyPlayingClipIndexes){
                     track->getClipAt(clipNum)->toggleRecord();
-                }
-            } else {
-                // If currently selected track has no playing clip, it also means no clip is recording. Toggle recording on the first non-empty clip
-                for (int i=0; i<track->getNumberOfClips(); i++){
-                    auto clip = track->getClipAt(i);
-                    if (clip->isEmpty()){
-                        clip->toggleRecord();
-                        break;
-                    }
                 }
             }
             
@@ -834,7 +822,7 @@ void MainComponent::playScene(int sceneN)
     selectedScene = sceneN;
     for (auto track: tracks){
         auto clip = track->getClipAt(sceneN);
-        if (!clip->isPlaying()){
+        if (!clip->isPlaying() && !clip->isCuedToPlay()){
             track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
             clip->togglePlayStop();
         }
