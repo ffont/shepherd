@@ -54,10 +54,10 @@ int Track::getMidiOutChannel()
     return midiOutChannel;
 }
 
-void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize)
+void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     for (auto clip: midiClips){
-        clip->processSlice(incommingBuffer, bufferToFill, bufferSize);
+        clip->processSlice(incommingBuffer, bufferToFill, bufferSize, lastMidiNoteOnMessages);
     }
 }
 

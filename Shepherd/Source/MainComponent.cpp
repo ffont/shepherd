@@ -270,6 +270,24 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 {
     // Clear audio buffers
     bufferToFill.clearActiveBufferRegion();
+    
+    // Check if tempo should be updated
+    if (nextBpm > 0.0){
+        bpm = nextBpm;
+        nextBpm = 0.0;
+    }
+    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / bpm);
+    
+    // Check if count-in finished and global playhead should be toggled
+    if (!isPlaying && doingCountIn){
+        if (countInLengthInBeats >= countInplayheadPositionInBeats && countInLengthInBeats < countInplayheadPositionInBeats + bufferLengthInBeats){
+            // Count in finishes in the current getNextAudioBlock execution
+            playheadPositionInBeats = -(countInLengthInBeats - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            shouldToggleIsPlaying = true;
+            doingCountIn = false;
+            countInplayheadPositionInBeats = 0.0;
+        }
+    }
 
     // Generate MIDI output buffer
     juce::MidiBuffer generatedMidi;
@@ -291,6 +309,17 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             msg.setVelocity((float)fixedVelocity/127.0f);
         }
         incomingMidi.addEvent(msg, metadata.samplePosition);
+        
+        if (msg.isNoteOn()){
+            // Store message in the list of last note on messages and set its timestamp to the global playhead position
+            juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
+            if (doingCountIn){
+                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - countInLengthInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+            } else {
+                msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+            }
+            lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
+        }
     }
 
     // Process push MIDI input and add it to combined incomming buffer
@@ -318,6 +347,17 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                         msg.setVelocity((float)fixedVelocity/127.0f);
                     }
                     incomingMidi.addEvent(msg, metadata.samplePosition);
+                    
+                    if (msg.isNoteOn()){
+                        // Store message in the list of last note on messages and set its timestamp to the global playhead position
+                        juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
+                        if (doingCountIn){
+                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - countInLengthInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                        } else {
+                            msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                        }
+                        lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
+                    }
                 }
             }
             
@@ -335,21 +375,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         }
     }
     
-    // Check if tempo should be updated
-    if (nextBpm > 0.0){
-        bpm = nextBpm;
-        nextBpm = 0.0;
-    }
-    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / bpm);
-    
-    // Check if count-in finished and global playhead should be toggled
-    if (!isPlaying && doingCountIn){
-        if (countInLengthInBeats >= countInplayheadPositionInBeats && countInLengthInBeats < countInplayheadPositionInBeats + bufferLengthInBeats){
-            // Count in finishes in the current getNextAudioBlock execution
-            playheadPositionInBeats = -(countInLengthInBeats - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
-            shouldToggleIsPlaying = true;
-            doingCountIn = false;
-            countInplayheadPositionInBeats = 0.0;
+    // Remove old messages from lastMidiNoteOnMessages if capacity is exceeded
+    if (lastMidiNoteOnMessages.size() > lastMidiNoteOnMessagesToStore){
+        for (int i=0; i<lastMidiNoteOnMessagesToStore-lastMidiNoteOnMessages.size(); i++){
+            lastMidiNoteOnMessages.pop_back();
         }
     }
     
@@ -374,7 +403,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Generate notes and/or record notes
     if (isPlaying){
         for (auto track: tracks){
-            track->clipsProcessSlice(incomingMidi, generatedMidi, bufferToFill.numSamples);
+            track->clipsProcessSlice(incomingMidi, generatedMidi, bufferToFill.numSamples, lastMidiNoteOnMessages);
         }
     }
 

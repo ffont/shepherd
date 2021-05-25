@@ -62,7 +62,7 @@ public:
     juce::String getStatus();
     
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
-    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize);
+    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void clearSequence();
     void doubleSequence();
     void cycleQuantization();
@@ -86,6 +86,7 @@ private:
     double willStartRecordingAt = -1.0;
     double willStopRecordingAt = -1.0;
     double hasJustStoppedRecordingFlag = false;
+    double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
     
     juce::SortedSet<int> notesCurrentlyPlayed;
     std::function<double()> getGlobalBpm;

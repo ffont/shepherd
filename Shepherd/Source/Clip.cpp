@@ -379,7 +379,7 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
     }
 }
 
-void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize)
+void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     if (shouldClearSequence){
         if (midiSequence.getNumEvents() > 0){
@@ -465,9 +465,34 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
         }
         
         // Record midi events (and check if we should start/stop recording)
+        // We should start recording if the current slice contains the willStartRecordingAt postiion
+        // We also consider the edge case in which we start recording at end of clip after it loops
+        double hasJustStartedRecordingAt = 0.0;
         if (isCuedToStartRecording()){
-            if (sliceInBeats.contains(willStartRecordingAt) || sliceInBeats.contains(willStartRecordingAt + clipLengthInBeats)){ // Edge case: start recording at end of clip
+            if (sliceInBeats.contains(willStartRecordingAt) || sliceInBeats.contains(willStartRecordingAt + clipLengthInBeats)){
+                // Store 'hasJustStartedRecordingAt' as willStartRecordingAt is reset when calling startRecordingNow() and it will be useful later
+                if (sliceInBeats.contains(willStartRecordingAt)){
+                    hasJustStartedRecordingAt = willStartRecordingAt;
+                } else {
+                    hasJustStartedRecordingAt = willStartRecordingAt + clipLengthInBeats;
+                }
                 startRecordingNow();
+                
+                // If we just started recording, we can add the latest note on messages that happened right before the current time
+                // to account for human innacuracy in the timing
+                for (auto msg: lastMidiNoteOnMessages){
+                    double startRecordingTimeBeatPositionInGlobalPlayhead = playhead.getParentSlice().getStart() + hasJustStartedRecordingAt - sliceInBeats.getStart();
+                    double beatsBeforeStartRecordingTime = startRecordingTimeBeatPositionInGlobalPlayhead - msg.getTimeStamp();
+                    if ((beatsBeforeStartRecordingTime > 0) && (beatsBeforeStartRecordingTime < preRecordingBeatsThreshold)){
+                       // If the event time happened in the last 1/4 before the recording start position, quantize it to the start position (beat 0.0)
+                       // and add it to the recorded midi sequence
+                        msg.setTimeStamp(0.0);
+                        recordedMidiSequence.addEvent(msg);
+                    } else {
+                       // If event time is equal or after the start recording time we ignore it as it will be recorded while iterating
+                       // incommingBuffer below
+                    }
+                }
             }
         }
     
@@ -477,8 +502,9 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                 auto msg = metadata.getMessage();
                 double eventPositionInBeats = sliceInBeats.getStart() + sliceInBeats.getLength() * metadata.samplePosition / bufferSize;
                 
-                if (sliceInBeats.contains(eventPositionInBeats)) {
+                if (sliceInBeats.contains(eventPositionInBeats) && eventPositionInBeats >= hasJustStartedRecordingAt) {
                     // This condition should always be true except maybe when recorder was just started or just stopped
+                    // TODO: the current implementation does record events in the slice that happen after willStopRecordingAt. This should be refactored...
                     msg.setTimeStamp(eventPositionInBeats);
                     recordedMidiSequence.addEvent(msg);
                 } else {
