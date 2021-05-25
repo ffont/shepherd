@@ -31,7 +31,7 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
         clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
         std::vector<std::pair<int, float>> noteOnTimes = {};
         for (int i=0; i<clipLengthInBeats; i++){
-            noteOnTimes.push_back({i, 0.0});
+            noteOnTimes.push_back({i, juce::Random::getSystemRandom().nextFloat() * 0.5});
         };
         for (auto note: noteOnTimes) {
             // NOTE: don't care about the channel here because it is re-written when filling midi buffer
@@ -43,6 +43,7 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
             msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
             midiSequence.addEvent(msgNoteOff);
         }
+        shouldUpdateQuantizedSequence = true;
     }
     #endif
 }
@@ -332,6 +333,22 @@ void Clip::doubleSequence()
     }
 }
 
+void Clip::cycleQuantization()
+{
+    // Cycle between quantization amounts
+    
+    if (currentQuantizationStep == 0.0){
+        currentQuantizationStep = 4.0/16.0;
+    } else if (currentQuantizationStep == 4.0/16.0){
+        currentQuantizationStep = 4.0/8.0;
+    } else if (currentQuantizationStep == 4.0/8.0){
+        currentQuantizationStep = 4.0/4.0;
+    } else if (currentQuantizationStep == 4.0/4.0){
+        currentQuantizationStep = 0.0;
+    }
+    shouldUpdateQuantizedSequence = true;
+}
+
 void Clip::replaceSequence(juce::MidiMessageSequence newSequence, double newLength)
 {
     // TODO: update this in the process slice block instead of here using "shouldReplaceSequence"
@@ -384,6 +401,11 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
         shouldDoubleSequence = false;
     }
     
+    if (shouldUpdateQuantizedSequence){
+        computeQuantizedSequence(currentQuantizationStep);
+        shouldUpdateQuantizedSequence = false;
+    }
+    
     // Check if Clip's player is cued to play and call playNow if needed (accounting for potential offset in samples)
     if (playhead.isCuedToPlay()){
         const auto parentSliceInBeats = playhead.getParentSlice();
@@ -400,8 +422,12 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
         // Read clip's sequence and play notes if needed
         for (int i=0; i < midiSequence.getNumEvents(); i++){
             juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
+            if (currentQuantizationStep > 0.0){
+                // If in quantized mode, read from quantized sequence instead
+                msg = quantizedMidiSequence.getEventPointer(i)->message;
+            }
             double eventPositionInBeats = msg.getTimeStamp();
-            
+
             bool sliceContainsEvent = sliceInBeats.contains(eventPositionInBeats);
             bool sliceContainsLoopedEvent = sliceInBeats.contains(eventPositionInBeats + clipLengthInBeats);
             
@@ -519,9 +545,9 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
 
 void Clip::addRecordedSequenceToSequence()
 {
-    // If there are events in the recordedMidiSequence, add them to the sequence buffer and
-    // clear the recording buffer
     if (recordedMidiSequence.getNumEvents() > 0){
+        
+        // If there are events in the recordedMidiSequence, add them to the sequence buffer and clear the recording buffer
         midiSequence.addSequence(recordedMidiSequence, 0);
         recordedMidiSequence.clear();
         
@@ -541,6 +567,36 @@ void Clip::addRecordedSequenceToSequence()
             midiSequence.deleteEvent(eventsToRemove[i], false);
         }
         
+        // Calculate quantized version of sequence
+        shouldUpdateQuantizedSequence = true;
+    }
+}
+
+void Clip::computeQuantizedSequence(double quantizationStep){
+    quantizedMidiSequence.clear();
+    quantizedMidiSequence.addSequence(midiSequence, 0);
+    if (quantizationStep > 0.0){
+        for (int i=0; i < quantizedMidiSequence.getNumEvents(); i++){
+            juce::MidiMessage msgOn = quantizedMidiSequence.getEventPointer(i)->message;
+            if (msgOn.isNoteOn()){
+                // If message is note on, quantize the start position of the message and the duration
+                double quantizedNoteOnPositionInBeats = findNearestQuantizedBeatPosition(msgOn.getTimeStamp(), quantizationStep);
+                int msgOffIndex = quantizedMidiSequence.getIndexOfMatchingKeyUp(i);
+                if (msgOffIndex > -1){
+                    juce::MidiMessage msgOff = quantizedMidiSequence.getEventPointer(msgOffIndex)->message;
+                    double noteDuration = msgOff.getTimeStamp() - msgOn.getTimeStamp();
+                    double quantizedNoteDuration = findNearestQuantizedBeatPosition(noteDuration, quantizationStep);
+                    double quantizedNoteOffPositionInBeats = quantizedNoteOnPositionInBeats + quantizedNoteDuration;
+                    if (quantizedNoteOffPositionInBeats >= clipLengthInBeats){
+                        // If after quantization one event falls after the clip length, set it slightly before its end to avoid
+                        // hanging notes
+                        quantizedNoteOffPositionInBeats = clipLengthInBeats - 0.01;
+                    }
+                    quantizedMidiSequence.getEventPointer(msgOffIndex)->message.setTimeStamp(quantizedNoteOffPositionInBeats);
+                }
+                quantizedMidiSequence.getEventPointer(i)->message.setTimeStamp(quantizedNoteOnPositionInBeats);
+            }
+        }
     }
 }
 
@@ -555,4 +611,10 @@ bool Clip::hasJustStoppedRecording()
     } else {
         return false;
     }
+}
+
+double Clip::findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep)
+{
+    // TODO: Consider edge case in which event falls outside clip range?
+    return std::round(beatPosition / quantizationStep) * quantizationStep;
 }

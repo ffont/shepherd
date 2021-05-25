@@ -12,6 +12,7 @@
 #define OSC_ADDRESS_CLIP_RECORD_ON_OFF "/clip/recordOnOff"
 #define OSC_ADDRESS_CLIP_CLEAR "/clip/clear"
 #define OSC_ADDRESS_CLIP_DOUBLE "/clip/double"
+#define OSC_ADDRESS_CLIP_QUANTIZE "/clip/quantize"
 
 #define OSC_ADDRESS_TRACK "/track"
 #define OSC_ADDRESS_TRACK_SELECT "/track/select"
@@ -686,6 +687,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     clip->clearSequence();
                 } else if (address == OSC_ADDRESS_CLIP_DOUBLE){
                     clip->doubleSequence();
+                } else if (address == OSC_ADDRESS_CLIP_QUANTIZE){
+                    clip->cycleQuantization();
                 }
             }
         }

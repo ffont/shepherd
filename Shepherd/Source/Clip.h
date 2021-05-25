@@ -65,6 +65,7 @@ public:
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize);
     void clearSequence();
     void doubleSequence();
+    void cycleQuantization();
     void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
     void resetPlayheadPosition();
     double getPlayheadPosition();
@@ -78,6 +79,7 @@ private:
     Playhead playhead;
     
     juce::MidiMessageSequence midiSequence = {};
+    juce::MidiMessageSequence quantizedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
     double clipLengthInBeats = 0.0;
     bool recording = false;
@@ -94,6 +96,11 @@ private:
     bool shouldClearSequence = false;
     void doubleSequenceHelper();
     bool shouldDoubleSequence = false;
+    
+    double currentQuantizationStep = 0.0;
+    bool shouldUpdateQuantizedSequence = false;
+    double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
+    void computeQuantizedSequence(double quantizationStep);
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };
