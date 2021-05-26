@@ -35,6 +35,9 @@ public:
          );
     Clip* clone() const;
     
+    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
+    void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
+    
     void playNow();
     void playNow(double sliceOffset);
     void playAt(double positionInGlobalPlayhead);
@@ -52,6 +55,15 @@ public:
     void clearStartRecordingCue();
     void clearStopRecordingCue();
     
+    void clearSequence();
+    void doubleSequence();
+    void cycleQuantization();
+    void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
+    void resetPlayheadPosition();
+    void undo();
+    
+    double getPlayheadPosition();
+    double getLengthInBeats();
     bool isPlaying();
     bool isCuedToPlay();
     bool isCuedToStop();
@@ -61,32 +73,29 @@ public:
     bool isEmpty();
     juce::String getStatus();
     
-    void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
-    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
-    void clearSequence();
-    void doubleSequence();
-    void cycleQuantization();
-    void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
-    void resetPlayheadPosition();
-    double getPlayheadPosition();
-    double getLengthInBeats();
-    
 private:
-    
-    void addRecordedSequenceToSequence();
-    bool hasJustStoppedRecording();
     
     Playhead playhead;
     
+    double clipLengthInBeats = 0.0;
+    double nextClipLength = -1.0;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence quantizedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
-    double clipLengthInBeats = 0.0;
+    juce::MidiMessageSequence nextMidiSequence = {};
     bool recording = false;
     double willStartRecordingAt = -1.0;
     double willStopRecordingAt = -1.0;
     double hasJustStoppedRecordingFlag = false;
     double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
+    void addRecordedSequenceToSequence();
+    bool hasJustStoppedRecording();
+    
+    
+    std::vector<std::pair<juce::MidiMessageSequence, double>> midiSequenceAndClipLengthUndoStack;
+    int allowedUndoLevels = 5;
+    void saveToUndoStack();
+    bool shouldUndo = false;
     
     juce::SortedSet<int> notesCurrentlyPlayed;
     std::function<double()> getGlobalBpm;
@@ -94,6 +103,9 @@ private:
     std::function<int()> getSamplesPerBlock;
     std::function<int()> getMidiOutChannel;
     
+    void stopClipNowAndClearAllCues();
+    bool shouldReplaceSequence = false;
+    void clearSequenceHelper();
     bool shouldClearSequence = false;
     void doubleSequenceHelper();
     bool shouldDoubleSequence = false;

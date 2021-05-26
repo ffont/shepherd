@@ -136,6 +136,9 @@ class ShepherdInterface(object):
     def clip_quantize(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/quantize', [track_number, clip_number])
 
+    def clip_undo(self, track_number, clip_number):
+        self.osc_sender.send_message('/clip/undo', [track_number, clip_number])
+
     def get_clip_state(self, track_num, clip_num):
         if 'clips' in self.parsed_state:
             try:

@@ -27,6 +27,9 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     quantize_button_being_pressed = False
     quantize_button = push2_python.constants.BUTTON_QUANTIZE
 
+    undo_button_being_pressed = False
+    undo_button = push2_python.constants.BUTTON_UNDO
+
     times_pad_pressed = {}
     ignore_next_pad_release = {}
     pad_pressing_action_time = 0.5
@@ -51,6 +54,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         self.push.buttons.set_button_color(self.clear_clip_button, definitions.BLACK)
         self.push.buttons.set_button_color(self.double_clip_button, definitions.BLACK)
         self.push.buttons.set_button_color(self.quantize_button, definitions.BLACK)
+        self.push.buttons.set_button_color(self.undo_button, definitions.BLACK)
 
     def update_buttons(self):
         for i, button_name in enumerate(self.scene_trigger_buttons):
@@ -75,6 +79,11 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(self.quantize_button, definitions.OFF_BTN_COLOR)
         else:
             self.push.buttons.set_button_color(self.quantize_button, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
+
+        if not self.undo_button_being_pressed:
+            self.push.buttons.set_button_color(self.undo_button, definitions.OFF_BTN_COLOR)
+        else:
+            self.push.buttons.set_button_color(self.undo_button, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
 
 
     def update_pads(self):
@@ -141,6 +150,11 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
+        elif button_name == self.undo_button:
+            self.undo_button_being_pressed = True
+            self.app.buttons_need_update = True
+            return True  # Prevent other modes to get this event
+
         elif button_name == push2_python.constants.BUTTON_DUPLICATE:
             self.app.shepherd_interface.scene_duplicate(self.app.shepherd_interface.get_selected_scene())
             return True  # Prevent other modes to get this event
@@ -162,6 +176,11 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
+        elif button_name == self.undo_button:
+            self.undo_button_being_pressed = False
+            self.app.buttons_need_update = True
+            return True  # Prevent other modes to get this event
+
     def on_pad_pressed(self, pad_n, pad_ij, velocity):
         if self.clear_clip_button_being_pressed:
             # Send clip clear in shepherd
@@ -178,11 +197,16 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             self.app.shepherd_interface.clip_quantize(pad_ij[1], pad_ij[0])
             self.ignore_next_pad_release[pad_n] = True
 
+        elif self.undo_button_being_pressed:
+            # Send clip undo in shepherd
+            self.app.shepherd_interface.clip_undo(pad_ij[1], pad_ij[0])
+            self.ignore_next_pad_release[pad_n] = True
+
         # NOTE: the clip play/stop actions are sent on pad release, in this way we can distinguish long vs short presses
         self.times_pad_pressed[pad_n] = time.time()
 
     def on_pad_released(self, pad_n, pad_ij, velocity):
-        if not self.clear_clip_button_being_pressed and not self.double_clip_button_being_pressed and not self.quantize_button_being_pressed:
+        if not self.clear_clip_button_being_pressed and not self.double_clip_button_being_pressed and not self.quantize_button_being_pressed and not self.undo_button_being_pressed:
             if not self.ignore_next_pad_release.get(pad_n, False):
                 last_time_pressed = self.times_pad_pressed.get(pad_n, 0)
                 pressing_time = time.time() - last_time_pressed
