@@ -126,7 +126,7 @@ class ShepherdInterface(object):
                 self.app.pads_need_update = True
                 self.last_received_tracks_raw_state = state
 
-        if 'tracks' in self.parsed_state and 'bpm' in self.parsed_state:
+        if 'tracks' in self.parsed_state and 'bpm' in self.parsed_state and self.should_sync_state_with_backend:
             # Once full state has been received from backend, sync back to it
             # We need to first receive full state because some of the things to set up (like current tracks with direct monitoring)
             # depend on an intepretation of backend state plus the frontend state
