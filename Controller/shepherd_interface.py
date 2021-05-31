@@ -78,7 +78,7 @@ class ShepherdInterface(object):
             self.parsed_state['isPlaying'] = parts[1] == "p"
             if 'tracks' in self.parsed_state:
                 is_recording = False
-                for track_state in self.parsed_state['track']:
+                for track_state in self.parsed_state['tracks']:
                     track_clips = track_state['clips']
                     for clip in track_clips:
                         if 'r' in clip or 'w' in clip or 'W' in clip:
