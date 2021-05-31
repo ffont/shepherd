@@ -711,7 +711,6 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             jassert(message.size() == 2);
             bool trueFalse = message[1].getInt32() == 1;
             auto track = tracks[trackNum];
-            std::cout << trackNum << " " << trueFalse << std::endl;
             track->setInputMonitoring(trueFalse);
         }
          
