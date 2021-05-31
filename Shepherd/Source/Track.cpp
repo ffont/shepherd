@@ -54,6 +54,18 @@ int Track::getMidiOutChannel()
     return midiOutChannel;
 }
 
+void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill)
+{
+    if (inputMonitoringEnabled()){
+        for (const auto metadata : incommingBuffer)
+        {
+            auto msg = metadata.getMessage();
+            msg.setChannel(getMidiOutChannel());
+            bufferToFill.addEvent(msg, metadata.samplePosition);
+        }
+    }
+}
+
 void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     for (auto clip: midiClips){
@@ -163,4 +175,14 @@ bool Track::hasClipsCuedToRecord()
         }
     }
     return false;
+}
+
+bool Track::inputMonitoringEnabled()
+{
+    return inputMonitoring == true;
+}
+
+void Track::setInputMonitoring(bool enabled)
+{
+    inputMonitoring = enabled;
 }

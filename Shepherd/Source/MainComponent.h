@@ -88,7 +88,6 @@ private:
     
     // Tracks
     int nTestTracks = 8;
-    int selectedTrack = 0;
     juce::OwnedArray<Track> tracks;
     
     // Scenes
@@ -99,7 +98,6 @@ private:
     #else
     int nScenes = 8;  // Note that 4 of the scences are hidden in the test app JUCE UI
     #endif
-    int selectedScene = 0;
     
     // Desktop app UI
     void timerCallback() override;  // Callback used to update UI components
@@ -108,7 +106,6 @@ private:
     juce::Label playheadLabel;
     juce::TextButton globalStartStopButton;
     juce::TextButton globalRecordButton;
-    juce::Label selectedTrackLabel;
     juce::TextButton selectTrackButton;
     juce::TextButton metronomeToggleButton;
     juce::TextButton internalSynthButton;

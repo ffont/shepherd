@@ -17,6 +17,9 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         push2_python.constants.BUTTON_1_4T,
         push2_python.constants.BUTTON_1_4
     ]
+
+    selected_scene = 0
+    num_scenes = 8
     
     clear_clip_button_being_pressed = False
     clear_clip_button = push2_python.constants.BUTTON_DELETE
@@ -58,7 +61,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
     def update_buttons(self):
         for i, button_name in enumerate(self.scene_trigger_buttons):
-            if self.app.shepherd_interface.get_selected_scene() == i:
+            if self.selected_scene == i:
                 self.push.buttons.set_button_color(button_name, definitions.GREEN)
             else:
                 self.push.buttons.set_button_color(button_name, definitions.WHITE)
@@ -133,6 +136,8 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         if button_name in self.scene_trigger_buttons:
             triggered_scene_row = self.scene_trigger_buttons.index(button_name)
             self.app.shepherd_interface.scene_play(triggered_scene_row)
+            self.selected_scene = triggered_scene_row
+            self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
         elif button_name == self.clear_clip_button:
@@ -156,7 +161,11 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             return True  # Prevent other modes to get this event
 
         elif button_name == push2_python.constants.BUTTON_DUPLICATE:
-            self.app.shepherd_interface.scene_duplicate(self.app.shepherd_interface.get_selected_scene())
+            if self.selected_scene < self.num_scenes - 1:
+                # Do not duplicate scene if we're at the last one (no more space!)
+                self.app.shepherd_interface.scene_duplicate(self.selected_scene)
+                self.selected_scene += 1
+                self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
     def on_button_released(self, button_name):

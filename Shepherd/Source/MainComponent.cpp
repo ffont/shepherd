@@ -2,7 +2,6 @@
 
 #define OSC_ADDRESS_TRANSPORT "/transport"
 #define OSC_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
-#define OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF "/transport/recordOnOff"
 #define OSC_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
 
 #define OSC_ADDRESS_CLIP "/clip"
@@ -16,7 +15,7 @@
 #define OSC_ADDRESS_CLIP_UNDO "/clip/undo"
 
 #define OSC_ADDRESS_TRACK "/track"
-#define OSC_ADDRESS_TRACK_SELECT "/track/select"
+#define OSC_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
 
 #define OSC_ADDRESS_SCENE "/scene"
 #define OSC_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
@@ -65,23 +64,7 @@ MainComponent::MainComponent()
         oscMessageReceived(message);
     };
     globalStartStopButton.setButtonText("Start/Stop");
-    addAndMakeVisible (globalRecordButton);
-    globalRecordButton.onClick = [this] {
-        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF);
-        oscMessageReceived(message);
-    };
-    globalRecordButton.setButtonText("Record");
-    
-    addAndMakeVisible (selectedTrackLabel);
-    addAndMakeVisible (selectTrackButton);
-    selectTrackButton.setButtonText ("Track sel");
-    selectTrackButton.onClick = [this] {
-        int newSelectedTrack = (selectedTrack + 1) % tracks.size();
-        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRACK_SELECT);
-        message.addInt32(newSelectedTrack);
-        oscMessageReceived(message);
-    };
-    
+        
     addAndMakeVisible (metronomeToggleButton);
     metronomeToggleButton.setButtonText ("Metro on/off");
     metronomeToggleButton.onClick = [this] {
@@ -401,21 +384,20 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         shouldToggleIsPlaying = false;
     }
     
+    // Copy incoming midi to generated midi buffer for tracks that have input monitoring enabled
+    for (auto track: tracks){
+        track->processInputMonitoring(incomingMidi, generatedMidi);
+    }
+    
     // Generate notes and/or record notes
     if (isPlaying){
         for (auto track: tracks){
             track->clipsProcessSlice(incomingMidi, generatedMidi, bufferToFill.numSamples, lastMidiNoteOnMessages);
         }
     }
+    
+    // TODO: do MIDI FX processing of the generatedMidi buffer per track (or per clip if we decide effects are clip-based?)
 
-    // Add incoming midi to output
-    for (const auto metadata : incomingMidi)
-    {
-        auto msg = metadata.getMessage();
-        int channel = tracks[selectedTrack]->getMidiOutChannel();
-        msg.setChannel(channel);
-        generatedMidi.addEvent(msg, metadata.samplePosition);
-    }
     
     // Add metronome ticks to the buffer
     if (metronomePendingNoteOffSamplePosition > -1){
@@ -574,8 +556,6 @@ void MainComponent::resized()
     
     playheadLabel.setBounds(16, 20, 90, 20);
     globalStartStopButton.setBounds(16 + 100, 20, 100, 20);
-    globalRecordButton.setBounds(16 + 210, 20, 100, 20);
-    selectedTrackLabel.setBounds(16 + 210 + 110, 20, 50, 20);
     selectTrackButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
     tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
     metronomeToggleButton.setBounds(16 + 210 + 110 + 60 + 60, 20, 50, 20);
@@ -628,8 +608,6 @@ void MainComponent::timerCallback()
     } else {
         playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
     }
-    
-    selectedTrackLabel.setText ((juce::String)selectedTrack, juce::dontSendNotification);
     
     if (tempoSlider.getValue() != bpm){
         tempoSlider.setValue(bpm);
@@ -726,12 +704,15 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         }
         
     } else if (address.startsWith(OSC_ADDRESS_TRACK)) {
-        jassert(message.size() == 1);
+        jassert(message.size() >= 1);
         int trackNum = message[0].getInt32();
-        if (trackNum < tracks.size() && trackNum >= 0){
-            if (address == OSC_ADDRESS_TRACK_SELECT){
-                selectedTrack = trackNum;
-            }
+        jassert(trackNum < tracks.size());
+        if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
+            jassert(message.size() == 2);
+            bool trueFalse = message[1].getInt32() == 1;
+            auto track = tracks[trackNum];
+            std::cout << trackNum << " " << trueFalse << std::endl;
+            track->setInputMonitoring(trueFalse);
         }
          
     } else if (address.startsWith(OSC_ADDRESS_SCENE)) {
@@ -764,17 +745,6 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     shouldToggleIsPlaying = true;
                 }
             }
-        } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_ON_OFF){
-            auto track = tracks[selectedTrack];
-            std::vector<int> currentlyPlayingClipIndexes = track->getCurrentlyPlayingClipsIndex();
-            jassert(currentlyPlayingClipIndexes.size() <= 1);  // Only one clip per track should be playing at a time
-            if (currentlyPlayingClipIndexes.size() == 1){
-                // If currently selected track has a playing clip, toggle recording on that clip
-                for (auto clipNum: currentlyPlayingClipIndexes){
-                    track->getClipAt(clipNum)->toggleRecord();
-                }
-            }
-            
         } else if (address == OSC_ADDRESS_TRANSPORT_SET_BPM){
             jassert(message.size() == 1);
             float newBpm = message[0].getFloat32();
@@ -818,10 +788,10 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("tracks");
             stateAsStringParts.add((juce::String)tracks.size());
-            stateAsStringParts.add((juce::String)selectedTrack);
             for (auto track: tracks){
                 stateAsStringParts.add("t");
                 stateAsStringParts.add((juce::String)track->getNumberOfClips());
+                stateAsStringParts.add(track->inputMonitoringEnabled() ? "1":"0");
                 for (int i=0; i<track->getNumberOfClips(); i++){
                     stateAsStringParts.add(track->getClipAt(i)->getStatus());
                 }
@@ -839,8 +809,6 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add((juce::String)bpm);
             stateAsStringParts.add((juce::String)playheadPositionInBeats);
             stateAsStringParts.add(metronomeOn ? "p":"s");
-            stateAsStringParts.add((juce::String)selectedTrack);
-            stateAsStringParts.add((juce::String)selectedScene);
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
@@ -854,7 +822,6 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
 void MainComponent::playScene(int sceneN)
 {
     jassert(sceneN < nScenes);
-    selectedScene = sceneN;
     for (auto track: tracks){
         auto clip = track->getClipAt(sceneN);
         track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
@@ -867,17 +834,13 @@ void MainComponent::playScene(int sceneN)
 
 void MainComponent::duplicateScene(int sceneN)
 {
-    jassert(sceneN < nScenes);
+    // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
+    jassert(sceneN < nScenes - 1);
     
-    if (sceneN < nScenes - 1){
-        // Do not duplicate if the selected scene is the very last as there's no more space to accomodate new clips
-        // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
-        // sceneN.
-        for (auto track: tracks){
-            auto clip = track->getClipAt(sceneN);
-            track->insertClipAt(sceneN, clip->clone());
-        }
-        selectedScene = sceneN + 1;
+    // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
+    // sceneN.
+    for (auto track: tracks){
+        auto clip = track->getClipAt(sceneN);
+        track->insertClipAt(sceneN, clip->clone());
     }
-    
 }

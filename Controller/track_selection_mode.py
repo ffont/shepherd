@@ -126,6 +126,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def activate(self):
         self.update_buttons()
         self.update_pads()
+        self.select_track(self.selected_track)
 
     def deactivate(self):
         for button_name in self.track_button_names:
@@ -148,17 +149,27 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                 background_color = definitions.BLACK
                 font_color = track_color
             instrument_short_name = self.tracks_info[i]['instrument_short_name']
+            if self.app.shepherd_interface.get_track_is_input_monitoring(i):
+                instrument_short_name = '+' + instrument_short_name
             show_text(ctx, i, h - height, instrument_short_name, height=height,
                       font_color=font_color, background_color=background_color)
  
     def on_button_pressed(self, button_name):
         if button_name in self.track_button_names:
+            track_idx = self.track_button_names.index(button_name)
             if not self.app.main_controls_mode.shift_button_pressed:
                 # If button shift not pressed, select the track
                 self.select_track(self.track_button_names.index(button_name))
             else:
-                # If shift button is being pressed, send "all sound off" to that track
-                msg = mido.Message('control_change', control=120 - 1, value=0, channel=self.get_current_track_info()['midi_channel'] - 1)
-                self.app.send_midi(msg)
+                # If shift button is being pressed, toggle insput monitoring for that track
+                if self.app.shepherd_interface.get_track_is_input_monitoring(track_idx):
+                    self.app.shepherd_interface.track_set_input_monitoring(track_idx, False)
+                else:
+                    self.app.shepherd_interface.track_set_input_monitoring(track_idx, True)
+
+
+                # TODO: send notes off?
+                #msg = mido.Message('control_change', control=120 - 1, value=0, channel=self.get_current_track_info()['midi_channel'] - 1)
+                #self.app.send_midi(msg)
 
 

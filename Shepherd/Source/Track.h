@@ -29,6 +29,8 @@ public:
     int getNumberOfClips();
     int getMidiOutChannel();
     
+    void processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill);
+    
     void clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void clipsRenderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
     void clipsResetPlayheadPosition();
@@ -40,6 +42,9 @@ public:
     void insertClipAt(int clipN, Clip* clip);
     
     bool hasClipsCuedToRecord();
+    bool inputMonitoringEnabled();
+    
+    void setInputMonitoring(bool enabled);
 
 private:
     
@@ -52,6 +57,8 @@ private:
     juce::OwnedArray<Clip> midiClips;
     
     int midiOutChannel = 1;
+    
+    bool inputMonitoring = false;
     
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Track)

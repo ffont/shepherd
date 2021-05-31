@@ -68,7 +68,6 @@ class ShepherdInterface(object):
             old_is_playing = self.parsed_state.get('isPlaying', False)
             old_is_recording = self.parsed_state.get('isRecording', False)
             old_metronome_on = self.parsed_state.get('metronomeOn', False)
-            old_selected_scene = self.parsed_state.get('selectedScene', 0)
             self.parsed_state['isPlaying'] = parts[1] == "p"
             if 'clips' in self.parsed_state:
                 is_recording = False
@@ -83,43 +82,51 @@ class ShepherdInterface(object):
             self.parsed_state['bpm'] = float(parts[2])
             self.parsed_state['playhead'] = parts[3]
             self.parsed_state['metronomeOn'] = parts[4] == "p"
-            self.parsed_state['selectedTrack'] = int(parts[5])
-            self.parsed_state['selectedScene'] = int(parts[6])
-
-            if (hasattr(self.app, 'track_selection_mode')):
-                if (self.app.track_selection_mode.selected_track != self.parsed_state['selectedTrack']):
-                    self.app.track_selection_mode.select_track(self.parsed_state['selectedTrack'])
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
                 old_is_recording != self.parsed_state['isRecording'] or \
-                    old_metronome_on != self.parsed_state['metronomeOn'] or \
-                        old_selected_scene != self.parsed_state['selectedScene']:
+                    old_metronome_on != self.parsed_state['metronomeOn']:
                 self.app.buttons_need_update = True
 
         elif state.startswith("tracks"):
             if state != self.last_received_tracks_raw_state:
                 parts = state.split(',')
-                track_clips_state = []
+                self.parsed_state['numTracks'] = int(parts[1])
+                tracks_state = []
                 current_track_clips_state = []
                 in_track = False
                 for part in parts:
                     if part == "t":
                         in_track = True
                         if current_track_clips_state:
-                            track_clips_state.append(current_track_clips_state[1:])  # Remove first element which is # clips per track)
+                            tracks_state.append({
+                                    'numClips': int(current_track_clips_state[0]),
+                                    'inputMonitoring': current_track_clips_state[1] == "1",
+                                    'clips': current_track_clips_state[2:]
+                                }) 
                         current_track_clips_state = []
                     else:
                         if in_track:
                             current_track_clips_state.append(part)
                 if current_track_clips_state:
-                    track_clips_state.append(current_track_clips_state[1:])  # Add last one
+                    tracks_state.append({
+                        'numClips': int(current_track_clips_state[0]),
+                        'inputMonitoring': current_track_clips_state[1] == "1",
+                        'clips': current_track_clips_state[2:]
+                    })  # Add last one
 
-                self.parsed_state['clips'] = track_clips_state
+                self.parsed_state['tracks'] = tracks_state
                 self.app.pads_need_update = True
                 self.last_received_tracks_raw_state = state
 
     def track_select(self, track_number):
-        self.osc_sender.send_message('/track/select', [track_number])
+        num_tracks = self.parsed_state.get('numTracks', -1)
+        if num_tracks > -1:
+            for i in range(0, num_tracks):
+                self.track_set_input_monitoring(i, i == track_number)
+
+    def track_set_input_monitoring(self, track_number, enabled):
+        self.osc_sender.send_message('/track/setInputMonitoring', [track_number, 1 if enabled else 0])
 
     def clip_play_stop(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/playStop', [track_number, clip_number])
@@ -140,13 +147,22 @@ class ShepherdInterface(object):
         self.osc_sender.send_message('/clip/undo', [track_number, clip_number])
 
     def get_clip_state(self, track_num, clip_num):
-        if 'clips' in self.parsed_state:
+        if 'tracks' in self.parsed_state:
             try:
-                return self.parsed_state['clips'][track_num][clip_num]
+                return self.parsed_state['tracks'][track_num]['clips'][clip_num]
             except IndexError:
                 return "snE"
         else:
             return 'snE'
+
+    def get_track_is_input_monitoring(self, track_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return self.parsed_state['tracks'][track_num]['inputMonitoring']
+            except IndexError:
+                return False
+        else:
+            return False
 
     def scene_play(self, scene_number):
         self.osc_sender.send_message('/scene/play', [scene_number])
@@ -179,9 +195,6 @@ class ShepherdInterface(object):
         is_recording = self.parsed_state.get('isRecording', False)
         metronome_on = self.parsed_state.get('metronomeOn', False)
         return is_playing, is_recording, metronome_on
-
-    def get_selected_scene(self):
-        return self.parsed_state.get('selectedScene', 0)
 
     def get_bpm(self):
         return self.parsed_state.get('bpm', 120)
