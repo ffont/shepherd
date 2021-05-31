@@ -25,6 +25,8 @@ class ShepherdInterface(object):
     last_received_tracks_raw_state = ""
     parsed_state = {}
 
+    should_sync_state_with_backend = False
+
     def __init__(self, app):
         self.app = app
 
@@ -56,10 +58,15 @@ class ShepherdInterface(object):
             time.sleep(1.0/tracks_state_fps)
             self.osc_sender.send_message('/state/tracks', [])
 
-    def receive_shepherd_ready(self):
-        # When shepherd is ready, re-activate all modes to make sure we initialize things in the backend if needed
+    def sync_state_to_shepherd(self):
+        # re-activate all modes to make sure we initialize things in the backend if needed
         for mode in self.app.active_modes:
             mode.activate()
+        self.should_sync_state_with_backend = False
+
+    def receive_shepherd_ready(self):
+        self.should_sync_state_with_backend = True
+        
 
     def receive_state_from_shepherd(self, values):
         state = values.decode("utf-8")
@@ -118,6 +125,12 @@ class ShepherdInterface(object):
                 self.parsed_state['tracks'] = tracks_state
                 self.app.pads_need_update = True
                 self.last_received_tracks_raw_state = state
+
+        if 'tracks' in self.parsed_state and 'bpm' in self.parsed_state:
+            # Once full state has been received from backend, sync back to it
+            # We need to first receive full state because some of the things to set up (like current tracks with direct monitoring)
+            # depend on an intepretation of backend state plus the frontend state
+            self.sync_state_to_shepherd()
 
     def track_select(self, track_number):
         num_tracks = self.parsed_state.get('numTracks', -1)
