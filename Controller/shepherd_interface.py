@@ -76,9 +76,10 @@ class ShepherdInterface(object):
             old_is_recording = self.parsed_state.get('isRecording', False)
             old_metronome_on = self.parsed_state.get('metronomeOn', False)
             self.parsed_state['isPlaying'] = parts[1] == "p"
-            if 'clips' in self.parsed_state:
+            if 'tracks' in self.parsed_state:
                 is_recording = False
-                for track_clips in self.parsed_state['clips']:
+                for track_state in self.parsed_state['track']:
+                    track_clips = track_state['clips']
                     for clip in track_clips:
                         if 'r' in clip or 'w' in clip or 'W' in clip:
                             is_recording = True
