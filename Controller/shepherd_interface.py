@@ -188,18 +188,23 @@ class ShepherdInterface(object):
         self.osc_sender.send_message('/transport/playStop', [])
 
     def global_record(self):
-        # If currently selected track has a playing clip, toggle recording on that clip
-        if 'tracks' in self.parsed_state:
-            track_num = self.app.track_selection_mode.selected_track
-            track = self.parsed_state['tracks'][track_num]
-            clip_num = -1
-            for i, clip_state in enumerate(track['clips']):
-                if 'p' in clip_state:
-                    # clip is playing, toggle recording on that clip
-                    clip_num = i
-                    break
-            if clip_num >  -1:
-                self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
+        # Stop all clips that are being recorded
+        # If the currently played clip in currently selected track is not recording, start recording it
+        selected_trak_num = self.app.track_selection_mode.selected_track
+        for track_num, track in enumerate(self.parsed_state['tracks']):
+            if track_num == selected_trak_num:
+                clip_num = -1
+                for i, clip_state in enumerate(track['clips']):
+                    if 'p' in clip_state:
+                        # clip is playing, toggle recording on that clip
+                        clip_num = i
+                        break
+                if clip_num > -1:
+                    self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
+            else:
+                for clip_num, clip_state in enumerate(track['clips']):
+                    if 'r' in clip_state:
+                        self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
 
     def metronome_on_off(self):
         self.osc_sender.send_message('/metronome/onOff', [])
