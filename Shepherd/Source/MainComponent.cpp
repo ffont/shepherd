@@ -36,8 +36,6 @@
 #define OSC_ADDRESS_STATE_TRANSPORT "/state/transport"
 
 
-
-
 //==============================================================================
 MainComponent::MainComponent()
 {
@@ -805,9 +803,16 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("transport");
             stateAsStringParts.add(isPlaying ? "p":"s");
-            stateAsStringParts.add((juce::String)bpm);
-            stateAsStringParts.add((juce::String)playheadPositionInBeats);
+            stateAsStringParts.add(juce::String(bpm, 2));
+            stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
             stateAsStringParts.add(metronomeOn ? "p":"s");
+            juce::StringArray clipsPlayheadStateParts = {};
+            for (auto track: tracks){
+                for (int i=0; i<track->getNumberOfClips(); i++){
+                    clipsPlayheadStateParts.add(juce::String(track->getClipAt(i)->getPlayheadPosition(), 3));
+                }
+            }
+            stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));

@@ -140,9 +140,9 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def update_display(self, ctx, w, h):
         # Draw track selector labels
         height = 20
-        for i in range(0, 8):
+        for i in range(0, self.app.shepherd_interface.get_num_tracks()):
             track_color = self.tracks_info[i]['color']
-            if self.selected_track % 8 == i:
+            if self.selected_track == i:
                 background_color = track_color
                 font_color = definitions.BLACK
             else:

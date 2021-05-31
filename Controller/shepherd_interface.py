@@ -11,7 +11,6 @@ osc_receive_port = 9004
 tracks_state_fps = 4.0
 transport_state_fps = 10.0
 
-
 class ShepherdInterface(object):
 
     app = None
@@ -90,6 +89,7 @@ class ShepherdInterface(object):
             self.parsed_state['bpm'] = float(parts[2])
             self.parsed_state['playhead'] = parts[3]
             self.parsed_state['metronomeOn'] = parts[4] == "p"
+            self.parsed_state['clipPlayheads'] = [float(item) for item in parts[5].split(':')]
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
                 old_is_recording != self.parsed_state['isRecording'] or \
@@ -165,9 +165,25 @@ class ShepherdInterface(object):
             try:
                 return self.parsed_state['tracks'][track_num]['clips'][clip_num]
             except IndexError:
-                return "snE"
+                return 'snE|0.000'
         else:
-            return 'snE'
+            return 'snE|0.000'
+
+    def get_clip_length(self, track_num, clip_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return float(self.parsed_state['tracks'][track_num]['clips'][clip_num].split('|')[1])
+            except IndexError:
+                return 0.0
+        else:
+            return 0.0
+
+    def get_clip_playhead(self, clip_idx):
+        if 'clipPlayheads' in self.parsed_state:
+            return self.parsed_state['clipPlayheads'][clip_idx]
+        else:
+            return 0.0
+
 
     def get_track_is_input_monitoring(self, track_num):
         if 'tracks' in self.parsed_state:
@@ -177,6 +193,15 @@ class ShepherdInterface(object):
                 return False
         else:
             return False
+
+    def get_track_num_clips(self, track_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return self.parsed_state['tracks'][track_num]['numClips']
+            except IndexError:
+                return 0
+        else:
+            return 0
 
     def scene_play(self, scene_number):
         self.osc_sender.send_message('/scene/play', [scene_number])
@@ -231,3 +256,6 @@ class ShepherdInterface(object):
 
     def set_bpm(self, bpm):
         self.osc_sender.send_message('/transport/setBpm', [float(bpm)])
+
+    def get_num_tracks(self):
+        return self.parsed_state.get('numTracks', 0)

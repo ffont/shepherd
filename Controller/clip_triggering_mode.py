@@ -2,6 +2,8 @@ import definitions
 import push2_python
 import time
 
+from display_utils import show_text
+
 
 class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
@@ -36,6 +38,36 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     times_pad_pressed = {}
     ignore_next_pad_release = {}
     pad_pressing_action_time = 0.5
+
+    def update_display(self, ctx, w, h):
+        # Draw clip progress bars
+        info_to_draw = []
+        accumulated_clip_index = 0
+        for track_num in range(0, self.app.shepherd_interface.get_num_tracks()):
+            current_track_playing_clips_info = []
+            for clip_num in range(0, self.app.shepherd_interface.get_track_num_clips(track_num)):
+                clip_state = self.app.shepherd_interface.get_clip_state(track_num, clip_num)
+                if 'p' in clip_state or 'C' in clip_state:
+                    clip_length = float(clip_state.split('|')[1])
+                    playhead_position = self.app.shepherd_interface.get_clip_playhead(accumulated_clip_index)
+                    current_track_playing_clips_info.append((clip_num, clip_length, playhead_position))
+                accumulated_clip_index += 1
+            if current_track_playing_clips_info:
+                info_to_draw.append((track_num, current_track_playing_clips_info))
+
+        for track_num, playing_clips in info_to_draw:
+            num_clips = len(playing_clips)  # There should normally be only 1 clip playing per track at a time, but this supports multiple clips playing
+            for i , (clip_num, clip_length, playhead_position) in enumerate(playing_clips):
+                height = h - 20 // num_clips
+                y = height * i
+                track_color = self.app.track_selection_mode.get_track_color(track_num)
+                background_color = track_color
+                font_color = track_color + '_darker1'
+                if clip_length > 0.0:
+                    position_percentage = playhead_position/clip_length
+                else:
+                    position_percentage = 0.0
+                show_text(ctx, track_num, y, str(playhead_position), height=height, font_color=font_color, background_color=background_color, font_size_percentage=0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
 
     def activate(self):
         self.clear_clip_button_being_pressed = False

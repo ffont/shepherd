@@ -282,7 +282,7 @@ juce::String Clip::getStatus()
         emptyStatus = CLIP_STATUS_IS_NOT_EMPTY;
     }
     
-    return playStatus + recordStatus + emptyStatus;
+    return playStatus + recordStatus + emptyStatus + "|" + juce::String(clipLengthInBeats, 3);
 }
 
 void Clip::stopClipNowAndClearAllCues()
