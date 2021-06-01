@@ -150,15 +150,19 @@ class ShepherdInterface(object):
 
     def clip_clear(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/clear', [track_number, clip_number])
+        self.app.add_display_notification("Clear clip: {0}-{1}".format(track_number + 1, clip_number + 1))
 
     def clip_double(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/double', [track_number, clip_number])
+        self.app.add_display_notification("Double clip: {0}-{1}".format(track_number + 1, clip_number + 1))
 
     def clip_quantize(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/quantize', [track_number, clip_number])
+        self.app.add_display_notification("Quantize clip: {0}-{1}".format(track_number + 1, clip_number + 1))
 
     def clip_undo(self, track_number, clip_number):
         self.osc_sender.send_message('/clip/undo', [track_number, clip_number])
+        self.app.add_display_notification("Undo clip: {0}-{1}".format(track_number + 1, clip_number + 1))
 
     def get_clip_state(self, track_num, clip_num):
         if 'tracks' in self.parsed_state:
@@ -208,6 +212,7 @@ class ShepherdInterface(object):
 
     def scene_duplicate(self, scene_number):
         self.osc_sender.send_message('/scene/duplicate', [scene_number])
+        self.app.add_display_notification("Duplicate scene: {0}".format(scene_number + 1))
 
     def global_play_stop(self):
         self.osc_sender.send_message('/transport/playStop', [])
@@ -233,6 +238,7 @@ class ShepherdInterface(object):
 
     def metronome_on_off(self):
         self.osc_sender.send_message('/metronome/onOff', [])
+        self.app.add_display_notification("Metronome: {0}".format('On' if not self.parsed_state.get('metronomeOn', False) else 'Off'))
 
     def set_push_pads_mapping(self, new_mapping=[]):
         if new_mapping:
@@ -256,6 +262,7 @@ class ShepherdInterface(object):
 
     def set_bpm(self, bpm):
         self.osc_sender.send_message('/transport/setBpm', [float(bpm)])
+        self.app.add_display_notification("Tempo: {0} bpm".format(bpm))
 
     def get_num_tracks(self):
         return self.parsed_state.get('numTracks', 0)

@@ -212,6 +212,6 @@ class MainControlsMode(definitions.ShepherdControllerMode):
 
     def on_encoder_rotated(self, encoder_name, increment):
         if encoder_name == push2_python.constants.ENCODER_TEMPO_ENCODER:
-            new_bpm = int(self.app.shepherd_interface.get_bpm()) + increment * 2
+            new_bpm = int(self.app.shepherd_interface.get_bpm()) + increment
             self.app.shepherd_interface.set_bpm(new_bpm)
             return True  
