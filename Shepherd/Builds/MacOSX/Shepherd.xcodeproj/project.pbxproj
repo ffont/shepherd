@@ -54,6 +54,7 @@
 		511F075D71A0AE8CCBABDFDD /* Main.cpp */ /* Main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = Main.cpp; path = ../../Source/Main.cpp; sourceTree = SOURCE_ROOT; };
 		557D6DDCB4D313F2B9ED3BD8 /* juce_audio_devices */ /* juce_audio_devices */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_devices; path = ../../3rdParty/JUCE/modules/juce_audio_devices; sourceTree = SOURCE_ROOT; };
 		5BC03489880E2F189094901E /* WebKit.framework */ /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		5E43A549B77C5624A5CE0DBC /* DevelopmentUIComponent.h */ /* DevelopmentUIComponent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = DevelopmentUIComponent.h; path = ../../Source/DevelopmentUIComponent.h; sourceTree = SOURCE_ROOT; };
 		61CCF42B901B60B1D41336A0 /* include_juce_data_structures.mm */ /* include_juce_data_structures.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_data_structures.mm; path = ../../JuceLibraryCode/include_juce_data_structures.mm; sourceTree = SOURCE_ROOT; };
 		6B26B33640012F950C2904D0 /* juce_core */ /* juce_core */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_core; path = ../../3rdParty/JUCE/modules/juce_core; sourceTree = SOURCE_ROOT; };
 		6B85CFEA929D9E6B153F8F8F /* Cocoa.framework */ /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
@@ -217,6 +218,7 @@
 			children = (
 				511F075D71A0AE8CCBABDFDD,
 				B846BD05D97B63F98ABC68A2,
+				5E43A549B77C5624A5CE0DBC,
 				79F8C866EEDCFAEFF254BA0C,
 				F12CAA4810840C3006F52E0C,
 				2AE33E40AC8487429A60201C,

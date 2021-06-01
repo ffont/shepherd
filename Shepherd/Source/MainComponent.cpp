@@ -40,47 +40,13 @@
 MainComponent::MainComponent()
 {
     #if !RPI_BUILD
-    
-    // Main transport controls
-    addAndMakeVisible (tempoSlider);
-    tempoSlider.setRange (40, 300);
-    tempoSlider.setValue(bpm);
-    tempoSlider.setTextValueSuffix (" bpm");
-    tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 160, tempoSlider.getTextBoxHeight());
-    tempoSlider.onValueChange = [this] {
-        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_SET_BPM);
-        message.addFloat32((float)tempoSlider.getValue());
-        oscMessageReceived(message);
-    };
-    addAndMakeVisible (tempoSliderLabel);
-    tempoSliderLabel.setText ("Tempo", juce::dontSendNotification);
-    tempoSliderLabel.attachToComponent (&tempoSlider, true);
-    addAndMakeVisible (playheadLabel);
-    addAndMakeVisible (globalStartStopButton);
-    globalStartStopButton.onClick = [this] {
-        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_TRANSPORT_PLAY_STOP);
-        oscMessageReceived(message);
-    };
-    globalStartStopButton.setButtonText("Start/Stop");
-        
-    addAndMakeVisible (metronomeToggleButton);
-    metronomeToggleButton.setButtonText ("Metro on/off");
-    metronomeToggleButton.onClick = [this] {
-        juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_METRONOME_ON_OFF);
-        oscMessageReceived(message);
-    };
-    
-    addAndMakeVisible (internalSynthButton);
-    internalSynthButton.setButtonText ("Synth on/off");
-    internalSynthButton.onClick = [this] {
-        renderWithInternalSynth = !renderWithInternalSynth;
-        // NOTE: we don't use OSC interface here because this setting is only meant for testing
-        // purposes and is not included in "release" builds using OSC interface
-    };
+    addAndMakeVisible(devUiComponent);
+    setSize (devUiComponent.getWidth(), devUiComponent.getHeight());
+    #else
+    setSize(10, 10); // I think this needs to be called anyway...
     #endif
     
-    // Set UI size and start timer to print playhead position
-    setSize (710, 575);
+    // Start timer for recurring tasks
     startTimer (50);
 
     // Some platforms require permissions to open input channels so request that here
@@ -470,115 +436,11 @@ void MainComponent::paint (juce::Graphics& g)
 
 void MainComponent::resized()
 {
-    // Recreate clip contorl objects if tracks array has been filled
-    if (tracks.size() > 0 && !clipControlElementsCreated){
-        clipControlElementsCreated = true;
-        for (int j=0; j<tracks.size(); j++){
-            auto track = tracks[j];
-            for (int i=0; i<track->getNumberOfClips(); i++){
-                auto clipPlayheadLabel = new juce::Label();
-                auto clipRecordButton = new juce::TextButton();
-                auto clipStartStopButton = new juce::TextButton();
-                auto clipClearButton = new juce::TextButton();
-                auto clipDoubleButton = new juce::TextButton();
-                
-                clipRecordButton->onClick = [this, j, i] {
-                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_RECORD_ON_OFF);
-                    message.addInt32(j);
-                    message.addInt32(i);
-                    oscMessageReceived(message);
-                };
-                clipRecordButton->setButtonText("Record");
-                clipStartStopButton->onClick = [this, j, i] {
-                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_PLAY_STOP);
-                    message.addInt32(j);
-                    message.addInt32(i);
-                    oscMessageReceived(message);
-                };
-                clipStartStopButton->setButtonText("Start");
-                clipClearButton->onClick = [this, j, i] {
-                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_CLEAR);
-                    message.addInt32(j);
-                    message.addInt32(i);
-                    oscMessageReceived(message);
-                };
-                clipClearButton->setButtonText("C");
-                clipDoubleButton->onClick = [this, j, i] {
-                    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_CLIP_DOUBLE);
-                    message.addInt32(j);
-                    message.addInt32(i);
-                    oscMessageReceived(message);
-                };
-                clipDoubleButton->setButtonText("D");
-                
-                addAndMakeVisible (clipPlayheadLabel);
-                addAndMakeVisible (clipRecordButton);
-                addAndMakeVisible (clipClearButton);
-                addAndMakeVisible (clipStartStopButton);
-                addAndMakeVisible (clipDoubleButton);
-                
-                midiClipsClearButtons.add(clipClearButton);
-                midiClipsDoubleButtons.add(clipDoubleButton);
-                midiClipsRecordButtons.add(clipRecordButton);
-                midiClipsPlayheadLabels.add(clipPlayheadLabel);
-                midiClipsStartStopButtons.add(clipStartStopButton);
-            }
-        }
-        for (int i=0; i<nScenes; i++){
-            auto scenePlayButton = new juce::TextButton();
-            auto sceneDuplicateButton = new juce::TextButton();
-            
-            scenePlayButton->onClick = [this, i] {
-                juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SCENE_PLAY);
-                message.addInt32(i);
-                oscMessageReceived(message);
-            };
-            scenePlayButton->setButtonText("Tri");
-            
-            sceneDuplicateButton->onClick = [this, i] {
-                juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SCENE_DUPLICATE);
-                message.addInt32(i);
-                oscMessageReceived(message);
-            };
-            sceneDuplicateButton->setButtonText("Dup");
-            
-            addAndMakeVisible (scenePlayButton);
-            addAndMakeVisible (sceneDuplicateButton);
-            
-            scenePlayButtons.add(scenePlayButton);
-            sceneDuplicateButtons.add(sceneDuplicateButton);
-        }
-    }
-    
-    auto sliderLeft = 70;
-    
-    playheadLabel.setBounds(16, 20, 90, 20);
-    globalStartStopButton.setBounds(16 + 100, 20, 100, 20);
-    selectTrackButton.setBounds(16 + 210 + 110 + 60, 20, 50, 20);
-    tempoSlider.setBounds (sliderLeft, 45, getWidth() - sliderLeft - 10, 20);
-    metronomeToggleButton.setBounds(16 + 210 + 110 + 60 + 60, 20, 50, 20);
-    internalSynthButton.setBounds(16 + 210 + 110 + 60 + 60 + 60, 20, 50, 20);
- 
-    if (clipControlElementsCreated){
-        for (int i=0; i<tracks.size(); i++){
-            int xoffset = 80 * i;
-            for (int j=0; j<tracks[i]->getNumberOfClips(); j++){
-                int yoffset = j * 120;
-                int componentIndex = tracks[i]->getNumberOfClips() * i + j;  // Note this can fail if tracks don't have same number of clips... just for quick testing...
-                midiClipsPlayheadLabels[componentIndex]->setBounds(16 + xoffset, 100 + yoffset, 70, 20);
-                midiClipsStartStopButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 25, 70, 20);
-                midiClipsRecordButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 50, 70, 20);
-                midiClipsClearButtons[componentIndex]->setBounds(16 + xoffset, 100 + yoffset + 75, 30, 20);
-                midiClipsDoubleButtons[componentIndex]->setBounds(16 + xoffset + 40, 100 + yoffset + 75, 30, 20);
-            }
-        }
-        
-        for (int i=0; i<nScenes; i++){
-            int yoffset = 120 * i;
-            scenePlayButtons[i]->setBounds(16 + 80 * 8, 100 + yoffset, 40, 20);
-            sceneDuplicateButtons[i]->setBounds(16 + 80 * 8, 100 + yoffset + 25, 40, 20);
-        }
-    }
+    #if !RPI_BUILD
+    devUiComponent.setBounds(getLocalBounds());
+    #else
+    setSize(10, 10); // I think this needs to be called anyway...
+    #endif
 }
 
 //==============================================================================
@@ -592,57 +454,6 @@ void MainComponent::timerCallback()
             initializeMIDI();
         }
     }
-    
-    #if !RPI_BUILD
-    // Backend test UI stuff (not to be run in RPI builds)
-
-    if (!clipControlElementsCreated){
-        // Call resized methods so all the clip control componenets are created and drawn
-        resized();
-    }
-    
-    if (doingCountIn){
-        playheadLabel.setText ((juce::String)(-1 * (countInLengthInBeats - countInplayheadPositionInBeats)), juce::dontSendNotification);
-    } else {
-        playheadLabel.setText ((juce::String)playheadPositionInBeats, juce::dontSendNotification);
-    }
-    
-    if (tempoSlider.getValue() != bpm){
-        tempoSlider.setValue(bpm);
-    }
-    
-    if (clipControlElementsCreated){
-        for (int i=0; i<tracks.size(); i++){
-            for (int j=0; j<tracks[i]->getNumberOfClips(); j++){
-                auto midiClip = tracks[i]->getClipAt(j);
-                int componentIndex = tracks[i]->getNumberOfClips() * i + j;  // Note this can fail if tracks don't have same number of clips... just for quick testing...
-                midiClipsPlayheadLabels[componentIndex]->setText ((juce::String)midiClip->getPlayheadPosition() + " (" + (juce::String)midiClip->getLengthInBeats() + ")", juce::dontSendNotification);
-                
-                juce::String clipStatus = midiClip->getStatus();
-                
-                if (clipStatus.contains(CLIP_STATUS_RECORDING)){
-                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::red);
-                } else if (clipStatus.contains(CLIP_STATUS_CUED_TO_RECORD)){
-                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::orange);
-                } else if (clipStatus.contains(CLIP_STATUS_CUED_TO_STOP_RECORDING)){
-                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::yellow);
-                } else {
-                    midiClipsPlayheadLabels[componentIndex]->setColour(juce::Label::textColourId, juce::Colours::white);
-                }
-                
-                if (clipStatus.contains(CLIP_STATUS_PLAYING)){
-                    midiClipsStartStopButtons[componentIndex]->setButtonText("Stop");
-                    midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::green);
-                } else if ((clipStatus.contains(CLIP_STATUS_CUED_TO_PLAY)) || (clipStatus.contains(CLIP_STATUS_CUED_TO_STOP))){
-                    midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
-                } else {
-                    midiClipsStartStopButtons[componentIndex]->setButtonText("Start");
-                    midiClipsStartStopButtons[componentIndex]->setColour(juce::TextButton::buttonColourId, juce::Colours::black);
-                }
-            }
-        }
-    }
-    #endif
 }
 
 //==============================================================================
@@ -797,6 +608,10 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
             sendOscMessage(returnMessage);
             
+            #if !RPI_BUILD
+            devUiComponent.setStateTracks(stateAsStringParts.joinIntoString(","));
+            #endif
+            
         } else if (address == OSC_ADDRESS_STATE_TRANSPORT){
             jassert(message.size() == 0);
             
@@ -817,6 +632,10 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
             sendOscMessage(returnMessage);
+            
+            #if !RPI_BUILD
+            devUiComponent.setStateTransport(stateAsStringParts.joinIntoString(","));
+            #endif
             
         }
     }

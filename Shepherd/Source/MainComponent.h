@@ -6,6 +6,7 @@
 #include "Clip.h"
 #include "Track.h"
 #include "SynthAudioSource.h"
+#include "DevelopmentUIComponent.h"
 
 //==============================================================================
 /*
@@ -99,26 +100,14 @@ private:
     int nScenes = 8;  // Note that 4 of the scences are hidden in the test app JUCE UI
     #endif
     
+    #if !RPI_BUILD
     // Desktop app UI
+    DevelopmentUIComponent devUiComponent;
+    #endif
+
+    // Recurring tasks
     void timerCallback() override;  // Callback used to update UI components
-    juce::Slider tempoSlider;
-    juce::Label tempoSliderLabel;
-    juce::Label playheadLabel;
-    juce::TextButton globalStartStopButton;
-    juce::TextButton globalRecordButton;
-    juce::TextButton selectTrackButton;
-    juce::TextButton metronomeToggleButton;
-    juce::TextButton internalSynthButton;
-    juce::OwnedArray<juce::Label> midiClipsPlayheadLabels;
-    juce::OwnedArray<juce::TextButton> midiClipsClearButtons;
-    juce::OwnedArray<juce::TextButton> midiClipsDoubleButtons;
-    juce::OwnedArray<juce::TextButton> midiClipsStartStopButtons;
-    juce::OwnedArray<juce::TextButton> midiClipsRecordButtons;
-    juce::OwnedArray<juce::TextButton> sceneTriggerButtons;
-    juce::OwnedArray<juce::TextButton> scenePlayButtons;
-    juce::OwnedArray<juce::TextButton> sceneDuplicateButtons;
-    bool clipControlElementsCreated = false;
-    
+
     // Sine synth (for testing purposes only)
     juce::Synthesiser sineSynth;
     bool renderWithInternalSynth = true;

@@ -58,7 +58,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         for track_num, playing_clips in info_to_draw:
             num_clips = len(playing_clips)  # There should normally be only 1 clip playing per track at a time, but this supports multiple clips playing
             for i , (clip_num, clip_length, playhead_position) in enumerate(playing_clips):
-                height = h - 20 // num_clips
+                height = (h - 20) // num_clips
                 y = height * i
                 track_color = self.app.track_selection_mode.get_track_color(track_num)
                 background_color = track_color
@@ -67,7 +67,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     position_percentage = playhead_position/clip_length
                 else:
                     position_percentage = 0.0
-                show_text(ctx, track_num, y, str(playhead_position), height=height, font_color=font_color, background_color=background_color, font_size_percentage=0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
+                show_text(ctx, track_num, y, str(playhead_position), height=height, font_color=font_color, background_color=background_color, font_size_percentage=0.35 if num_clips > 1 else 0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
 
     def activate(self):
         self.clear_clip_button_being_pressed = False
