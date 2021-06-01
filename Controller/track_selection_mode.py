@@ -154,7 +154,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             show_text(ctx, i, h - height, instrument_short_name, height=height,
                       font_color=font_color, background_color=background_color)
 
-    def on_processed_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
+    def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
        if button_name in self.track_button_names:
             track_idx = self.track_button_names.index(button_name)
 

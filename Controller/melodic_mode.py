@@ -292,7 +292,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
             # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
         return True
 
-    def on_button_pressed(self, button_name):
+    def on_button_pressed_raw(self, button_name):
         if button_name == push2_python.constants.BUTTON_OCTAVE_UP:
             self.set_root_midi_note(self.root_midi_note + 12)
             self.app.pads_need_update = True
@@ -320,6 +320,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
             return True
 
         elif button_name == push2_python.constants.BUTTON_SELECT:
+            # TODO: change this to shifr + accent to avoid using select button
             self.modulation_wheel_mode = not self.modulation_wheel_mode
             if self.modulation_wheel_mode:
                 self.push.touchstrip.set_modulation_wheel_mode()

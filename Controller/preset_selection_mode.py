@@ -209,7 +209,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         self.app.pads_need_update = True
         return True  # Prevent other modes to get this event
 
-    def on_button_pressed(self, button_name):
+    def on_button_pressed_raw(self, button_name):
        if button_name in [push2_python.constants.BUTTON_LEFT, push2_python.constants.BUTTON_RIGHT]:
             show_prev, show_next = self.has_prev_next_pages()
             if button_name == push2_python.constants.BUTTON_LEFT and show_prev:

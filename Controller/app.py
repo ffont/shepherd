@@ -609,7 +609,7 @@ def on_button_pressed(_, name):
     # - Trigger raw button pressed action
     try:
         for mode in app.active_modes[::-1]:
-            action_performed = mode.on_button_pressed(name)
+            action_performed = mode.on_button_pressed_raw(name)
             if action_performed:
                 break  # If mode took action, stop event propagation
     except NameError as e:
@@ -625,7 +625,7 @@ def on_button_pressed(_, name):
             # If button has not been released, trigger the long press action
             try:
                 for mode in app.active_modes[::-1]:
-                    action_performed = mode.on_processed_button_pressed(name, long_press=True,
+                    action_performed = mode.on_button_pressed(name, long_press=True,
                         shift=buttons_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
                         select=buttons_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
                     if action_performed:
@@ -658,7 +658,7 @@ def on_button_released(_, name):
     # - Trigger raw button released action
     try:
         for mode in app.active_modes[::-1]:
-            action_performed = mode.on_button_released(name)
+            action_performed = mode.on_button_released_raw(name)
             if action_performed:
                 break  # If mode took action, stop event propagation
     except NameError as e:
@@ -676,7 +676,7 @@ def on_button_released(_, name):
             # If time between last 2 pressings is shorter than BUTTON_DOUBLE_PRESS_TIME, trigger double press action
             try:
                 for mode in app.active_modes[::-1]:
-                    action_performed = mode.on_processed_button_pressed(name, double_press=True,
+                    action_performed = mode.on_button_pressed(name, double_press=True,
                         shift=buttons_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
                         select=buttons_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
                     if action_performed:
@@ -687,7 +687,7 @@ def on_button_released(_, name):
         else:
             try:
                 for mode in app.active_modes[::-1]:
-                    action_performed = mode.on_processed_button_pressed(name, 
+                    action_performed = mode.on_button_pressed(name, 
                         shift=buttons_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
                         select=buttons_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
                     if action_performed:

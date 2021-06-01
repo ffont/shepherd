@@ -164,7 +164,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             animation_matrix.append(row_animation)
         self.push.pads.set_pads_color(color_matrix, animation_matrix)
 
-    def on_button_pressed(self, button_name):
+    def on_button_pressed_raw(self, button_name):
         if button_name in self.scene_trigger_buttons:
             triggered_scene_row = self.scene_trigger_buttons.index(button_name)
             self.app.shepherd_interface.scene_play(triggered_scene_row)
@@ -200,7 +200,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 self.app.buttons_need_update = True
             return True  # Prevent other modes to get this event
 
-    def on_button_released(self, button_name):
+    def on_button_released_raw(self, button_name):
 
         if button_name == self.clear_clip_button:
             self.clear_clip_button_being_pressed = False

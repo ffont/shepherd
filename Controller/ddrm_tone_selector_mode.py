@@ -773,7 +773,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                     show_text(ctx, i, top_offset, name.upper(), height=height,
                               font_color=font_color, background_color=background_color, font_size_percentage=0.2, center_vertically=True, center_horizontally=True, rectangle_padding=1)
 
-    def on_button_pressed(self, button_name):
+    def on_button_pressed_raw(self, button_name):
         if button_name in self.upper_row_button_names:
             start = self.page_n * 8
             button_idx = self.upper_row_button_names.index(button_name)

@@ -192,10 +192,10 @@ class ShepherdControllerMode(object):
     def on_encoder_rotated(self, encoder_name, increment):
         pass
 
-    def on_button_pressed(self, button_name):
+    def on_button_pressed_raw(self, button_name):
         pass
 
-    def on_button_released(self, button_name):
+    def on_button_released_raw(self, button_name):
         pass
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity):
@@ -214,5 +214,5 @@ class ShepherdControllerMode(object):
         pass
 
     # Processed Push2 action callbacks that allow to easily diferentiate between actions like "button single press", "button double press", "button long press", "button single press + shift"...
-    def on_processed_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
+    def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         pass

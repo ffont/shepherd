@@ -9,6 +9,7 @@ TRACK_TRIGGERING_BUTTON = push2_python.constants.BUTTON_SESSION
 PRESET_SELECTION_MODE_BUTTON = push2_python.constants.BUTTON_ADD_DEVICE
 DDRM_TONE_SELECTION_MODE_BUTTON = push2_python.constants.BUTTON_DEVICE
 SHIFT_BUTTON = push2_python.constants.BUTTON_SHIFT
+SELECT_BUTTON = push2_python.constants.BUTTON_SELECT
 
 
 class MainControlsMode(definitions.ShepherdControllerMode):
@@ -20,6 +21,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     last_tap_tempo_times = []
 
     shift_button_pressed = False
+    select_button_pressed = False
 
     def activate(self):
         self.update_buttons()
@@ -52,6 +54,12 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
         else:
             self.push.buttons.set_button_color(SHIFT_BUTTON, definitions.OFF_BTN_COLOR)
+
+        # Select button
+        if self.select_button_pressed:
+            self.push.buttons.set_button_color(SELECT_BUTTON, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
+        else:
+            self.push.buttons.set_button_color(SELECT_BUTTON, definitions.OFF_BTN_COLOR)
 
         # Settings button, to toggle settings mode
         if self.app.is_mode_active(self.app.settings_mode):
@@ -87,7 +95,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_METRONOME, definitions.BLACK if not metronome_on else definitions.WHITE)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_TAP_TEMPO, definitions.WHITE)
 
-    def on_button_pressed(self, button_name):
+    def on_button_pressed_raw(self, button_name):
         if button_name == MELODIC_RHYTHMIC_TOGGLE_BUTTON:
             self.app.toggle_melodic_rhythmic_slice_modes()
             self.app.pads_need_update = True
@@ -108,6 +116,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
 
         elif button_name == SHIFT_BUTTON:
             self.shift_button_pressed = True
+            return True
+
+        elif button_name == SELECT_BUTTON:
+            self.select_button_pressed = True
             return True
 
         elif button_name == TRACK_TRIGGERING_BUTTON:
@@ -165,7 +177,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             return True  
 
 
-    def on_button_released(self, button_name):
+    def on_button_released_raw(self, button_name):
         if button_name == TRACK_TRIGGERING_BUTTON:
             # Decide if short press or long press
             pressing_time = self.TRACK_TRIGGERING_BUTTON_pressing_time
@@ -208,6 +220,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
 
         elif button_name == SHIFT_BUTTON:
             self.shift_button_pressed = False
+            return True
+
+        elif button_name == SELECT_BUTTON:
+            self.select_button_pressed = False
             return True
 
     def on_encoder_rotated(self, encoder_name, increment):
