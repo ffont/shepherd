@@ -1,7 +1,11 @@
 import push2_python
+
 import colorsys
-import subprocess
 import os
+import subprocess
+import threading
+
+from functools import wraps
 
 VERSION = '0.30'
 CURRENT_COMMIT = str(subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip())[2:-1]
@@ -92,6 +96,48 @@ DEFAULT_ANIMATION = push2_python.constants.ANIMATION_PULSING_QUARTER
 INSTRUMENT_DEFINITION_FOLDER = 'instrument_definitions'
 TRACK_LISTING_PATH = 'track_listing.json'
 
+BUTTON_LONG_PRESS_TIME = 0.25
+BUTTON_DOUBLE_PRESS_TIME = 0.2
+
+
+# -- Timer for delayed actions
+
+def delay(delay=0.):
+    """
+    Decorator delaying the execution of a function for a while.
+    Adapted from: https://codeburst.io/javascript-like-settimeout-functionality-in-python-18c4773fa1fd
+    """
+    def wrap(f):
+        @wraps(f)
+        def delayed(*args, **kwargs):
+            timer = threading.Timer(delay, f, args=args, kwargs=kwargs)
+            timer.start()
+        return delayed
+    return wrap
+
+class Timer():
+    """
+    Adapted from: https://codeburst.io/javascript-like-settimeout-functionality-in-python-18c4773fa1fd
+    """
+    toClearTimer = False
+    
+    def setTimeout(self, fn, args, time):
+        isInvokationCancelled = False
+    
+        @delay(time)
+        def some_fn():
+                if (self.toClearTimer is False):
+                        fn(*args)
+                else:
+                    # Invokation is cleared!
+                    pass
+    
+        some_fn()
+        return isInvokationCancelled
+    
+    def setClearTimer(self):
+        self.toClearTimer = True
+
 class ShepherdControllerMode(object):
     """
     """
@@ -152,7 +198,6 @@ class ShepherdControllerMode(object):
     def on_button_released(self, button_name):
         pass
 
-
     def on_pad_pressed(self, pad_n, pad_ij, velocity):
         pass
 
@@ -166,4 +211,8 @@ class ShepherdControllerMode(object):
         pass
 
     def on_sustain_pedal(self, sustain_on):
+        pass
+
+    # Processed Push2 action callbacks that allow to easily diferentiate between actions like "button single press", "button double press", "button long press", "button single press + shift"...
+    def on_processed_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         pass

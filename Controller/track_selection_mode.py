@@ -153,23 +153,22 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                 instrument_short_name = '+' + instrument_short_name
             show_text(ctx, i, h - height, instrument_short_name, height=height,
                       font_color=font_color, background_color=background_color)
- 
-    def on_button_pressed(self, button_name):
-        if button_name in self.track_button_names:
+
+    def on_processed_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
+       if button_name in self.track_button_names:
             track_idx = self.track_button_names.index(button_name)
-            if not self.app.main_controls_mode.shift_button_pressed:
-                # If button shift not pressed, select the track
-                self.select_track(self.track_button_names.index(button_name))
-            else:
-                # If shift button is being pressed, toggle insput monitoring for that track
+
+            if double_press:
+                # Toggle input monitoring
                 if self.app.shepherd_interface.get_track_is_input_monitoring(track_idx):
                     self.app.shepherd_interface.track_set_input_monitoring(track_idx, False)
                 else:
                     self.app.shepherd_interface.track_set_input_monitoring(track_idx, True)
-
-
-                # TODO: send notes off?
-                #msg = mido.Message('control_change', control=120 - 1, value=0, channel=self.get_current_track_info()['midi_channel'] - 1)
-                #self.app.send_midi(msg)
-
-
+            else:
+                if not shift:
+                    # If button shift not pressed, select the track
+                    self.select_track(self.track_button_names.index(button_name))
+                else:
+                    # If button shift pressed, send all notes off to that track
+                    msg = mido.Message('control_change', control=120 - 1, value=0, channel=self.get_current_track_info()['midi_channel'] - 1)
+                    self.app.send_midi(msg)
