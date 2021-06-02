@@ -550,6 +550,11 @@ class ShepherdControllerApp(object):
         global buttons_pressed_state
         return buttons_pressed_state.get(button_name, False)
 
+    def set_button_ignore_next_action_if_not_yet_triggered(self, button_name):
+        global buttons_should_ignore_next_release_action, buttons_waiting_to_trigger_processed_action
+        if buttons_waiting_to_trigger_processed_action.get(button_name, False):
+            buttons_should_ignore_next_release_action[button_name] = True
+
 
 # Bind push action handlers with class methods
 @push2_python.on_encoder_rotated()
@@ -699,11 +704,12 @@ buttons_pressing_log = defaultdict(list)
 buttons_timers = defaultdict(None)
 buttons_pressed_state = {}
 buttons_should_ignore_next_release_action = {}
+buttons_waiting_to_trigger_processed_action = {}
 
 
 @push2_python.on_button_pressed()
 def on_button_pressed(_, name):
-    global buttons_pressing_log, buttons_timers, buttons_pressed_state, buttons_should_ignore_next_release_action
+    global buttons_pressing_log, buttons_timers, buttons_pressed_state, buttons_should_ignore_next_release_action, buttons_waiting_to_trigger_processed_action
 
     # - Trigger raw button pressed action
     try:
@@ -717,6 +723,8 @@ def on_button_pressed(_, name):
        traceback.print_exc()
 
     # - Trigger processed button actions
+    buttons_waiting_to_trigger_processed_action[name] = True
+
     def delayed_long_press_button_check(name):
         # If the maximum time to consider a long press has passed and button has not yet been released,
         # trigger the long press button action already and make sure when button is actually released
@@ -731,6 +739,7 @@ def on_button_pressed(_, name):
                     mode.set_buttons_need_update_if_button_used(name)
                     if action_performed:
                         break  # If mode took action, stop event propagation
+                buttons_waiting_to_trigger_processed_action[name] = False
             except NameError as e:
                 print('Error:  {}'.format(str(e)))
                 traceback.print_exc()
@@ -754,7 +763,7 @@ def on_button_pressed(_, name):
 
 @push2_python.on_button_released()
 def on_button_released(_, name):
-    global buttons_pressing_log, buttons_timers, buttons_pressed_state, buttons_should_ignore_next_release_action
+    global buttons_pressing_log, buttons_timers, buttons_pressed_state, buttons_should_ignore_next_release_action, buttons_waiting_to_trigger_processed_action
 
     # - Trigger raw button released action
     try:
@@ -784,6 +793,7 @@ def on_button_released(_, name):
                     mode.set_buttons_need_update_if_button_used(name)
                     if action_performed:
                         break  # If mode took action, stop event propagation
+                buttons_waiting_to_trigger_processed_action[name] = False
             except NameError as e:
                 print('Error:  {}'.format(str(e)))
                 traceback.print_exc()
@@ -796,6 +806,7 @@ def on_button_released(_, name):
                     mode.set_buttons_need_update_if_button_used(name)
                     if action_performed:
                         break  # If mode took action, stop event propagation
+                buttons_waiting_to_trigger_processed_action[name] = False
             except NameError as e:
                 print('Error:  {}'.format(str(e)))
                 traceback.print_exc()

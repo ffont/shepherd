@@ -202,7 +202,9 @@ class ShepherdControllerMode(object):
         else:
             self.push.buttons.set_button_color(button_name, color, animation=animation, animation_end_color=animation_end_color)
 
-    def set_button_color_if_expression(self, button_name, expression, color=WHITE, false_color=OFF_BTN_COLOR, animation=ANIMATION_STATIC, animation_end_color=BLACK):
+    def set_button_color_if_expression(self, button_name, expression, color=WHITE, false_color=OFF_BTN_COLOR, animation=ANIMATION_STATIC, animation_end_color=BLACK, also_include_is_pressed=False):
+        if also_include_is_pressed:
+            expression = expression or self.app.is_button_being_pressed(button_name)
         if not expression:
             self.push.buttons.set_button_color(button_name, false_color)
         else:

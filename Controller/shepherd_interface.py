@@ -225,15 +225,16 @@ class ShepherdInterface(object):
             if track_num == selected_trak_num:
                 clip_num = -1
                 for i, clip_state in enumerate(track['clips']):
-                    if 'p' in clip_state:
-                        # clip is playing, toggle recording on that clip
+                    if 'p' in clip_state or 'w' in clip_state:
+                        # clip is playing or cued to record, toggle recording on that clip
                         clip_num = i
                         break
                 if clip_num > -1:
                     self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
             else:
                 for clip_num, clip_state in enumerate(track['clips']):
-                    if 'r' in clip_state:
+                    if 'r' in clip_state or 'w' in clip_state:
+                        # if clip is recording or cued to record, toggle record so recording/cue are cleared
                         self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
 
     def metronome_on_off(self):

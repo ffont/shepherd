@@ -157,8 +157,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
        if button_name in self.track_button_names:
             track_idx = self.track_button_names.index(button_name)
-
-            if double_press:
+            if long_press:
                 # Toggle input monitoring
                 if self.app.shepherd_interface.get_track_is_input_monitoring(track_idx):
                     self.app.shepherd_interface.track_set_input_monitoring(track_idx, False)

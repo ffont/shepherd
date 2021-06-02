@@ -58,7 +58,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         # Play/stop/metronome buttons
         is_playing, is_recording, metronome_on = self.app.shepherd_interface.get_buttons_state()
         self.set_button_color_if_expression(self.play_button, is_playing, definitions.GREEN, false_color=definitions.WHITE)
-        self.set_button_color_if_expression(self.record_button, is_recording, definitions.RED, false_color=definitions.WHITE)
+        self.set_button_color_if_expression(self.record_button, is_recording, definitions.RED, false_color=definitions.WHITE, animation=definitions.DEFAULT_ANIMATION if self.app.is_button_being_pressed(self.record_button) else definitions.ANIMATION_STATIC, also_include_is_pressed=True)
         self.set_button_color_if_expression(self.metronome_button, metronome_on, definitions.WHITE)
         self.set_button_color(self.tap_tempo_button)
 
@@ -88,7 +88,9 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             return True 
             
         elif button_name == self.record_button:
-            self.app.shepherd_interface.global_record()
+            if not long_press:
+                # Ignore long press event as it can be triggered while making a rec+pad button combination
+                self.app.shepherd_interface.global_record()
             return True  
 
         elif button_name == self.metronome_button:

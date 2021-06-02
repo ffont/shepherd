@@ -139,21 +139,22 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         track_num = pad_ij[1]
         clip_num = pad_ij[0]
 
-        if long_press:
-            # Toggle record on/off for that clip
+        if self.app.is_button_being_pressed(self.app.main_controls_mode.record_button):
+            # Toggle record on/off for that clip if record button is being pressed
             self.app.shepherd_interface.clip_record_on_off(track_num, clip_num)
+            self.app.set_button_ignore_next_action_if_not_yet_triggered(self.app.main_controls_mode.record_button)
 
         else:
-            if self.clear_clip_button_being_pressed:
+            if self.app.is_button_being_pressed(self.clear_clip_button):
                 self.app.shepherd_interface.clip_clear(track_num, clip_num)
 
-            elif self.double_clip_button_being_pressed:
+            elif self.app.is_button_being_pressed(self.double_clip_button):
                 self.app.shepherd_interface.clip_double(track_num, clip_num)
 
-            elif self.quantize_button_being_pressed:
+            elif self.app.is_button_being_pressed(self.quantize_button):
                 self.app.shepherd_interface.clip_quantize(track_num, clip_num)
 
-            elif self.undo_button_being_pressed:
+            elif self.app.is_button_being_pressed(self.undo_button):
                 self.app.shepherd_interface.clip_undo(track_num, clip_num)
 
             else:

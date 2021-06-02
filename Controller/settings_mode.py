@@ -39,6 +39,17 @@ class SettingsMode(definitions.ShepherdControllerMode):
     n_pages = 3
     encoders_state = {}
 
+    buttons_used = [
+        push2_python.constants.BUTTON_UPPER_ROW_1,
+        push2_python.constants.BUTTON_UPPER_ROW_2,
+        push2_python.constants.BUTTON_UPPER_ROW_3,
+        push2_python.constants.BUTTON_UPPER_ROW_4,
+        push2_python.constants.BUTTON_UPPER_ROW_5,
+        push2_python.constants.BUTTON_UPPER_ROW_6,
+        push2_python.constants.BUTTON_UPPER_ROW_7,
+        push2_python.constants.BUTTON_UPPER_ROW_8
+    ]
+
     def move_to_next_page(self):
         self.app.buttons_need_update = True
         self.current_page += 1
@@ -57,9 +68,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
     def activate(self):
         self.current_page = 0
         self.update_buttons()
-
-    def deactivate(self):
-        self.set_all_upper_row_buttons_off()
 
     def check_for_delayed_actions(self):
         current_time = time.time()
@@ -81,16 +89,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
             if current_time - self.encoders_state[push2_python.constants.ENCODER_TRACK6_ENCODER]['last_message_received'] > definitions.DELAYED_ACTIONS_APPLY_TIME:
                 self.app.set_notes_midi_in_device_by_index(self.app.notes_midi_in_tmp_device_idx)
                 self.app.notes_midi_in_tmp_device_idx = None
-
-    def set_all_upper_row_buttons_off(self):
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.OFF_BTN_COLOR)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
 
     def update_buttons(self):
         if self.current_page == 0:  # Performance settings
@@ -124,7 +122,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
         
     def update_display(self, ctx, w, h):
-
         # Divide display in 8 parts to show different settings
         part_w = w // 8
         part_h = h
@@ -297,9 +294,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
 
     def on_encoder_rotated(self, encoder_name, increment):
-
         self.encoders_state[encoder_name]['last_message_received'] = time.time()
-
         if self.current_page == 0:  # Performance settings
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                 self.app.melodic_mode.set_root_midi_note(self.app.melodic_mode.root_midi_note + increment)
@@ -376,8 +371,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
         return True  # Always return True because encoder should not be used in any other mode if this is first active
 
-    def on_button_pressed_raw(self, button_name):
-
+    def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if self.current_page == 0:  # Performance settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
                 self.app.melodic_mode.set_root_midi_note(self.app.melodic_mode.root_midi_note + 1)
@@ -458,8 +452,10 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 # Run software update code
                 global is_running_sw_update
                 is_running_sw_update = "Starting"
-                run_sw_update(do_pip_install=False)
-                # TODO: add some way to call this with do_pip_install=True (?)
+                if not shift:
+                    run_sw_update(do_pip_install=False)
+                else:
+                    run_sw_update(do_pip_install=True)
                 return True
             
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_5:
@@ -490,4 +486,3 @@ def run_sw_update(do_pip_install=True):
     is_running_sw_update = 'Restarting'
     os.system('sudo systemctl restart shepherd')
     restart_apps()
-

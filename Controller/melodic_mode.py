@@ -193,8 +193,8 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.update_pads_backend_mapping()
 
     def deactivate(self):
-        super().deactivate()  # Run supperclass deactivate to set all used buttons to black
-
+        # Run supperclass deactivate to set all used buttons to black
+        super().deactivate()
         # Clear note mapping in Shepherd backend
         self.clear_pads_backend_mapping()    
 
@@ -276,11 +276,9 @@ class MelodicMode(definitions.ShepherdControllerMode):
 
     def on_pad_aftertouch(self, pad_n, pad_ij, velocity):
         if pad_n is not None:
-            # polyAT mode
             self.latest_poly_at_value = (time.time(), velocity)
             # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
         else:
-            # channel AT mode
             self.latest_channel_at_value = (time.time(), velocity)
             # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
         return True

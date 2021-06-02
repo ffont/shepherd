@@ -101,6 +101,11 @@ class MIDICCMode(ShepherdControllerMode):
         push2_python.constants.BUTTON_UPPER_ROW_7,
         push2_python.constants.BUTTON_UPPER_ROW_8
     ]
+    page_left_button = push2_python.constants.BUTTON_PAGE_LEFT
+    page_right_button = push2_python.constants.BUTTON_PAGE_RIGHT
+
+    buttons_used = midi_cc_button_names + [page_left_button, page_right_button]
+
     instrument_midi_control_ccs = {}
     active_midi_control_ccs = []
     current_selected_section_and_page = {}
@@ -198,7 +203,10 @@ class MIDICCMode(ShepherdControllerMode):
     def update_encoders_backend_mapping(self):
         mapping = []
         for encoder_num in range(0, 8):
-            mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
+            try:
+                mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
+            except IndexError:
+                mapping.append(-1)
         self.app.shepherd_interface.set_push_encoders_mapping(mapping)
 
     def clear_encoders_backend_mapping(self):
@@ -209,31 +217,21 @@ class MIDICCMode(ShepherdControllerMode):
         self.update_encoders_backend_mapping()
 
     def deactivate(self):
-        for button_name in self.midi_cc_button_names + [push2_python.constants.BUTTON_PAGE_LEFT, push2_python.constants.BUTTON_PAGE_RIGHT]:
-            self.push.buttons.set_button_color(button_name, definitions.BLACK)
+        # Run supperclass deactivate to set all used buttons to black
+        super().deactivate()
+        # Clear encoders mapping in backend
         self.clear_encoders_backend_mapping()
 
     def update_buttons(self):
-
         n_midi_cc_sections = len(self.get_current_track_midi_cc_sections())
         for count, name in enumerate(self.midi_cc_button_names):
-            if count < n_midi_cc_sections:
-                self.push.buttons.set_button_color(name, definitions.WHITE)
-            else:
-                self.push.buttons.set_button_color(name, definitions.BLACK)
+            self.set_button_color_if_expression(name, count < n_midi_cc_sections, false_color=definitions.BLACK)
 
         show_prev, show_next = self.get_should_show_midi_cc_next_prev_pages_for_section()
-        if show_prev:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_LEFT, definitions.WHITE)
-        else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_LEFT, definitions.BLACK)
-        if show_next:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_RIGHT, definitions.WHITE)
-        else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_RIGHT, definitions.BLACK)
+        self.set_button_color_if_expression(self.page_left_button, show_prev)
+        self.set_button_color_if_expression(self.page_right_button, show_next)
 
     def update_display(self, ctx, w, h):
-
         if not self.app.is_mode_active(self.app.settings_mode) and not self.app.is_mode_active(self.app.clip_triggering_mode):
             # If settings mode is active, don't draw the upper parts of the screen because settings page will
             # "cover them"
@@ -267,9 +265,8 @@ class MIDICCMode(ShepherdControllerMode):
                         self.active_midi_control_ccs[i].draw(ctx, i)
                     except IndexError:
                         continue
- 
     
-    def on_button_pressed_raw(self, button_name):
+    def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if  button_name in self.midi_cc_button_names:
             current_track_sections = self.get_current_track_midi_cc_sections()
             n_sections = len(current_track_sections)
@@ -279,15 +276,14 @@ class MIDICCMode(ShepherdControllerMode):
                 self.update_current_section_page(new_section=new_section, new_page=0)
             return True
 
-        elif button_name in [push2_python.constants.BUTTON_PAGE_LEFT, push2_python.constants.BUTTON_PAGE_RIGHT]:
+        elif button_name in [self.page_left_button, self.page_right_button]:
             show_prev, show_next = self.get_should_show_midi_cc_next_prev_pages_for_section()
             _, current_page = self.get_currently_selected_midi_cc_section_and_page()
-            if button_name == push2_python.constants.BUTTON_PAGE_LEFT and show_prev:
+            if button_name == self.page_left_button and show_prev:
                 self.update_current_section_page(new_page=current_page - 1)
-            elif button_name == push2_python.constants.BUTTON_PAGE_RIGHT and show_next:
+            elif button_name == self.page_right_button and show_next:
                 self.update_current_section_page(new_page=current_page + 1)
             return True
-
 
     def on_encoder_rotated(self, encoder_name, increment):
         try:
