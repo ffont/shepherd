@@ -7,6 +7,8 @@ import threading
 
 from functools import wraps
 
+from push2_python.constants import ANIMATION_STATIC
+
 VERSION = '0.30'
 CURRENT_COMMIT = str(subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip())[2:-1]
 RUNNING_ON_RPI = os.path.exists('/sys/firmware/devicetree/base/model') and 'raspberry pi' in '\n'.join(open('/sys/firmware/devicetree/base/model').readlines()).lower()
@@ -144,6 +146,7 @@ class ShepherdControllerMode(object):
 
     name = ''
     xor_group = None
+    buttons_used = []
 
     def __init__(self, app, settings=None):
         self.app = app
@@ -167,7 +170,8 @@ class ShepherdControllerMode(object):
         pass
 
     def deactivate(self):
-        pass
+        # Default implementation is to set all buttons used (if any) to black
+        self.set_buttons_to_color(self.buttons_used, BLACK)
 
     # Method called at every iteration in the main loop to see if any actions need to be performed at the end of the iteration
     # This is used to avoid some actions unncessesarily being repeated many times
@@ -188,6 +192,30 @@ class ShepherdControllerMode(object):
     def update_display(self, ctx, w, h):
         pass
 
+    # Some update helper methods
+    def set_button_color(self, button_name, color=WHITE, animation=ANIMATION_STATIC, animation_end_color=BLACK):
+        self.push.buttons.set_button_color(button_name, color, animation=animation, animation_end_color=animation_end_color)
+
+    def set_button_color_if_pressed(self, button_name, color=WHITE, off_color=OFF_BTN_COLOR, animation=ANIMATION_STATIC, animation_end_color=BLACK):
+        if not self.app.is_button_being_pressed(button_name):
+            self.push.buttons.set_button_color(button_name, off_color)
+        else:
+            self.push.buttons.set_button_color(button_name, color, animation=animation, animation_end_color=animation_end_color)
+
+    def set_button_color_if_expression(self, button_name, expression, color=WHITE, false_color=OFF_BTN_COLOR, animation=ANIMATION_STATIC, animation_end_color=BLACK):
+        if not expression:
+            self.push.buttons.set_button_color(button_name, false_color)
+        else:
+            self.push.buttons.set_button_color(button_name, color, animation=animation, animation_end_color=animation_end_color)
+
+    def set_buttons_to_color(self, button_names, color=WHITE, animation=ANIMATION_STATIC, animation_end_color=BLACK):
+        for button_name in button_names:
+            self.push.buttons.set_button_color(button_name, color, animation=animation, animation_end_color=animation_end_color)
+
+    def set_buttons_need_update_if_button_used(self, button_name):
+        if button_name in self.buttons_used:
+            self.app.buttons_need_update = True
+
     # Push2 action callbacks (these methods should return True if some action was carried out, otherwise return None)
     def on_encoder_rotated(self, encoder_name, increment):
         pass
@@ -198,10 +226,10 @@ class ShepherdControllerMode(object):
     def on_button_released_raw(self, button_name):
         pass
 
-    def on_pad_pressed(self, pad_n, pad_ij, velocity):
+    def on_pad_pressed_raw(self, pad_n, pad_ij, velocity):
         pass
 
-    def on_pad_released(self, pad_n, pad_ij, velocity):
+    def on_pad_released_raw(self, pad_n, pad_ij, velocity):
         pass
 
     def on_pad_aftertouch(self, pad_n, pad_ij, velocity):
@@ -215,4 +243,7 @@ class ShepherdControllerMode(object):
 
     # Processed Push2 action callbacks that allow to easily diferentiate between actions like "button single press", "button double press", "button long press", "button single press + shift"...
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
+        pass
+
+    def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         pass

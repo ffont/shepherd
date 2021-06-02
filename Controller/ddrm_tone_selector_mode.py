@@ -607,6 +607,11 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
         push2_python.constants.BUTTON_LOWER_ROW_8
     ]
 
+    button_left = push2_python.constants.BUTTON_PAGE_LEFT
+    button_right = push2_python.constants.BUTTON_PAGE_RIGHT
+
+    used_buttons = upper_row_button_names + lower_row_button_names + [button_left, button_right]
+
     upper_row_names = [
         NAME_STRING_1,
         NAME_STRING_3,
@@ -710,12 +715,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
     def activate(self):
         self.update_buttons()
 
-    def deactivate(self):
-        for button_name in self.upper_row_button_names + self.lower_row_button_names + [push2_python.constants.BUTTON_PAGE_LEFT, push2_python.constants.BUTTON_PAGE_RIGHT]:
-            self.push.buttons.set_button_color(button_name, definitions.BLACK)
-
     def update_buttons(self):
-
         for count, name in enumerate(self.upper_row_button_names):
             try:
                 tone_name = self.upper_row_names[count + self.page_n * 8]
@@ -731,21 +731,13 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                 self.push.buttons.set_button_color(name, definitions.OFF_BTN_COLOR)
 
         show_prev, show_next = self.get_should_show_next_prev()
-        if show_prev:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_LEFT, definitions.WHITE)
-        else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_LEFT, definitions.BLACK)
-        if show_next:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_RIGHT, definitions.WHITE)
-        else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_PAGE_RIGHT, definitions.BLACK)
+        self.set_button_color_if_expression(self.button_left, show_prev, definitions.WHITE)
+        self.set_button_color_if_expression(self.button_right, show_next, definitions.WHITE)
 
     def update_display(self, ctx, w, h):
-
         if not self.app.is_mode_active(self.app.settings_mode):
             # If settings mode is active, don't draw the upper parts of the screen because settings page will
             # "cover them"
-
             start = self.page_n * 8
 
             # Draw upper row
@@ -773,7 +765,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                     show_text(ctx, i, top_offset, name.upper(), height=height,
                               font_color=font_color, background_color=background_color, font_size_percentage=0.2, center_vertically=True, center_horizontally=True, rectangle_padding=1)
 
-    def on_button_pressed_raw(self, button_name):
+    def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if button_name in self.upper_row_button_names:
             start = self.page_n * 8
             button_idx = self.upper_row_button_names.index(button_name)
@@ -796,11 +788,10 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                 pass
             return True
 
-        elif button_name in [push2_python.constants.BUTTON_PAGE_LEFT, push2_python.constants.BUTTON_PAGE_RIGHT]:
+        elif button_name in [self.button_left, self.button_right]:
             show_prev, show_next = self.get_should_show_next_prev()
-            if button_name == push2_python.constants.BUTTON_PAGE_LEFT and show_prev:
+            if button_name == self.button_left and show_prev:
                 self.page_n = 0
-            elif button_name == push2_python.constants.BUTTON_PAGE_RIGHT and show_next:
+            elif button_name == self.button_right and show_next:
                 self.page_n = 1
-            self.app.buttons_need_update = True
             return True

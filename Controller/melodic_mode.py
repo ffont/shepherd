@@ -26,6 +26,12 @@ class MelodicMode(definitions.ShepherdControllerMode):
     lumi_midi_out = None
     last_time_tried_initialize_lumi = 0
 
+    octave_up_button = push2_python.constants.BUTTON_OCTAVE_UP
+    octave_down_button = push2_python.constants.BUTTON_OCTAVE_DOWN
+    accent_button = push2_python.constants.BUTTON_ACCENT
+
+    buttons_used = [octave_up_button, octave_down_button, accent_button]
+
     def init_lumi_midi_out(self):
         print('Configuring LUMI notes MIDI out...')
         self.last_time_tried_initialize_lumi = time.time()
@@ -187,13 +193,10 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.update_pads_backend_mapping()
 
     def deactivate(self):
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_DOWN, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_UP, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.BLACK)
+        super().deactivate()  # Run supperclass deactivate to set all used buttons to black
 
         # Clear note mapping in Shepherd backend
-        self.clear_pads_backend_mapping()
+        self.clear_pads_backend_mapping()    
 
     def check_for_delayed_actions(self):
         if self.last_time_at_params_edited is not None and time.time() - self.last_time_at_params_edited > definitions.DELAYED_ACTIONS_APPLY_TIME:
@@ -214,24 +217,14 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.app.pads_need_update = True
 
     def update_octave_buttons(self):
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_DOWN, definitions.WHITE)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_OCTAVE_UP, definitions.WHITE)
+        self.set_button_color(self.octave_down_button)
+        self.set_button_color(self.octave_up_button)
 
     def update_accent_button(self):
-        if self.fixed_velocity_mode:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
-        else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_ACCENT, definitions.OFF_BTN_COLOR)
-
-    def update_modulation_wheel_mode_button(self):
-        if self.modulation_wheel_mode:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.WHITE, animation=definitions.DEFAULT_ANIMATION)
-        else:
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_SELECT, definitions.OFF_BTN_COLOR)
+        self.set_button_color_if_expression(self.accent_button, self.fixed_velocity_mode, animation=definitions.DEFAULT_ANIMATION)
 
     def update_buttons(self):
         self.update_octave_buttons()
-        self.update_modulation_wheel_mode_button()
         self.update_accent_button()
 
     def update_pads(self):
@@ -256,7 +249,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
 
         self.push.pads.set_pads_color(color_matrix)
 
-    def on_pad_pressed(self, pad_n, pad_ij, velocity):
+    def on_pad_pressed_raw(self, pad_n, pad_ij, velocity):
         midi_note = self.pad_ij_to_midi_note(pad_ij)
         if midi_note is not None:
             self.latest_velocity_value = (time.time(), velocity)
@@ -271,7 +264,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
             # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
             return True
 
-    def on_pad_released(self, pad_n, pad_ij, velocity):
+    def on_pad_released_raw(self, pad_n, pad_ij, velocity):
         midi_note = self.pad_ij_to_midi_note(pad_ij)
         if midi_note is not None:
             if self.app.track_selection_mode.get_current_track_info().get('illuminate_local_notes', True) or self.app.notes_midi_in is None:
@@ -292,8 +285,8 @@ class MelodicMode(definitions.ShepherdControllerMode):
             # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
         return True
 
-    def on_button_pressed_raw(self, button_name):
-        if button_name == push2_python.constants.BUTTON_OCTAVE_UP:
+    def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
+        if button_name == self.octave_up_button:
             self.set_root_midi_note(self.root_midi_note + 12)
             self.app.pads_need_update = True
             self.app.add_display_notification("Octave up: from {0} to {1}".format(
@@ -302,7 +295,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
             ))
             return True
 
-        elif button_name == push2_python.constants.BUTTON_OCTAVE_DOWN:
+        elif button_name == self.octave_down_button:
             self.set_root_midi_note(self.root_midi_note - 12)
             self.app.pads_need_update = True
             self.app.add_display_notification("Octave down: from {0} to {1}".format(
@@ -311,21 +304,21 @@ class MelodicMode(definitions.ShepherdControllerMode):
             ))
             return True
 
-        elif button_name == push2_python.constants.BUTTON_ACCENT:
-            self.fixed_velocity_mode = not self.fixed_velocity_mode
-            self.app.shepherd_interface.set_fixed_velocity(127 if self.fixed_velocity_mode else -1) 
-            self.app.buttons_need_update = True
-            self.app.pads_need_update = True
-            self.app.add_display_notification("Fixed velocity: {0}".format('On' if self.fixed_velocity_mode else 'Off'))
-            return True
-
-        elif button_name == push2_python.constants.BUTTON_SELECT:
-            # TODO: change this to shifr + accent to avoid using select button
-            self.modulation_wheel_mode = not self.modulation_wheel_mode
-            if self.modulation_wheel_mode:
-                self.push.touchstrip.set_modulation_wheel_mode()
+        elif button_name == self.accent_button:
+            if shift:
+                # Toggle modwheel mode
+                self.modulation_wheel_mode = not self.modulation_wheel_mode
+                if self.modulation_wheel_mode:
+                    self.push.touchstrip.set_modulation_wheel_mode()
+                else:
+                    self.push.touchstrip.set_pitch_bend_mode()
+                self.app.add_display_notification("Touchstrip mode: {0}".format('Modulation wheel' if self.modulation_wheel_mode else 'Pitch bend'))
+                return True
             else:
-                self.push.touchstrip.set_pitch_bend_mode()
-            self.app.buttons_need_update = True
-            self.app.add_display_notification("Touchstrip mode: {0}".format('Modulation wheel' if self.modulation_wheel_mode else 'Pitch bend'))
-            return True
+                # Toggle accept mode
+                self.fixed_velocity_mode = not self.fixed_velocity_mode
+                self.app.shepherd_interface.set_fixed_velocity(127 if self.fixed_velocity_mode else -1) 
+                self.app.pads_need_update = True
+                self.app.add_display_notification("Fixed velocity: {0}".format('On' if self.fixed_velocity_mode else 'Off'))
+                return True
+    

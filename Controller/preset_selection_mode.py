@@ -167,12 +167,12 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
             color_matrix.append(row_colors)
         self.push.pads.set_pads_color(color_matrix)
 
-    def on_pad_pressed(self, pad_n, pad_ij, velocity):
+    def on_pad_pressed_raw(self, pad_n, pad_ij, velocity):
         self.pad_pressing_states[pad_n] = time.time()  # Store time at which pad_n was pressed
         self.push.pads.set_pad_color(pad_ij, color=definitions.GREEN)
         return True  # Prevent other modes to get this event
 
-    def on_pad_released(self, pad_n, pad_ij, velocity):
+    def on_pad_released_raw(self, pad_n, pad_ij, velocity):
         pressing_time = self.pad_pressing_states.get(pad_n, None)
         is_long_press = False
         if pressing_time is None:
