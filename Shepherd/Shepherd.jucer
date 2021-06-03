@@ -4,6 +4,7 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" projectLineFeed="&#10;">
   <MAINGROUP id="zLUL6I" name="Shepherd">
     <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Source">
+      <FILE id="FkBujr" name="defines.h" compile="0" resource="0" file="Source/defines.h"/>
       <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
       <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
             file="Source/SynthAudioSource.h"/>

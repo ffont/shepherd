@@ -11,26 +11,14 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "defines.h"
 #include "Playhead.h"
-
-#define CLIP_STATUS_PLAYING "p"
-#define CLIP_STATUS_STOPPED "s"
-#define CLIP_STATUS_CUED_TO_PLAY "c"
-#define CLIP_STATUS_CUED_TO_STOP "C"
-#define CLIP_STATUS_RECORDING "r"
-#define CLIP_STATUS_CUED_TO_RECORD "w"
-#define CLIP_STATUS_CUED_TO_STOP_RECORDING "W"
-#define CLIP_STATUS_NO_RECORDING "n"
-#define CLIP_STATUS_IS_EMPTY "E"
-#define CLIP_STATUS_IS_NOT_EMPTY "e"
 
 class Clip
 {
 public:
     Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
-         std::function<double()> globalBpmGetter,
-         std::function<double()> sampleRateGetter,
-         std::function<int()> samplesPerBlockGetter,
+         std::function<MainComponentSettings()> mainCompoenentSettingsGetter,
          std::function<int()> midiOutChannelGetter
          );
     Clip* clone() const;
@@ -92,16 +80,13 @@ private:
     void addRecordedSequenceToSequence();
     bool hasJustStoppedRecording();
     
-    
     std::vector<std::pair<juce::MidiMessageSequence, double>> midiSequenceAndClipLengthUndoStack;
     int allowedUndoLevels = 5;
     void saveToUndoStack();
     bool shouldUndo = false;
     
     juce::SortedSet<int> notesCurrentlyPlayed;
-    std::function<double()> getGlobalBpm;
-    std::function<double()> getSampleRate;
-    std::function<int()> getSamplesPerBlock;
+    std::function<MainComponentSettings()> getMainComponentSettings;
     std::function<int()> getMidiOutChannel;
     
     void stopClipNowAndClearAllCues();

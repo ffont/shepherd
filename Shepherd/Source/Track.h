@@ -11,16 +11,14 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "defines.h"
 #include "Clip.h"
 
 class Track
 {
 public:
     Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
-          std::function<double()> globalBpmGetter,
-          std::function<double()> sampleRateGetter,
-          std::function<int()> samplesPerBlockGetter,
-          int nClips
+          std::function<MainComponentSettings()> mainCompoenentSettingsGetter
           );
     
     void setMidiOutChannel(int newMidiOutChannel);
@@ -49,9 +47,7 @@ public:
 private:
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
-    std::function<double()> getGlobalBpm;
-    std::function<double()> getSampleRate;
-    std::function<int()> getSamplesPerBlock;
+    std::function<MainComponentSettings()> getMainComponentSettings;
     
     int nClips = 0;
     juce::OwnedArray<Clip> midiClips;

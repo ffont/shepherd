@@ -12,16 +12,12 @@
 
 
 Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
-           std::function<double()> globalBpmGetter,
-           std::function<double()> sampleRateGetter,
-           std::function<int()> samplesPerBlockGetter,
+           std::function<MainComponentSettings()> mainCompoenentSettingsGetter,
            std::function<int()> midiOutChannelGetter
            )
 : playhead(playheadParentSliceGetter)
 {
-    getGlobalBpm = globalBpmGetter;
-    getSampleRate = sampleRateGetter;
-    getSamplesPerBlock = samplesPerBlockGetter;
+    getMainComponentSettings = mainCompoenentSettingsGetter;
     getMidiOutChannel = midiOutChannelGetter;
     
     #if !RPI_BUILD
@@ -57,12 +53,11 @@ Clip* Clip::clone() const
 {
     auto newClip = new Clip(
         this->playhead.getParentSlice,
-        this->getGlobalBpm,
-        this->getSampleRate,
-        this->getSamplesPerBlock,
+        this->getMainComponentSettings,
         this->getMidiOutChannel
     );
     newClip->replaceSequence(this->midiSequence, this->clipLengthInBeats);
+    newClip->quantizeSequence(this->currentQuantizationStep);
     return newClip;
 }
 
@@ -148,6 +143,10 @@ void Clip::startRecordingNow()
     saveToUndoStack(); // Save current sequence and clip length to undo stack so these can be recovered later
     recording = true;
     hasJustStoppedRecordingFlag = false;
+    if (isEmpty() && getMainComponentSettings().fixedLengthRecordingAmount > 0.0){
+        // If clip is empty and fixed length is set in main componenet, pre-set the length of the clip
+        clipLengthInBeats = getMainComponentSettings().fixedLengthRecordingAmount;
+    }
 }
 
 void Clip::stopRecordingNow()
@@ -526,7 +525,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                     // Normal case in which notes should be triggered
                     
                     // Calculate note position for the midi buffer (in samples)
-                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getSampleRate() / getGlobalBpm());
+                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getMainComponentSettings().sampleRate / getMainComponentSettings().bpm);
                     jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
                     
                     // Re-write MIDI channel (in might have changed...) and add note to the buffer

@@ -11,17 +11,11 @@
 #include "Track.h"
 
 Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
-                  std::function<double()> globalBpmGetter,
-                  std::function<double()> sampleRateGetter,
-                  std::function<int()> samplesPerBlockGetter,
-                  int _nClips
-                  )
+             std::function<MainComponentSettings()> mainCompoenentSettingsGetter)
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
-    getGlobalBpm = globalBpmGetter;
-    getSampleRate = sampleRateGetter;
-    getSamplesPerBlock = samplesPerBlockGetter;
-    nClips = _nClips;
+    getMainComponentSettings = mainCompoenentSettingsGetter;
+    nClips = getMainComponentSettings().nScenes;
 }
 
 void Track::setMidiOutChannel(int newMidiOutChannel)
@@ -36,9 +30,7 @@ void Track::prepareClips()
         midiClips.add(
           new Clip(
                 getPlayheadParentSlice,
-                getGlobalBpm,
-                getSampleRate,
-                getSamplesPerBlock,
+                getMainComponentSettings,
                 [this]{ return midiOutChannel; }
         ));
     }

@@ -2,11 +2,13 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "defines.h"
 #include "Playhead.h"
 #include "Clip.h"
 #include "Track.h"
 #include "SynthAudioSource.h"
 #include "DevelopmentUIComponent.h"
+
 
 //==============================================================================
 /*
@@ -64,7 +66,6 @@ private:
     std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
     int lastMidiNoteOnMessagesToStore = 20;
     
-    
     // Transport and basic audio settings
     double sampleRate = 44100.0;
     int samplesPerBlock = 0;
@@ -76,6 +77,7 @@ private:
     bool doingCountIn = false;
     double countInLengthInBeats = 4.0;
     double countInplayheadPositionInBeats = 0.0;
+    double fixedLengthRecordingAmount = 8.0;
     
     // Metronome
     bool metronomeOn = true;
