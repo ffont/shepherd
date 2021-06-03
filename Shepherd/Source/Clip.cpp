@@ -294,7 +294,7 @@ juce::String Clip::getStatus()
         emptyStatus = CLIP_STATUS_IS_NOT_EMPTY;
     }
     
-    return playStatus + recordStatus + emptyStatus + "|" + juce::String(clipLengthInBeats, 3);
+    return playStatus + recordStatus + emptyStatus + "|" + juce::String(clipLengthInBeats, 3) + "|" + juce::String(currentQuantizationStep);
 }
 
 void Clip::stopClipNowAndClearAllCues()
@@ -387,20 +387,17 @@ void Clip::undo()
     }
 }
 
-void Clip::cycleQuantization()
+void Clip::quantizeSequence(double quantizationStep)
 {
-    // Cycle between quantization amounts
-    
-    if (currentQuantizationStep == 0.0){
-        currentQuantizationStep = 4.0/16.0;
-    } else if (currentQuantizationStep == 4.0/16.0){
-        currentQuantizationStep = 4.0/8.0;
-    } else if (currentQuantizationStep == 4.0/8.0){
-        currentQuantizationStep = 4.0/4.0;
-    } else if (currentQuantizationStep == 4.0/4.0){
-        currentQuantizationStep = 0.0;
+    jassert(quantizationStep >= 0.0);
+    currentQuantizationStep = quantizationStep;
+    if (isPlaying()){
+        // Re-compute pre-processed sequence (including new quantization) at next process slice call
+        shouldUpdatePreProcessedSequence = true;
+    } else {
+        // Re-compute pre-processed sequence (including new quantization) now
+        computePreProcessedSequence();
     }
-    shouldUpdatePreProcessedSequence = true;
 }
 
 void Clip::replaceSequence(juce::MidiMessageSequence newSequence, double newLength)

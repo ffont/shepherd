@@ -505,10 +505,12 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     clip->clearClip();
                 } else if (address == OSC_ADDRESS_CLIP_DOUBLE){
                     clip->doubleSequence();
-                } else if (address == OSC_ADDRESS_CLIP_QUANTIZE){
-                    clip->cycleQuantization();
                 } else if (address == OSC_ADDRESS_CLIP_UNDO){
                     clip->undo();
+                } else if (address == OSC_ADDRESS_CLIP_QUANTIZE){
+                    jassert(message.size() == 3);
+                    double quantizationStep = (double)message[2].getFloat32();
+                    clip->quantizeSequence(quantizationStep);
                 } else if (address == OSC_ADDRESS_CLIP_SET_LENGTH){
                     jassert(message.size() == 3);
                     double newLength = (double)message[2].getFloat32();

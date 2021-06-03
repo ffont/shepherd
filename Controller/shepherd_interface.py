@@ -133,53 +133,82 @@ class ShepherdInterface(object):
             # depend on an intepretation of backend state plus the frontend state
             self.sync_state_to_shepherd()
 
-    def track_select(self, track_number):
+    def track_select(self, track_num):
         num_tracks = self.parsed_state.get('numTracks', -1)
         if num_tracks > -1:
             for i in range(0, num_tracks):
-                self.track_set_input_monitoring(i, i == track_number)
+                self.track_set_input_monitoring(i, i == track_num)
 
-    def track_set_input_monitoring(self, track_number, enabled):
-        self.osc_sender.send_message('/track/setInputMonitoring', [track_number, 1 if enabled else 0])
+    def track_set_input_monitoring(self, track_num, enabled):
+        self.osc_sender.send_message('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
 
-    def clip_play_stop(self, track_number, clip_number):
-        self.osc_sender.send_message('/clip/playStop', [track_number, clip_number])
+    def clip_play_stop(self, track_num, clip_num):
+        self.osc_sender.send_message('/clip/playStop', [track_num, clip_num])
 
-    def clip_record_on_off(self, track_number, clip_number):
-        self.osc_sender.send_message('/clip/recordOnOff', [track_number, clip_number])
+    def clip_record_on_off(self, track_num, clip_num):
+        self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
 
-    def clip_clear(self, track_number, clip_number):
-        self.osc_sender.send_message('/clip/clear', [track_number, clip_number])
-        self.app.add_display_notification("Clear clip: {0}-{1}".format(track_number + 1, clip_number + 1))
+    def clip_clear(self, track_num, clip_num):
+        if not self.clip_is_empty(track_num, clip_num):
+            self.osc_sender.send_message('/clip/clear', [track_num, clip_num])
+            self.app.add_display_notification("Cleared clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
-    def clip_double(self, track_number, clip_number):
-        self.osc_sender.send_message('/clip/double', [track_number, clip_number])
-        self.app.add_display_notification("Double clip: {0}-{1}".format(track_number + 1, clip_number + 1))
+    def clip_double(self, track_num, clip_num):
+        if not self.clip_is_empty(track_num, clip_num):
+            self.osc_sender.send_message('/clip/double', [track_num, clip_num])
+            self.app.add_display_notification("Doubled clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
-    def clip_quantize(self, track_number, clip_number):
-        self.osc_sender.send_message('/clip/quantize', [track_number, clip_number])
-        self.app.add_display_notification("Quantize clip: {0}-{1}".format(track_number + 1, clip_number + 1))
+    def clip_quantize(self, track_num, clip_num, quantization_step):
+        if not self.clip_is_empty(track_num, clip_num):
+            self.osc_sender.send_message('/clip/quantize', [track_num, clip_num, quantization_step])
+            quantization_step_labels = {
+                0.25: '16th note',
+                0.5: '8th note',
+                1.0: '4th note',
+                0.0: 'no quantization'
+            }
+            self.app.add_display_notification("Quantized clip to {0}: {1}-{2}".format(quantization_step_labels.get(quantization_step,
+                                                                                                           quantization_step), track_num + 1, clip_num + 1))
+    def clip_undo(self, track_num, clip_num):
+        if not self.clip_is_empty(track_num, clip_num):
+            self.osc_sender.send_message('/clip/undo', [track_num, clip_num])
+            self.app.add_display_notification("Undo clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
-    def clip_undo(self, track_number, clip_number):
-        self.osc_sender.send_message('/clip/undo', [track_number, clip_number])
-        self.app.add_display_notification("Undo clip: {0}-{1}".format(track_number + 1, clip_number + 1))
+    def clip_set_length(self, track_num, clip_num, new_length):
+        if not self.clip_is_empty(track_num, clip_num):
+            self.osc_sender.send_message('/clip/setLength', [track_num, clip_num, new_length])
 
-    def clip_set_length(self, track_number, clip_number, new_length):
-        self.osc_sender.send_message('/clip/setLength', [track_number, clip_number, new_length])
+    def clip_is_empty(self, track_num, clip_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return 'E' in self.parsed_state['tracks'][track_num]['clips'][clip_num]
+            except IndexError:
+                return True
+        else:
+            return True
 
     def get_clip_state(self, track_num, clip_num):
         if 'tracks' in self.parsed_state:
             try:
                 return self.parsed_state['tracks'][track_num]['clips'][clip_num]
             except IndexError:
-                return 'snE|0.000'
+                return 'snE|0.000|0.0'
         else:
-            return 'snE|0.000'
+            return 'snE|0.000|0.0'
 
     def get_clip_length(self, track_num, clip_num):
         if 'tracks' in self.parsed_state:
             try:
                 return float(self.parsed_state['tracks'][track_num]['clips'][clip_num].split('|')[1])
+            except IndexError:
+                return 0.0
+        else:
+            return 0.0
+
+    def get_clip_quantization_step(self, track_num, clip_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return float(self.parsed_state['tracks'][track_num]['clips'][clip_num].split('|')[2])
             except IndexError:
                 return 0.0
         else:
@@ -215,7 +244,7 @@ class ShepherdInterface(object):
 
     def scene_duplicate(self, scene_number):
         self.osc_sender.send_message('/scene/duplicate', [scene_number])
-        self.app.add_display_notification("Duplicate scene: {0}".format(scene_number + 1))
+        self.app.add_display_notification("Duplicated scene: {0}".format(scene_number + 1))
 
     def global_play_stop(self):
         self.osc_sender.send_message('/transport/playStop', [])

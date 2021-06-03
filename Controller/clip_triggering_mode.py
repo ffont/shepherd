@@ -186,7 +186,18 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 self.app.shepherd_interface.clip_double(track_num, clip_num)
 
             elif self.app.is_button_being_pressed(self.quantize_button):
-                self.app.shepherd_interface.clip_quantize(track_num, clip_num)
+                current_quantization_step = self.app.shepherd_interface.get_clip_quantization_step(track_num, clip_num)
+                if (current_quantization_step == 0.0):
+                    next_quantization_step = 4.0/16.0
+                elif (current_quantization_step == 4.0/16.0):
+                    next_quantization_step = 4.0/8.0
+                elif (current_quantization_step == 4.0/8.0):
+                    next_quantization_step = 4.0/4.0
+                elif (current_quantization_step == 4.0/4.0):
+                    next_quantization_step = 0.0
+                else:
+                    next_quantization_step = 0.0
+                self.app.shepherd_interface.clip_quantize(track_num, clip_num, next_quantization_step)
 
             elif self.app.is_button_being_pressed(self.undo_button):
                 self.app.shepherd_interface.clip_undo(track_num, clip_num)

@@ -58,7 +58,7 @@ public:
     void setNewClipLength(double newLength);
     void clearClip();
     void doubleSequence();
-    void cycleQuantization();
+    void quantizeSequence(double quantizationStep);
     void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
     void resetPlayheadPosition();
     void undo();
