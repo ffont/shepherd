@@ -13,6 +13,7 @@
 #define OSC_ADDRESS_CLIP_DOUBLE "/clip/double"
 #define OSC_ADDRESS_CLIP_QUANTIZE "/clip/quantize"
 #define OSC_ADDRESS_CLIP_UNDO "/clip/undo"
+#define OSC_ADDRESS_CLIP_SET_LENGTH "/clip/setLength"
 
 #define OSC_ADDRESS_TRACK "/track"
 #define OSC_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
@@ -474,7 +475,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     const juce::String address = message.getAddressPattern().toString();
     
     if (address.startsWith(OSC_ADDRESS_CLIP)) {
-        jassert(message.size() == 2);
+        jassert(message.size() >= 2);
         int trackNum = message[0].getInt32();
         int clipNum = message[1].getInt32();
         if (trackNum < tracks.size()){
@@ -501,13 +502,17 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     }
                     clip->toggleRecord();
                 } else if (address == OSC_ADDRESS_CLIP_CLEAR){
-                    clip->clearSequence();
+                    clip->clearClip();
                 } else if (address == OSC_ADDRESS_CLIP_DOUBLE){
                     clip->doubleSequence();
                 } else if (address == OSC_ADDRESS_CLIP_QUANTIZE){
                     clip->cycleQuantization();
                 } else if (address == OSC_ADDRESS_CLIP_UNDO){
                     clip->undo();
+                } else if (address == OSC_ADDRESS_CLIP_SET_LENGTH){
+                    jassert(message.size() == 3);
+                    double newLength = (double)message[2].getFloat32();
+                    clip->setNewClipLength(newLength);
                 }
             }
         }

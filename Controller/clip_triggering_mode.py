@@ -30,25 +30,54 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
     buttons_used = scene_trigger_buttons + [clear_clip_button, double_clip_button, quantize_button, undo_button, duplicate_button]
 
-    def update_display(self, ctx, w, h):
-        # Draw clip progress bars
-        info_to_draw = []
+    def get_playing_clips_info(self):
+        """
+        Returns a dictionary where keys are track numbers and elements are another dictionary with keys 'playing' and 'willplay',
+        containing lists of tuples of the clips that are playing (or cued to stop) and clips that are cued to play respectively.
+        Each clip tuple contains following information: (clip_num, clip_length, playhead_position)
+        """
+        playing_clips_info = {}
         accumulated_clip_index = 0
         for track_num in range(0, self.app.shepherd_interface.get_num_tracks()):
             current_track_playing_clips_info = []
+            current_track_will_play_clips_info = []
             for clip_num in range(0, self.app.shepherd_interface.get_track_num_clips(track_num)):
                 clip_state = self.app.shepherd_interface.get_clip_state(track_num, clip_num)
                 if 'p' in clip_state or 'C' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
                     playhead_position = self.app.shepherd_interface.get_clip_playhead(accumulated_clip_index)
                     current_track_playing_clips_info.append((clip_num, clip_length, playhead_position))
+                if 'c' in clip_state:
+                    clip_length = float(clip_state.split('|')[1])
+                    playhead_position = self.app.shepherd_interface.get_clip_playhead(accumulated_clip_index)
+                    current_track_will_play_clips_info.append((clip_num, clip_length, playhead_position))
                 accumulated_clip_index += 1
             if current_track_playing_clips_info:
-                info_to_draw.append((track_num, current_track_playing_clips_info))
+                if not track_num in playing_clips_info:
+                    playing_clips_info[track_num] = {}
+                playing_clips_info[track_num]['playing'] = current_track_playing_clips_info
+            if current_track_will_play_clips_info:
+                if not track_num in playing_clips_info:
+                    playing_clips_info[track_num] = {}
+                playing_clips_info[track_num]['will_play'] = current_track_will_play_clips_info
+        return playing_clips_info
 
-        for track_num, playing_clips in info_to_draw:
+    def update_display(self, ctx, w, h):
+        # Draw clip progress bars
+        playing_clips_info = self.get_playing_clips_info()
+        for track_num, playing_clips_info in playing_clips_info.items():
+            playing_clips = []
+            if not playing_clips_info.get('playing', []):
+                if playing_clips_info.get('will_play', []):
+                    # If no clips currently playing or cued to stop, show info about clips cued to play
+                    playing_clips = playing_clips_info['will_play']
+            else:
+                playing_clips = playing_clips_info['playing']
+
             num_clips = len(playing_clips)  # There should normally be only 1 clip playing per track at a time, but this supports multiple clips playing
             for i , (clip_num, clip_length, playhead_position) in enumerate(playing_clips):
+                
+                # Add playing percentage with background bar
                 height = (h - 20) // num_clips
                 y = height * i
                 track_color = self.app.track_selection_mode.get_track_color(track_num)
@@ -58,7 +87,12 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     position_percentage = playhead_position/clip_length
                 else:
                     position_percentage = 0.0
-                show_text(ctx, track_num, y, str(playhead_position), height=height, font_color=font_color, background_color=background_color, font_size_percentage=0.35 if num_clips > 1 else 0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
+                show_text(ctx, track_num, y, '{}\n({})'.format(playhead_position, clip_length), height=height, font_color=font_color, background_color=background_color,
+                          font_size_percentage=0.35 if num_clips > 1 else 0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
+                
+                # Add track num/clip num
+                show_text(ctx, track_num, y, '{}-{}'.format(track_num + 1, clip_num + 1), height=height, font_color=font_color, background_color=None,
+                          font_size_percentage=0.30 if num_clips > 1 else 0.15, center_horizontally=False, center_vertically=False)
 
     def activate(self):
         self.update_buttons()
@@ -160,3 +194,35 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             else:
                 # No "option" button pressed, do play/stop
                 self.app.shepherd_interface.clip_play_stop(track_num, clip_num)
+
+    def on_encoder_rotated(self, encoder_name, increment):
+        track_num = [
+            push2_python.constants.ENCODER_TRACK1_ENCODER,
+            push2_python.constants.ENCODER_TRACK2_ENCODER,
+            push2_python.constants.ENCODER_TRACK3_ENCODER,
+            push2_python.constants.ENCODER_TRACK4_ENCODER,
+            push2_python.constants.ENCODER_TRACK5_ENCODER,
+            push2_python.constants.ENCODER_TRACK6_ENCODER,
+            push2_python.constants.ENCODER_TRACK7_ENCODER,
+            push2_python.constants.ENCODER_TRACK8_ENCODER,
+        ].index(encoder_name)
+
+        track_playing_clips_info = self.get_playing_clips_info().get(track_num, None)
+        if track_playing_clips_info is not None:
+            playing_clips = []
+            if not track_playing_clips_info.get('playing', []):
+                if track_playing_clips_info.get('will_play', []):
+                    # If no clips currently playing or cued to stop, show info about clips cued to play
+                    playing_clips = track_playing_clips_info['will_play']
+            else:
+                playing_clips = track_playing_clips_info['playing']
+            if playing_clips:
+                # Choose first of the playing or cued to play clips (there should be only one)
+                clip_num = playing_clips[0][0]
+                clip_length = playing_clips[0][1]
+                new_length = clip_length + increment
+                if new_length < 1.0:
+                    new_length = 1.0
+                self.app.shepherd_interface.clip_set_length(track_num, clip_num, new_length)
+
+

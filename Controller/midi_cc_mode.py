@@ -286,20 +286,21 @@ class MIDICCMode(ShepherdControllerMode):
             return True
 
     def on_encoder_rotated(self, encoder_name, increment):
-        try:
-            encoder_num = [
-                push2_python.constants.ENCODER_TRACK1_ENCODER,
-                push2_python.constants.ENCODER_TRACK2_ENCODER,
-                push2_python.constants.ENCODER_TRACK3_ENCODER,
-                push2_python.constants.ENCODER_TRACK4_ENCODER,
-                push2_python.constants.ENCODER_TRACK5_ENCODER,
-                push2_python.constants.ENCODER_TRACK6_ENCODER,
-                push2_python.constants.ENCODER_TRACK7_ENCODER,
-                push2_python.constants.ENCODER_TRACK8_ENCODER,
-            ].index(encoder_name)
-            if self.active_midi_control_ccs:
-                self.active_midi_control_ccs[encoder_num].update_value(increment)
-            return True  # Always return True because encoder should not be used in any other mode if this is first active
-        except ValueError: 
-            pass  # Encoder not in list 
+        if not self.app.is_mode_active(self.app.settings_mode) and not self.app.is_mode_active(self.app.clip_triggering_mode):
+            try:
+                encoder_num = [
+                    push2_python.constants.ENCODER_TRACK1_ENCODER,
+                    push2_python.constants.ENCODER_TRACK2_ENCODER,
+                    push2_python.constants.ENCODER_TRACK3_ENCODER,
+                    push2_python.constants.ENCODER_TRACK4_ENCODER,
+                    push2_python.constants.ENCODER_TRACK5_ENCODER,
+                    push2_python.constants.ENCODER_TRACK6_ENCODER,
+                    push2_python.constants.ENCODER_TRACK7_ENCODER,
+                    push2_python.constants.ENCODER_TRACK8_ENCODER,
+                ].index(encoder_name)
+                if self.active_midi_control_ccs:
+                    self.active_midi_control_ccs[encoder_num].update_value(increment)
+                return True  # Always return True because encoder should not be used in any other mode if this is first active
+            except ValueError: 
+                pass  # Encoder not in list 
         

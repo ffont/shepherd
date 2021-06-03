@@ -55,7 +55,8 @@ public:
     void clearStartRecordingCue();
     void clearStopRecordingCue();
     
-    void clearSequence();
+    void setNewClipLength(double newLength);
+    void clearClip();
     void doubleSequence();
     void cycleQuantization();
     void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
@@ -80,7 +81,7 @@ private:
     double clipLengthInBeats = 0.0;
     double nextClipLength = -1.0;
     juce::MidiMessageSequence midiSequence = {};
-    juce::MidiMessageSequence quantizedMidiSequence = {};
+    juce::MidiMessageSequence preProcessedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
     juce::MidiMessageSequence nextMidiSequence = {};
     bool recording = false;
@@ -105,15 +106,22 @@ private:
     
     void stopClipNowAndClearAllCues();
     bool shouldReplaceSequence = false;
-    void clearSequenceHelper();
-    bool shouldClearSequence = false;
+    
+    void clearClipHelper();
+    bool shouldclearClip = false;
+    
     void doubleSequenceHelper();
     bool shouldDoubleSequence = false;
     
+    bool shouldUpdatePreProcessedSequence = false;
+    void computePreProcessedSequence();
+    
+    void removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence);
+    void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
+    
     double currentQuantizationStep = 0.0;
-    bool shouldUpdateQuantizedSequence = false;
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
-    void computeQuantizedSequence(double quantizationStep);
+    void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };

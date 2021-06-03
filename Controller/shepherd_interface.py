@@ -164,6 +164,9 @@ class ShepherdInterface(object):
         self.osc_sender.send_message('/clip/undo', [track_number, clip_number])
         self.app.add_display_notification("Undo clip: {0}-{1}".format(track_number + 1, clip_number + 1))
 
+    def clip_set_length(self, track_number, clip_number, new_length):
+        self.osc_sender.send_message('/clip/setLength', [track_number, clip_number, new_length])
+
     def get_clip_state(self, track_num, clip_num):
         if 'tracks' in self.parsed_state:
             try:
