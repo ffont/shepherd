@@ -11,11 +11,11 @@
 #include "Track.h"
 
 Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
-             std::function<MainComponentSettings()> mainCompoenentSettingsGetter)
+             std::function<GlobalSettingsStruct()> globalSettingsGetter)
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
-    getMainComponentSettings = mainCompoenentSettingsGetter;
-    nClips = getMainComponentSettings().nScenes;
+    getGlobalSettings = globalSettingsGetter;
+    nClips = getGlobalSettings().nScenes;
 }
 
 void Track::setMidiOutChannel(int newMidiOutChannel)
@@ -30,8 +30,12 @@ void Track::prepareClips()
         midiClips.add(
           new Clip(
                 getPlayheadParentSlice,
-                getMainComponentSettings,
-                [this]{ return midiOutChannel; }
+                getGlobalSettings,
+                [this]{
+                    TrackSettingsStruct settings;
+                    settings.midiOutChannel = midiOutChannel;
+                    return settings;
+                }
         ));
     }
 }
@@ -41,18 +45,13 @@ int Track::getNumberOfClips()
     return midiClips.size();
 }
 
-int Track::getMidiOutChannel()
-{
-    return midiOutChannel;
-}
-
 void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill)
 {
     if (inputMonitoringEnabled()){
         for (const auto metadata : incommingBuffer)
         {
             auto msg = metadata.getMessage();
-            msg.setChannel(getMidiOutChannel());
+            msg.setChannel(midiOutChannel);
             bufferToFill.addEvent(msg, metadata.samplePosition);
         }
     }

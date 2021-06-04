@@ -166,7 +166,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
           new Track(
                [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / bpm)}; },
                [this]{
-                    MainComponentSettings settings;
+                    GlobalSettingsStruct settings;
                     settings.bpm = bpm;
                     settings.fixedLengthRecordingAmount = fixedLengthRecordingAmount;
                     settings.nScenes = nScenes;
@@ -563,6 +563,9 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
             jassert(message.size() == 1);
             fixedVelocity = message[0].getInt32();
+        } else if (address == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
+            jassert(message.size() == 1);
+            fixedLengthRecordingAmount = message[0].getFloat32();
         }
         
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
@@ -604,6 +607,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                 }
             }
             stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
+            stateAsStringParts.add(juce::String(fixedLengthRecordingAmount));
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));

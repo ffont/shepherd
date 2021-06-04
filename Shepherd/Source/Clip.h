@@ -18,8 +18,8 @@ class Clip
 {
 public:
     Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
-         std::function<MainComponentSettings()> mainCompoenentSettingsGetter,
-         std::function<int()> midiOutChannelGetter
+         std::function<GlobalSettingsStruct()> globalSettingsGetter,
+         std::function<TrackSettingsStruct()> trackSettingsGetter
          );
     Clip* clone() const;
     
@@ -86,8 +86,8 @@ private:
     bool shouldUndo = false;
     
     juce::SortedSet<int> notesCurrentlyPlayed;
-    std::function<MainComponentSettings()> getMainComponentSettings;
-    std::function<int()> getMidiOutChannel;
+    std::function<GlobalSettingsStruct()> getGlobalSettings;
+    std::function<TrackSettingsStruct()> getTrackSettings;
     
     void stopClipNowAndClearAllCues();
     bool shouldReplaceSequence = false;

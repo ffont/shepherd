@@ -18,14 +18,13 @@ class Track
 {
 public:
     Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
-          std::function<MainComponentSettings()> mainCompoenentSettingsGetter
+          std::function<GlobalSettingsStruct()> globalSettingsGetter
           );
     
     void setMidiOutChannel(int newMidiOutChannel);
     
     void prepareClips();
     int getNumberOfClips();
-    int getMidiOutChannel();
     
     void processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill);
     
@@ -47,7 +46,7 @@ public:
 private:
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
-    std::function<MainComponentSettings()> getMainComponentSettings;
+    std::function<GlobalSettingsStruct()> getGlobalSettings;
     
     int nClips = 0;
     juce::OwnedArray<Clip> midiClips;

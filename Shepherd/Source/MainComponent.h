@@ -77,7 +77,7 @@ private:
     bool doingCountIn = false;
     double countInLengthInBeats = 4.0;
     double countInplayheadPositionInBeats = 0.0;
-    double fixedLengthRecordingAmount = 8.0;
+    double fixedLengthRecordingAmount = 0.0;
     
     // Metronome
     bool metronomeOn = true;

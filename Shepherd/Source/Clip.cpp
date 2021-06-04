@@ -12,13 +12,13 @@
 
 
 Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
-           std::function<MainComponentSettings()> mainCompoenentSettingsGetter,
-           std::function<int()> midiOutChannelGetter
+           std::function<GlobalSettingsStruct()> globalSettingsGetter,
+           std::function<TrackSettingsStruct()> trackSettingsGetter
            )
 : playhead(playheadParentSliceGetter)
 {
-    getMainComponentSettings = mainCompoenentSettingsGetter;
-    getMidiOutChannel = midiOutChannelGetter;
+    getGlobalSettings = globalSettingsGetter;
+    getTrackSettings = trackSettingsGetter;
     
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
@@ -53,8 +53,8 @@ Clip* Clip::clone() const
 {
     auto newClip = new Clip(
         this->playhead.getParentSlice,
-        this->getMainComponentSettings,
-        this->getMidiOutChannel
+        this->getGlobalSettings,
+        this->getTrackSettings
     );
     newClip->replaceSequence(this->midiSequence, this->clipLengthInBeats);
     newClip->quantizeSequence(this->currentQuantizationStep);
@@ -143,9 +143,9 @@ void Clip::startRecordingNow()
     saveToUndoStack(); // Save current sequence and clip length to undo stack so these can be recovered later
     recording = true;
     hasJustStoppedRecordingFlag = false;
-    if (isEmpty() && getMainComponentSettings().fixedLengthRecordingAmount > 0.0){
+    if (isEmpty() && getGlobalSettings().fixedLengthRecordingAmount > 0.0){
         // If clip is empty and fixed length is set in main componenet, pre-set the length of the clip
-        clipLengthInBeats = getMainComponentSettings().fixedLengthRecordingAmount;
+        clipLengthInBeats = getGlobalSettings().fixedLengthRecordingAmount;
     }
 }
 
@@ -432,7 +432,7 @@ double Clip::getLengthInBeats()
 void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
 {
     for (int i=0; i<notesCurrentlyPlayed.size(); i++){
-        juce::MidiMessage msg = juce::MidiMessage::noteOff(getMidiOutChannel(), notesCurrentlyPlayed[i], 0.0f);
+        juce::MidiMessage msg = juce::MidiMessage::noteOff(getTrackSettings().midiOutChannel, notesCurrentlyPlayed[i], 0.0f);
         bufferToFill.addEvent(msg, 0);
     }
     notesCurrentlyPlayed.clear();
@@ -525,11 +525,11 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                     // Normal case in which notes should be triggered
                     
                     // Calculate note position for the midi buffer (in samples)
-                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getMainComponentSettings().sampleRate / getMainComponentSettings().bpm);
+                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getGlobalSettings().bpm);
                     jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
                     
                     // Re-write MIDI channel (in might have changed...) and add note to the buffer
-                    msg.setChannel(getMidiOutChannel());
+                    msg.setChannel(getTrackSettings().midiOutChannel);
                     bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
                     
                     // Keep track of notes currently played so later we can send note offs if needed

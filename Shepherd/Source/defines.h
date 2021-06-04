@@ -41,6 +41,7 @@
 #define OSC_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
 #define OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
 #define OSC_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
+#define OSC_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
 
 #define OSC_ADDRESS_STATE "/state"
 #define OSC_ADDRESS_STATE_TRACKS "/state/tracks"
@@ -59,12 +60,16 @@
 #define CLIP_STATUS_IS_NOT_EMPTY "e"
 
 
-struct MainComponentSettings {
+struct GlobalSettingsStruct {
     double bpm;
     double sampleRate;
     int samplesPerBlock;
     int nScenes;
     double fixedLengthRecordingAmount;
+};
+
+struct TrackSettingsStruct {
+    int midiOutChannel;
 };
 
 

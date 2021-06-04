@@ -22,9 +22,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     record_button = push2_python.constants.BUTTON_RECORD
     metronome_button = push2_python.constants.BUTTON_METRONOME
     tap_tempo_button = push2_python.constants.BUTTON_TAP_TEMPO
+    fixed_length_button = push2_python.constants.BUTTON_FIXED_LENGTH
 
     buttons_used = [toggle_display_button, settings_button, melodic_rhythmic_toggle_button, track_triggering_button, preset_selection_mode_button, 
-                    ddrm_tone_selection_mode_button, shift_button, select_button, play_button, record_button, metronome_button]
+                    ddrm_tone_selection_mode_button, shift_button, select_button, play_button, record_button, metronome_button, fixed_length_button]
 
     def activate(self):
         self.update_buttons()
@@ -61,6 +62,11 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.set_button_color_if_expression(self.record_button, is_recording, definitions.RED, false_color=definitions.WHITE, animation=definitions.DEFAULT_ANIMATION if self.app.is_button_being_pressed(self.record_button) else definitions.ANIMATION_STATIC, also_include_is_pressed=True)
         self.set_button_color_if_expression(self.metronome_button, metronome_on, definitions.WHITE)
         self.set_button_color(self.tap_tempo_button)
+
+        # Fixed length button
+        fixed_length_amount = self.app.shepherd_interface.get_fixed_length_amount()
+        self.set_button_color_if_expression(self.fixed_length_button, fixed_length_amount > 0.0, animation=definitions.DEFAULT_ANIMATION)
+        
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if button_name == self.melodic_rhythmic_toggle_button:
@@ -108,6 +114,23 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                     self.app.shepherd_interface.set_bpm(int(bpm))
                     self.last_tap_tempo_times = self.last_tap_tempo_times[-3:]
             return True
+
+        elif button_name == self.fixed_length_button:
+            if long_press:
+                next_fixed_length = 0.0
+            else:
+                current_fixed_length = self.app.shepherd_interface.get_fixed_length_amount()
+                if current_fixed_length == 0.0:
+                    next_fixed_length = 4.0
+                elif current_fixed_length == 4.0:
+                    next_fixed_length = 8.0
+                elif current_fixed_length == 8.0:
+                    next_fixed_length = 16.0
+                elif current_fixed_length == 16.0:
+                    next_fixed_length = 32.0
+                elif current_fixed_length == 32.0:
+                    next_fixed_length = 0.0
+            self.app.shepherd_interface.set_fixed_length_amount(next_fixed_length)
 
     def on_button_pressed_raw(self, button_name):    
         if button_name == self.track_triggering_button:
