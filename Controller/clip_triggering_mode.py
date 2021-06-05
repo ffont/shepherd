@@ -208,16 +208,20 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 self.app.shepherd_interface.clip_play_stop(track_num, clip_num)
 
     def on_encoder_rotated(self, encoder_name, increment):
-        track_num = [
-            push2_python.constants.ENCODER_TRACK1_ENCODER,
-            push2_python.constants.ENCODER_TRACK2_ENCODER,
-            push2_python.constants.ENCODER_TRACK3_ENCODER,
-            push2_python.constants.ENCODER_TRACK4_ENCODER,
-            push2_python.constants.ENCODER_TRACK5_ENCODER,
-            push2_python.constants.ENCODER_TRACK6_ENCODER,
-            push2_python.constants.ENCODER_TRACK7_ENCODER,
-            push2_python.constants.ENCODER_TRACK8_ENCODER,
-        ].index(encoder_name)
+        try:
+            track_num = [
+                push2_python.constants.ENCODER_TRACK1_ENCODER,
+                push2_python.constants.ENCODER_TRACK2_ENCODER,
+                push2_python.constants.ENCODER_TRACK3_ENCODER,
+                push2_python.constants.ENCODER_TRACK4_ENCODER,
+                push2_python.constants.ENCODER_TRACK5_ENCODER,
+                push2_python.constants.ENCODER_TRACK6_ENCODER,
+                push2_python.constants.ENCODER_TRACK7_ENCODER,
+                push2_python.constants.ENCODER_TRACK8_ENCODER,
+            ].index(encoder_name)
+        except ValueError:
+            # None of the track encoders was rotated
+            return False
 
         track_playing_clips_info = self.get_playing_clips_info().get(track_num, None)
         if track_playing_clips_info is not None:

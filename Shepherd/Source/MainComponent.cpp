@@ -598,7 +598,11 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add("transport");
             stateAsStringParts.add(isPlaying ? "p":"s");
             stateAsStringParts.add(juce::String(bpm, 2));
-            stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
+            if (doingCountIn){
+                stateAsStringParts.add(juce::String(-1 * (countInLengthInBeats - countInplayheadPositionInBeats), 3));
+            } else {
+                stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
+            }
             stateAsStringParts.add(metronomeOn ? "p":"s");
             juce::StringArray clipsPlayheadStateParts = {};
             for (int track_num=0; track_num<tracks.size(); track_num++){

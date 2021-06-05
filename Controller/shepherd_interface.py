@@ -26,6 +26,8 @@ class ShepherdInterface(object):
 
     should_sync_state_with_backend = False
 
+    showing_countin_message = False
+
     def __init__(self, app):
         self.app = app
 
@@ -66,7 +68,6 @@ class ShepherdInterface(object):
     def receive_shepherd_ready(self):
         self.should_sync_state_with_backend = True
         
-
     def receive_state_from_shepherd(self, values):
         state = values.decode("utf-8")
         if state.startswith("transport"):
@@ -87,7 +88,15 @@ class ShepherdInterface(object):
             else:
                 self.parsed_state['isRecording'] = False
             self.parsed_state['bpm'] = float(parts[2])
-            self.parsed_state['playhead'] = parts[3]
+            self.parsed_state['playhead'] = float(parts[3])
+            if self.parsed_state['playhead'] < 0.0:
+                self.showing_countin_message = True
+                self.app.add_display_notification("Will start recording in: {0:.3f}".format(-1 * self.parsed_state['playhead']))
+            else:
+                if self.showing_countin_message:
+                    self.app.add_display_notification("")
+                    self.showing_countin_message = False
+
             self.parsed_state['metronomeOn'] = parts[4] == "p"
 
             # Initialize clip playheads matrix to 0s
@@ -98,14 +107,15 @@ class ShepherdInterface(object):
                     track_clip_playheads.append(0.0)
                 clipPlayheads.append(track_clip_playheads)
             # Fill matrix with info from state
-            clip_playheads_state_info_parts = parts[5].split(':')
-            if len(clip_playheads_state_info_parts) > 1:
-                for i in range(0, len(clip_playheads_state_info_parts), 3):
-                    track_num = int(clip_playheads_state_info_parts[i])
-                    clip_num = int(clip_playheads_state_info_parts[i + 1])
-                    playhead = float(clip_playheads_state_info_parts[i + 2])
-                    clipPlayheads[track_num][clip_num] = playhead
-            self.parsed_state['clipPlayheads'] = clipPlayheads
+            if clipPlayheads:
+                clip_playheads_state_info_parts = parts[5].split(':')
+                if len(clip_playheads_state_info_parts) > 1:
+                    for i in range(0, len(clip_playheads_state_info_parts), 3):
+                        track_num = int(clip_playheads_state_info_parts[i])
+                        clip_num = int(clip_playheads_state_info_parts[i + 1])
+                        playhead = float(clip_playheads_state_info_parts[i + 2])
+                        clipPlayheads[track_num][clip_num] = playhead
+                self.parsed_state['clipPlayheads'] = clipPlayheads
             
             self.parsed_state['fixedLengthRecordingAmount'] = float(parts[6])
 
