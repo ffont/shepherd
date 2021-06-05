@@ -601,9 +601,15 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
             stateAsStringParts.add(metronomeOn ? "p":"s");
             juce::StringArray clipsPlayheadStateParts = {};
-            for (auto track: tracks){
-                for (int i=0; i<track->getNumberOfClips(); i++){
-                    clipsPlayheadStateParts.add(juce::String(track->getClipAt(i)->getPlayheadPosition(), 3));
+            for (int track_num=0; track_num<tracks.size(); track_num++){
+                auto track = tracks[track_num];
+                for (int clip_num=0; clip_num<track->getNumberOfClips(); clip_num++){
+                    double clipPlayheadPosition = track->getClipAt(clip_num)->getPlayheadPosition();
+                    if (clipPlayheadPosition > 0.0){
+                        clipsPlayheadStateParts.add(juce::String(track_num));
+                        clipsPlayheadStateParts.add(juce::String(clip_num));
+                        clipsPlayheadStateParts.add(juce::String(clipPlayheadPosition, 3));
+                    }
                 }
             }
             stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));

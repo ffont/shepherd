@@ -89,7 +89,24 @@ class ShepherdInterface(object):
             self.parsed_state['bpm'] = float(parts[2])
             self.parsed_state['playhead'] = parts[3]
             self.parsed_state['metronomeOn'] = parts[4] == "p"
-            self.parsed_state['clipPlayheads'] = [float(item) for item in parts[5].split(':')]
+
+            # Initialize clip playheads matrix to 0s
+            clipPlayheads = []
+            for track_num in range(0, self.get_num_tracks()):
+                track_clip_playheads = []
+                for clip_num in range(0, self.get_track_num_clips(track_num)):
+                    track_clip_playheads.append(0.0)
+                clipPlayheads.append(track_clip_playheads)
+            # Fill matrix with info from state
+            clip_playheads_state_info_parts = parts[5].split(':')
+            if len(clip_playheads_state_info_parts) > 1:
+                for i in range(0, len(clip_playheads_state_info_parts), 3):
+                    track_num = int(clip_playheads_state_info_parts[i])
+                    clip_num = int(clip_playheads_state_info_parts[i + 1])
+                    playhead = float(clip_playheads_state_info_parts[i + 2])
+                    clipPlayheads[track_num][clip_num] = playhead
+            self.parsed_state['clipPlayheads'] = clipPlayheads
+            
             self.parsed_state['fixedLengthRecordingAmount'] = float(parts[6])
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
@@ -215,9 +232,9 @@ class ShepherdInterface(object):
         else:
             return 0.0
 
-    def get_clip_playhead(self, clip_idx):
+    def get_clip_playhead(self, track_num, clip_num):
         if 'clipPlayheads' in self.parsed_state:
-            return self.parsed_state['clipPlayheads'][clip_idx]
+            return self.parsed_state['clipPlayheads'][track_num][clip_num]
         else:
             return 0.0
 

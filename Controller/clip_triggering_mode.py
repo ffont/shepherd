@@ -37,7 +37,6 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         Each clip tuple contains following information: (clip_num, clip_length, playhead_position)
         """
         playing_clips_info = {}
-        accumulated_clip_index = 0
         for track_num in range(0, self.app.shepherd_interface.get_num_tracks()):
             current_track_playing_clips_info = []
             current_track_will_play_clips_info = []
@@ -45,13 +44,12 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 clip_state = self.app.shepherd_interface.get_clip_state(track_num, clip_num)
                 if 'p' in clip_state or 'C' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
-                    playhead_position = self.app.shepherd_interface.get_clip_playhead(accumulated_clip_index)
+                    playhead_position = self.app.shepherd_interface.get_clip_playhead(track_num, clip_num)
                     current_track_playing_clips_info.append((clip_num, clip_length, playhead_position))
                 if 'c' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
-                    playhead_position = self.app.shepherd_interface.get_clip_playhead(accumulated_clip_index)
+                    playhead_position = self.app.shepherd_interface.get_clip_playhead(track_num, clip_num)
                     current_track_will_play_clips_info.append((clip_num, clip_length, playhead_position))
-                accumulated_clip_index += 1
             if current_track_playing_clips_info:
                 if not track_num in playing_clips_info:
                     playing_clips_info[track_num] = {}
@@ -76,23 +74,26 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
             num_clips = len(playing_clips)  # There should normally be only 1 clip playing per track at a time, but this supports multiple clips playing
             for i , (clip_num, clip_length, playhead_position) in enumerate(playing_clips):
+                # Add playing percentage with background bar
+                height = (h - 20) // num_clips
+                y = height * i
+                track_color = self.app.track_selection_mode.get_track_color(track_num)
+                background_color = track_color
+                font_color = track_color + '_darker1'
                 if clip_length > 0.0:
-                    # Add playing percentage with background bar
-                    height = (h - 20) // num_clips
-                    y = height * i
-                    track_color = self.app.track_selection_mode.get_track_color(track_num)
-                    background_color = track_color
-                    font_color = track_color + '_darker1'
-                    if clip_length > 0.0:
-                        position_percentage = playhead_position/clip_length
-                    else:
-                        position_percentage = 0.0
-                    show_text(ctx, track_num, y, '{}\n({})'.format(playhead_position, clip_length), height=height, font_color=font_color, background_color=background_color,
-                            font_size_percentage=0.35 if num_clips > 1 else 0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
-                    
-                    # Add track num/clip num
-                    show_text(ctx, track_num, y, '{}-{}'.format(track_num + 1, clip_num + 1), height=height, font_color=font_color, background_color=None,
-                            font_size_percentage=0.30 if num_clips > 1 else 0.15, center_horizontally=False, center_vertically=False)
+                    position_percentage = playhead_position/clip_length
+                else:
+                    position_percentage = 0.0
+                if clip_length > 0.0:
+                    text = '{}\n({})'.format(playhead_position, clip_length)
+                else:
+                    text = '{}'.format(playhead_position)
+                show_text(ctx, track_num, y, text, height=height, font_color=font_color, background_color=background_color,
+                        font_size_percentage=0.35 if num_clips > 1 else 0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
+                
+                # Add track num/clip num
+                show_text(ctx, track_num, y, '{}-{}'.format(track_num + 1, clip_num + 1), height=height, font_color=font_color, background_color=None,
+                        font_size_percentage=0.30 if num_clips > 1 else 0.15, center_horizontally=False, center_vertically=False)
 
     def activate(self):
         self.update_buttons()
