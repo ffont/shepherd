@@ -89,6 +89,7 @@ private:
     bool shouldUndo = false;
     
     juce::SortedSet<int> notesCurrentlyPlayed;
+    bool sustainPedalBeingPressed = false;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<TrackSettingsStruct()> getTrackSettings;
     

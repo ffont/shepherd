@@ -463,6 +463,12 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
         bufferToFill.addEvent(msg, 0);
     }
     notesCurrentlyPlayed.clear();
+    
+    if (sustainPedalBeingPressed){
+        juce::MidiMessage msg = juce::MidiMessage::controllerEvent(getTrackSettings().midiOutChannel, 64, 0);  // Sustain pedal down!
+        bufferToFill.addEvent(msg, 0);
+        sustainPedalBeingPressed = false;
+    }
 }
 
 void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
@@ -559,9 +565,11 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                     msg.setChannel(getTrackSettings().midiOutChannel);
                     bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
                     
-                    // Keep track of notes currently played so later we can send note offs if needed
+                    // Keep track of notes currently played so later we can send note offs if needed (include sustain pedal in checks)
                     if      (msg.isNoteOn())  notesCurrentlyPlayed.add (msg.getNoteNumber());
                     else if (msg.isNoteOff()) notesCurrentlyPlayed.removeValue (msg.getNoteNumber());
+                    if      (msg.isController() && msg.getControllerName(64) && msg.getControllerValue() > 0)  sustainPedalBeingPressed = true;
+                    else if (msg.isController() && msg.getControllerName(64) && msg.getControllerValue() == 0) sustainPedalBeingPressed = false;
                 }
             }
         }
