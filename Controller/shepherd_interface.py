@@ -94,7 +94,7 @@ class ShepherdInterface(object):
                 self.app.add_display_notification("Will start recording in: {0:.3f}".format(-1 * self.parsed_state['playhead']))
             else:
                 if self.showing_countin_message:
-                    self.app.add_display_notification("")
+                    self.app.clear_display_notification()
                     self.showing_countin_message = False
 
             self.parsed_state['metronomeOn'] = parts[4] == "p"

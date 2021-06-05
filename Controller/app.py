@@ -426,6 +426,9 @@ class ShepherdControllerApp(object):
         self.notification_text = text
         self.notification_time = time.time()
 
+    def clear_display_notification(self):
+        self.notification_text = None
+
     def init_push(self):
         print('Configuring Push...')
         use_simulator = not definitions.RUNNING_ON_RPI

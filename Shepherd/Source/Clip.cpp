@@ -147,6 +147,7 @@ void Clip::startRecordingNow()
         // If clip is empty and fixed length is set in main componenet, pre-set the length of the clip
         clipLengthInBeats = getGlobalSettings().fixedLengthRecordingAmount;
     }
+    willStopRecordingAt = -1.0;
 }
 
 void Clip::stopRecordingNow()
@@ -154,6 +155,7 @@ void Clip::stopRecordingNow()
     clearStopRecordingCue();
     recording = false;
     hasJustStoppedRecordingFlag = true;
+    willStopRecordingAt = -1.0;
 }
 
 void Clip::startRecordingAt(double positionInClipPlayhead)
@@ -242,6 +244,21 @@ bool Clip::isCuedToStopRecording()
     return willStopRecordingAt >= 0.0;
 }
 
+bool Clip::hasActiveStartCues()
+{
+    return isCuedToPlay() || isCuedToStartRecording();
+}
+
+bool Clip::hasActiveStopCues()
+{
+    return isCuedToStop() || isCuedToStopRecording();
+}
+
+bool Clip::hasActiveCues()
+{
+    return hasActiveStartCues() || hasActiveStopCues();
+}
+
 bool Clip::isEmpty()
 {
     // A clip is empty when it's length is 0.0 beats
@@ -307,9 +324,19 @@ void Clip::stopClipNowAndClearAllCues()
 
 void Clip::setNewClipLength(double newLength)
 {
+    // Only allow to set new clip length if current length is above 0.0 and clip has no active cues to stop playing/recording,
+    // otherwise this could led to edge cases which are hard to handle such as cues getting invalid or having clips with
+    // empty sequences (TODO: elaborate this more)
     jassert(newLength >= 0.0);
-    nextClipLength = newLength;
-    shouldUpdatePreProcessedSequence = true;
+    if (clipLengthInBeats > 0.0 && !hasActiveStopCues()){
+        if (isPlaying()){
+            nextClipLength = newLength;
+            shouldUpdatePreProcessedSequence = true;
+        } else {
+            clipLengthInBeats = newLength;
+            computePreProcessedSequence();
+        }
+    }
 }
 
 void Clip::clearClip()

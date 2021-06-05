@@ -59,6 +59,9 @@ public:
     bool isRecording();
     bool isCuedToStartRecording();
     bool isCuedToStopRecording();
+    bool hasActiveStartCues();
+    bool hasActiveStopCues();
+    bool hasActiveCues();
     bool isEmpty();
     juce::String getStatus();
     
