@@ -25,7 +25,12 @@ public:
     
     double getNextQuantizedBarPosition()
     {
-        return std::round(lastBarCountedPlayheadPosition + (double)meter);
+        if (getGlobalSettings().countInplayheadPositionInBeats == 0.0){
+             // Edge case in which global playhead is stopped
+            return 0.0;
+        } else {
+            return std::round(lastBarCountedPlayheadPosition + (double)meter);
+        }
     }
 
     void resetCounters()
