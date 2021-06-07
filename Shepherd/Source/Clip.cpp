@@ -138,9 +138,9 @@ void Clip::startRecordingNow()
     saveToUndoStack(); // Save current sequence and clip length to undo stack so these can be recovered later
     recording = true;
     hasJustStoppedRecordingFlag = false;
-    if (isEmpty() && getGlobalSettings().fixedLengthRecordingAmount > 0.0){
+    if (isEmpty() && getGlobalSettings().fixedLengthRecordingBars > 0){
         // If clip is empty and fixed length is set in main componenet, pre-set the length of the clip
-        clipLengthInBeats = getGlobalSettings().fixedLengthRecordingAmount;
+        clipLengthInBeats = (double)getGlobalSettings().fixedLengthRecordingBars * (double)getMusicalContext().getMeter();
     }
     willStopRecordingAt = -1.0;
 }

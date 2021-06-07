@@ -65,7 +65,7 @@ struct GlobalSettingsStruct {
     double sampleRate;
     int samplesPerBlock;
     int nScenes;
-    double fixedLengthRecordingAmount;
+    int fixedLengthRecordingBars;
     double playheadPositionInBeats;
     double countInplayheadPositionInBeats;
     bool isPlaying;

@@ -388,7 +388,7 @@ void MainComponent::resized()
 GlobalSettingsStruct MainComponent::getGlobalSettings()
 {
     GlobalSettingsStruct settings;
-    settings.fixedLengthRecordingAmount = fixedLengthRecordingAmount;
+    settings.fixedLengthRecordingBars = fixedLengthRecordingBars;
     settings.nScenes = nScenes;
     settings.sampleRate = sampleRate;
     settings.samplesPerBlock = samplesPerBlock;
@@ -560,7 +560,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             fixedVelocity = message[0].getInt32();
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
             jassert(message.size() == 1);
-            fixedLengthRecordingAmount = message[0].getFloat32();
+            fixedLengthRecordingBars = message[0].getInt32();
         }
         
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
@@ -612,7 +612,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                 }
             }
             stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
-            stateAsStringParts.add(juce::String(fixedLengthRecordingAmount));
+            stateAsStringParts.add(juce::String(fixedLengthRecordingBars));
             stateAsStringParts.add(juce::String(musicalContext.getMeter()));
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");

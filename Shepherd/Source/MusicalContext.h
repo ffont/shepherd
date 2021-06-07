@@ -25,7 +25,7 @@ public:
     
     double getNextQuantizedBarPosition()
     {
-        if (getGlobalSettings().countInplayheadPositionInBeats == 0.0){
+        if (getGlobalSettings().playheadPositionInBeats == 0.0){
              // Edge case in which global playhead is stopped
             return 0.0;
         } else {

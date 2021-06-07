@@ -117,7 +117,7 @@ class ShepherdInterface(object):
                         clipPlayheads[track_num][clip_num] = playhead
                 self.parsed_state['clipPlayheads'] = clipPlayheads
             
-            self.parsed_state['fixedLengthRecordingAmount'] = float(parts[6])
+            self.parsed_state['fixedLengthRecordingAmount'] = int(parts[6])
             self.parsed_state['meter'] = int(parts[7])
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
@@ -337,10 +337,13 @@ class ShepherdInterface(object):
         return self.parsed_state.get('numTracks', 0)
 
     def get_fixed_length_amount(self):
-        return self.parsed_state.get('fixedLengthRecordingAmount', 0.0)
+        return self.parsed_state.get('fixedLengthRecordingAmount', 0)
 
     def set_fixed_length_amount(self, fixed_length):
         self.osc_sender.send_message('/settings/fixedLength', [fixed_length])
-        self.app.add_display_notification("Fixed length: {0} beats".format(fixed_length))
+        if fixed_length > 0:
+            self.app.add_display_notification("Fixed length bars: {0} ({1} beats)".format(fixed_length, fixed_length * self.get_meter()))
+        else:
+            self.app.add_display_notification("No fixed length recording")
 
     

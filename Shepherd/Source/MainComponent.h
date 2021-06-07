@@ -77,7 +77,7 @@ private:
     bool shouldToggleIsPlaying = false;
     bool doingCountIn = false;
     double countInplayheadPositionInBeats = 0.0;
-    double fixedLengthRecordingAmount = 0.0;
+    int fixedLengthRecordingBars = 0;
     
     // Musical context
     MusicalContext musicalContext;

@@ -117,19 +117,12 @@ class MainControlsMode(definitions.ShepherdControllerMode):
 
         elif button_name == self.fixed_length_button:
             if long_press:
-                next_fixed_length = 0.0
+                next_fixed_length = 0
             else:
                 current_fixed_length = self.app.shepherd_interface.get_fixed_length_amount()
-                if current_fixed_length == 0.0:
-                    next_fixed_length = 4.0
-                elif current_fixed_length == 4.0:
-                    next_fixed_length = 8.0
-                elif current_fixed_length == 8.0:
-                    next_fixed_length = 16.0
-                elif current_fixed_length == 16.0:
-                    next_fixed_length = 32.0
-                elif current_fixed_length == 32.0:
-                    next_fixed_length = 0.0
+                next_fixed_length = current_fixed_length + 1
+                if next_fixed_length > 8:
+                    next_fixed_length = 0
             self.app.shepherd_interface.set_fixed_length_amount(next_fixed_length)
 
     def on_button_pressed_raw(self, button_name):    
