@@ -342,6 +342,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Render metronome in generated midi
     musicalContext.renderMetronomeInSlice(generatedMidi, bufferToFill.numSamples);
+    
+    musicalContext.renderMidiClockInSlice(generatedMidi, bufferToFill.numSamples);
      
     // Send the generated MIDI buffer to the output
     if (midiOutA != nullptr)

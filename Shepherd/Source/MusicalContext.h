@@ -121,15 +121,33 @@ public:
         if (metronomeOn && (getGlobalSettings().isPlaying || getGlobalSettings().doingCountIn)) {
             
             double previousBeat = getGlobalSettings().isPlaying ? getGlobalSettings().playheadPositionInBeats : getGlobalSettings().countInplayheadPositionInBeats;
-            double beatsPerSample = 1 / (60.0 * getGlobalSettings().sampleRate / getBpm());
+            double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
             for (int i=0; i<bufferSize; i++){
+                
                 double nextBeat = previousBeat + beatsPerSample;
-                if (previousBeat == 0.0) {
-                    previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
+                double previousBeatNearestQuantized = std::round(previousBeat);
+                double nextBeatNearestQuantized = std::round(nextBeat);
+                double tickTime = -1.0;
+            
+                if (previousBeat <= previousBeatNearestQuantized && previousBeatNearestQuantized < nextBeat){
+                    // If previousBeatNearestQuantized is in the middle of both beats, add midi metronome message
+                    tickTime = previousBeatNearestQuantized;
                 }
-                if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
+                else if (previousBeat <= nextBeatNearestQuantized && nextBeatNearestQuantized < nextBeat) {
+                    // If nextBeatNearestQuantized is in the middle of both beats, add midi metronome message
+                    tickTime = nextBeatNearestQuantized;
+                }
+                
+                // The 8th beat fails to be matched for some unexpected reason?
+                /*
+                std::cout << previousBeat << " " << previousBeatNearestQuantized << " " << nextBeat << " " << nextBeatNearestQuantized << " :" << tickTime << std::endl;
+                std::cout << (previousBeat <= previousBeatNearestQuantized) << " " << (previousBeatNearestQuantized < nextBeat) << std::endl;
+                std::cout << (previousBeat <= nextBeatNearestQuantized) << " " << (nextBeatNearestQuantized < nextBeat) << std::endl;
+                std::cout << "" << std::endl;
+                */
+                
+                if (tickTime > -1.0){
                     bool tickIsHigh = (nextBeat - lastBarCountedPlayheadPosition) < (getGlobalSettings().samplesPerBlock * beatsPerSample);
-                    
                     juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
                     bufferToFill.addEvent(msgOn, i);
                     if (i + metronomeTickLengthInSamples < bufferSize){
@@ -144,13 +162,61 @@ public:
                         metronomePendingNoteOffIsHigh = tickIsHigh;
                     }
                 }
+                
                 previousBeat = nextBeat;
+                
+                /*
+                
+                double nextBeat = previousBeat + beatsPerSample;
+                if (previousBeat == 0.0) {
+                    previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
+                }
+                if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
+                    bool tickIsHigh = (nextBeat - lastBarCountedPlayheadPosition) < (getGlobalSettings().samplesPerBlock * beatsPerSample);
+                    
+                    juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
+                    bufferToFill.addEvent(msgOn, i);
+                    std::cout << "-------- " << std::endl;
+                    if (i + metronomeTickLengthInSamples < bufferSize){
+                        juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
+                        #if !RPI_BUILD
+                        // Don't send note off messages in RPI_BUILD as it messed up external metronome
+                        // Should investigate why...
+                        bufferToFill.addEvent(msgOff, i + metronomeTickLengthInSamples);
+                        #endif
+                    } else {
+                        metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - bufferSize;
+                        metronomePendingNoteOffIsHigh = tickIsHigh;
+                    }
+                }
+                previousBeat = nextBeat;*/
             }
         }
     }
     
     void renderMidiClockInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
     {
+        // Addd 24 ticks per beat
+        if (getGlobalSettings().isPlaying){
+            double previousBeat = getGlobalSettings().playheadPositionInBeats;
+            double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
+            for (int i=0; i<bufferSize; i++){
+                double nextBeat = previousBeat + beatsPerSample;
+                double previousBeatNearestQuantized = std::round(previousBeat * 24.0) / 24.0;
+                double nextBeatNearestQuantized = std::round(nextBeat * 24.0) / 24.0;
+                if (previousBeat <= previousBeatNearestQuantized && previousBeatNearestQuantized < nextBeat){
+                    // If previousBeatNearestQuantized is in the middle of both beats, add midi clock tick
+                    juce::MidiMessage clockMsg = juce::MidiMessage::midiClock();
+                    bufferToFill.addEvent(clockMsg, i);
+                }
+                else if (previousBeat <= nextBeatNearestQuantized && nextBeatNearestQuantized < nextBeat) {
+                    // If nextBeatNearestQuantized is in the middle of both beats, add midi clock tick
+                    juce::MidiMessage clockMsg = juce::MidiMessage::midiClock();
+                    bufferToFill.addEvent(clockMsg, i);
+                }
+                previousBeat = nextBeat;
+            }
+        }
     }
     
 
