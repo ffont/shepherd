@@ -13,6 +13,7 @@
 #define OSC_ADDRESS_TRANSPORT "/transport"
 #define OSC_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
 #define OSC_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
+#define OSC_ADDRESS_TRANSPORT_SET_METER "/transport/setMeter"
 
 #define OSC_ADDRESS_CLIP "/clip"
 #define OSC_ADDRESS_CLIP_PLAY "/clip/play"
@@ -61,11 +62,14 @@
 
 
 struct GlobalSettingsStruct {
-    double bpm;
     double sampleRate;
     int samplesPerBlock;
     int nScenes;
     double fixedLengthRecordingAmount;
+    double playheadPositionInBeats;
+    double countInplayheadPositionInBeats;
+    bool isPlaying;
+    bool doingCountIn;
 };
 
 struct TrackSettingsStruct {

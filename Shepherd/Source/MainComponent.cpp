@@ -3,6 +3,7 @@
 
 //==============================================================================
 MainComponent::MainComponent()
+: musicalContext([this]{return getGlobalSettings();})
 {
     #if !RPI_BUILD
     addAndMakeVisible(devUiComponent);
@@ -164,16 +165,13 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
     for (int i=0; i<nTestTracks; i++){
         tracks.add(
           new Track(
-               [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / bpm)}; },
+               [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / musicalContext.getBpm())}; },
                [this]{
-                    GlobalSettingsStruct settings;
-                    settings.bpm = bpm;
-                    settings.fixedLengthRecordingAmount = fixedLengthRecordingAmount;
-                    settings.nScenes = nScenes;
-                    settings.sampleRate = sampleRate;
-                    settings.samplesPerBlock = samplesPerBlock;
-                    return settings;
-                }
+                   return getGlobalSettings();
+               },
+               [this]{
+                   return musicalContext;
+               }
         ));
     }
     
@@ -189,18 +187,22 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Clear audio buffers
     bufferToFill.clearActiveBufferRegion();
     
-    // Check if tempo should be updated
+    // Check if tempo/meter should be updated
     if (nextBpm > 0.0){
-        bpm = nextBpm;
+        musicalContext.setBpm(nextBpm);
         nextBpm = 0.0;
     }
-    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / bpm);
+    if (nextMeter > 0){
+        musicalContext.setMeter(nextMeter);
+        nextMeter = 0;
+    }
+    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / musicalContext.getBpm());
     
     // Check if count-in finished and global playhead should be toggled
     if (!isPlaying && doingCountIn){
-        if (countInLengthInBeats >= countInplayheadPositionInBeats && countInLengthInBeats < countInplayheadPositionInBeats + bufferLengthInBeats){
+        if (musicalContext.getMeter() >= countInplayheadPositionInBeats && musicalContext.getMeter() < countInplayheadPositionInBeats + bufferLengthInBeats){
             // Count in finishes in the current getNextAudioBlock execution
-            playheadPositionInBeats = -(countInLengthInBeats - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            playheadPositionInBeats = -(musicalContext.getMeter() - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
             shouldToggleIsPlaying = true;
             doingCountIn = false;
             countInplayheadPositionInBeats = 0.0;
@@ -232,7 +234,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             // Store message in the list of last note on messages and set its timestamp to the global playhead position
             juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
             if (doingCountIn){
-                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - countInLengthInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext.getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
             } else {
                 msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
             }
@@ -270,7 +272,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                         // Store message in the list of last note on messages and set its timestamp to the global playhead position
                         juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
                         if (doingCountIn){
-                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - countInLengthInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext.getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
                         } else {
                             msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
                         }
@@ -309,6 +311,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             }
             isPlaying = false;
             playheadPositionInBeats = 0.0;
+            musicalContext.resetCounters();
         } else {
             for (auto track: tracks){
                 track->clipsResetPlayheadPosition();
@@ -333,45 +336,12 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // TODO: do MIDI FX processing of the generatedMidi buffer per track (or per clip if we decide effects are clip-based?)
 
     
-    // Add metronome ticks to the buffer
-    if (metronomePendingNoteOffSamplePosition > -1){
-        // If there was a noteOff metronome message pending from previous block, add it now to the buffer
-        juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, metronomePendingNoteOffIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
-        #if !RPI_BUILD
-        // Don't send note off messages in RPI_BUILD as it messed up external metronome
-        // Should investigate why...
-        generatedMidi.addEvent(msgOff, metronomePendingNoteOffSamplePosition);
-        #endif
-        metronomePendingNoteOffSamplePosition = -1;
-    }
-    if (metronomeOn && (isPlaying || doingCountIn)) {
-        
-        double previousBeat = isPlaying ? playheadPositionInBeats : countInplayheadPositionInBeats;
-        double beatsPerSample = 1 / (60.0 * sampleRate / bpm);
-        for (int i=0; i<bufferToFill.numSamples; i++){
-            double nextBeat = previousBeat + beatsPerSample;
-            if (previousBeat == 0.0) {
-                previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
-            }
-            if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
-                bool tickIsHigh = int(std::floor(nextBeat)) % 4 == 0;
-                juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
-                generatedMidi.addEvent(msgOn, i);
-                if (i + metronomeTickLengthInSamples < bufferToFill.numSamples){
-                    juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
-                    #if !RPI_BUILD
-                    // Don't send note off messages in RPI_BUILD as it messed up external metronome
-                    // Should investigate why...
-                    generatedMidi.addEvent(msgOff, i + metronomeTickLengthInSamples);
-                    #endif
-                } else {
-                    metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - bufferToFill.numSamples;
-                    metronomePendingNoteOffIsHigh = tickIsHigh;
-                }
-            }
-            previousBeat = nextBeat;
-        }
-    }
+    // Update musical context bar counter
+    // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
+    musicalContext.updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
+    
+    // Render metornome in generated midi
+    musicalContext.renderMetronomeInSlice(metronomeOn,generatedMidi, bufferToFill.numSamples, metronomeMidiChannel, metronomeLowMidiNote, metronomeHighMidiNote, metronomeMidiVelocity, metronomeTickLengthInSamples);
      
     // Send the generated MIDI buffer to the output
     if (midiOutA != nullptr)
@@ -414,8 +384,26 @@ void MainComponent::resized()
 }
 
 //==============================================================================
+
+GlobalSettingsStruct MainComponent::getGlobalSettings()
+{
+    GlobalSettingsStruct settings;
+    settings.fixedLengthRecordingAmount = fixedLengthRecordingAmount;
+    settings.nScenes = nScenes;
+    settings.sampleRate = sampleRate;
+    settings.samplesPerBlock = samplesPerBlock;
+    settings.isPlaying = isPlaying;
+    settings.playheadPositionInBeats = playheadPositionInBeats;
+    settings.countInplayheadPositionInBeats = countInplayheadPositionInBeats;
+    settings.doingCountIn = doingCountIn;
+    return settings;
+}
+
+//==============================================================================
 void MainComponent::timerCallback()
 {
+    //std::cout << musicalContext.getBarCount() << ":" << musicalContext.getBeatsInBarCount() << std::endl;
+    
     // Things that need periodic checks
     if (!midiInIsConnected || !midiInPushIsConnected || !midiOutAIsConnected){
         if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInitializationAttempted > 2000){
@@ -535,6 +523,13 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             if (newBpm > 0.0 && newBpm < 400.0){
                 nextBpm = (double)newBpm;
             }
+        } else if (address == OSC_ADDRESS_TRANSPORT_SET_METER){
+            jassert(message.size() == 1);
+            int newMeter = message[0].getInt32();
+            if (newMeter > 0 && !doingCountIn){
+                // Don't allow chaning meter while doing count in, this could lead to severe disaster
+                nextMeter = newMeter;
+            }
         }
         
     } else if (address.startsWith(OSC_ADDRESS_METRONOME)) {
@@ -597,9 +592,9 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("transport");
             stateAsStringParts.add(isPlaying ? "p":"s");
-            stateAsStringParts.add(juce::String(bpm, 2));
+            stateAsStringParts.add(juce::String(musicalContext.getBpm(), 2));
             if (doingCountIn){
-                stateAsStringParts.add(juce::String(-1 * (countInLengthInBeats - countInplayheadPositionInBeats), 3));
+                stateAsStringParts.add(juce::String(-1 * (musicalContext.getMeter() - countInplayheadPositionInBeats), 3));
             } else {
                 stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
             }
@@ -618,6 +613,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             }
             stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
             stateAsStringParts.add(juce::String(fixedLengthRecordingAmount));
+            stateAsStringParts.add(juce::String(musicalContext.getMeter()));
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));

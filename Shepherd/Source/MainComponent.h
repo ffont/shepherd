@@ -3,6 +3,7 @@
 
 #include <JuceHeader.h>
 #include "defines.h"
+#include "MusicalContext.h"
 #include "Playhead.h"
 #include "Clip.h"
 #include "Track.h"
@@ -38,6 +39,8 @@ public:
 private:
     //==============================================================================
 
+    GlobalSettingsStruct getGlobalSettings();
+    
     // OSC
     void initializeOSC();
     void oscMessageReceived (const juce::OSCMessage& message) override;
@@ -69,15 +72,17 @@ private:
     // Transport and basic audio settings
     double sampleRate = 44100.0;
     int samplesPerBlock = 0;
-    double bpm = 120.0;
-    double nextBpm = 0.0;
     double playheadPositionInBeats = 0.0;
     bool isPlaying = false;
     bool shouldToggleIsPlaying = false;
     bool doingCountIn = false;
-    double countInLengthInBeats = 4.0;
     double countInplayheadPositionInBeats = 0.0;
     double fixedLengthRecordingAmount = 0.0;
+    
+    // Musical context
+    MusicalContext musicalContext;
+    double nextBpm = 0.0;
+    int nextMeter = 0;
     
     // Metronome
     bool metronomeOn = true;
@@ -86,8 +91,6 @@ private:
     int metronomeHighMidiNote = 80;
     float metronomeMidiVelocity = 1.0f;
     int metronomeTickLengthInSamples = 100;
-    int metronomePendingNoteOffSamplePosition = -1;
-    bool metronomePendingNoteOffIsHigh = false;
     
     // Tracks
     int nTestTracks = 8;

@@ -13,12 +13,14 @@
 #include <JuceHeader.h>
 #include "defines.h"
 #include "Clip.h"
+#include "MusicalContext.h"
 
 class Track
 {
 public:
     Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
-          std::function<GlobalSettingsStruct()> globalSettingsGetter
+          std::function<GlobalSettingsStruct()> globalSettingsGetter,
+          std::function<MusicalContext()> musicalContextGetter
           );
     
     void setMidiOutChannel(int newMidiOutChannel);
@@ -47,6 +49,7 @@ private:
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
+    std::function<MusicalContext()> getMusicalContext;
     
     int nClips = 0;
     juce::OwnedArray<Clip> midiClips;

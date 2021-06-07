@@ -69,6 +69,7 @@
 		89FFEF4F826D3E3EE97C2CCC /* Info-App.plist */ /* Info-App.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-App.plist"; path = "Info-App.plist"; sourceTree = SOURCE_ROOT; };
 		8C2179545E791DEE5C13CEDD /* juce_osc */ /* juce_osc */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_osc; path = ../../3rdParty/JUCE/modules/juce_osc; sourceTree = SOURCE_ROOT; };
 		920ED8FAFFB91CCF6F321D2A /* include_juce_events.mm */ /* include_juce_events.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_events.mm; path = ../../JuceLibraryCode/include_juce_events.mm; sourceTree = SOURCE_ROOT; };
+		987267E20591A1C35113C0E2 /* MusicalContext.h */ /* MusicalContext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MusicalContext.h; path = ../../Source/MusicalContext.h; sourceTree = SOURCE_ROOT; };
 		9BE32A48F6118E7D18DC1D8B /* juce_events */ /* juce_events */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_events; path = ../../3rdParty/JUCE/modules/juce_events; sourceTree = SOURCE_ROOT; };
 		ACFEEB068DE2956CA772A600 /* include_juce_audio_devices.mm */ /* include_juce_audio_devices.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_audio_devices.mm; path = ../../JuceLibraryCode/include_juce_audio_devices.mm; sourceTree = SOURCE_ROOT; };
 		AE84BCA83B06020E6A8C2A7A /* CoreMIDI.framework */ /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = System/Library/Frameworks/CoreMIDI.framework; sourceTree = SDKROOT; };
@@ -223,12 +224,13 @@
 				5E43A549B77C5624A5CE0DBC,
 				79F8C866EEDCFAEFF254BA0C,
 				F12CAA4810840C3006F52E0C,
-				2AE33E40AC8487429A60201C,
-				FD0C388EA33F976CD321632B,
-				347D271E3822C98BF61CED41,
-				4C66AB972C8E9BC837F8D209,
-				7959E7B0FCC83F0B2980B8EF,
+				987267E20591A1C35113C0E2,
 				B05E1DF74A57DBA57AC83DB8,
+				7959E7B0FCC83F0B2980B8EF,
+				4C66AB972C8E9BC837F8D209,
+				347D271E3822C98BF61CED41,
+				FD0C388EA33F976CD321632B,
+				2AE33E40AC8487429A60201C,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -320,9 +322,9 @@
 			files = (
 				9BD45321028A848B2EE9552E,
 				D0FEA7251068B7C50BCF8D8E,
-				53CD688FD348959432380A00,
-				2C003623372CFC17DDBBA6DC,
 				203917DCA094127EBB5DC33C,
+				2C003623372CFC17DDBBA6DC,
+				53CD688FD348959432380A00,
 				1B8AE3B484852EFC1797ECA2,
 				4E8E80F9E3F516F841A7C8B1,
 				2B4955CC9F1351D3C28281D1,

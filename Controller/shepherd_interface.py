@@ -118,6 +118,7 @@ class ShepherdInterface(object):
                 self.parsed_state['clipPlayheads'] = clipPlayheads
             
             self.parsed_state['fixedLengthRecordingAmount'] = float(parts[6])
+            self.parsed_state['meter'] = int(parts[7])
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
                 old_is_recording != self.parsed_state['isRecording'] or \
@@ -324,6 +325,13 @@ class ShepherdInterface(object):
     def set_bpm(self, bpm):
         self.osc_sender.send_message('/transport/setBpm', [float(bpm)])
         self.app.add_display_notification("Tempo: {0} bpm".format(bpm))
+
+    def get_meter(self):
+        return self.parsed_state.get('meter', 4)
+
+    def set_meter(self, meter):
+        self.osc_sender.send_message('/transport/setMeter', [int(meter)])
+        self.app.add_display_notification("Meter: {0} beats".format(meter))
 
     def get_num_tracks(self):
         return self.parsed_state.get('numTracks', 0)

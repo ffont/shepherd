@@ -11,10 +11,12 @@
 #include "Track.h"
 
 Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
-             std::function<GlobalSettingsStruct()> globalSettingsGetter)
+             std::function<GlobalSettingsStruct()> globalSettingsGetter,
+             std::function<MusicalContext()> musicalContextGetter)
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
     getGlobalSettings = globalSettingsGetter;
+    getMusicalContext = musicalContextGetter;
     nClips = getGlobalSettings().nScenes;
 }
 
@@ -35,7 +37,8 @@ void Track::prepareClips()
                     TrackSettingsStruct settings;
                     settings.midiOutChannel = midiOutChannel;
                     return settings;
-                }
+                },
+                getMusicalContext
         ));
     }
 }

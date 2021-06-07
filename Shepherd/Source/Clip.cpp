@@ -13,12 +13,13 @@
 
 Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
            std::function<GlobalSettingsStruct()> globalSettingsGetter,
-           std::function<TrackSettingsStruct()> trackSettingsGetter
-           )
+           std::function<TrackSettingsStruct()> trackSettingsGetter,
+           std::function<MusicalContext()> musicalContextGetter)
 : playhead(playheadParentSliceGetter)
 {
     getGlobalSettings = globalSettingsGetter;
     getTrackSettings = trackSettingsGetter;
+    getMusicalContext = musicalContextGetter;
     
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
@@ -54,7 +55,8 @@ Clip* Clip::clone() const
     auto newClip = new Clip(
         this->playhead.getParentSlice,
         this->getGlobalSettings,
-        this->getTrackSettings
+        this->getTrackSettings,
+        this->getMusicalContext
     );
     newClip->replaceSequence(this->midiSequence, this->clipLengthInBeats);
     newClip->quantizeSequence(this->currentQuantizationStep);
@@ -93,15 +95,8 @@ void Clip::stopAt(double positionInGlobalPlayhead)
 
 void Clip::togglePlayStop()
 {
-    double globalPlayheadPosition = playhead.getParentSlice().getStart();
-    double beatsRemainingForNextBar;
-    if (globalPlayheadPosition == 0.0){
-        // Edge case in which global playhead is stopped
-        beatsRemainingForNextBar = 0.0;
-    } else {
-        beatsRemainingForNextBar = 4.0 - std::fmod(globalPlayheadPosition, 4.0);
-    }
-    double positionInGlobalPlayhead = std::round(globalPlayheadPosition + beatsRemainingForNextBar);
+    
+    double positionInGlobalPlayhead = getMusicalContext().getNextQuantizedBarPosition();
     
     if (isPlaying()){
         if (!isCuedToStop()){
@@ -558,7 +553,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                     // Normal case in which notes should be triggered
                     
                     // Calculate note position for the midi buffer (in samples)
-                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getGlobalSettings().bpm);
+                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getMusicalContext().getBpm());
                     jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
                     
                     // Re-write MIDI channel (in might have changed...) and add note to the buffer

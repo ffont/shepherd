@@ -70,9 +70,9 @@ endif
 OBJECTS_APP := \
   $(JUCE_OBJDIR)/Main_90ebc5c2.o \
   $(JUCE_OBJDIR)/MainComponent_a6ffb4a5.o \
-  $(JUCE_OBJDIR)/Playhead_18622f9d.o \
-  $(JUCE_OBJDIR)/Clip_c820bfd9.o \
   $(JUCE_OBJDIR)/Track_c9ac1f2c.o \
+  $(JUCE_OBJDIR)/Clip_c820bfd9.o \
+  $(JUCE_OBJDIR)/Playhead_18622f9d.o \
   $(JUCE_OBJDIR)/include_juce_audio_basics_8a4e984a.o \
   $(JUCE_OBJDIR)/include_juce_audio_devices_63111d02.o \
   $(JUCE_OBJDIR)/include_juce_audio_formats_15f82001.o \
@@ -109,9 +109,9 @@ $(JUCE_OBJDIR)/MainComponent_a6ffb4a5.o: ../../Source/MainComponent.cpp
 	@echo "Compiling MainComponent.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
-$(JUCE_OBJDIR)/Playhead_18622f9d.o: ../../Source/Playhead.cpp
+$(JUCE_OBJDIR)/Track_c9ac1f2c.o: ../../Source/Track.cpp
 	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
-	@echo "Compiling Playhead.cpp"
+	@echo "Compiling Track.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/Clip_c820bfd9.o: ../../Source/Clip.cpp
@@ -119,9 +119,9 @@ $(JUCE_OBJDIR)/Clip_c820bfd9.o: ../../Source/Clip.cpp
 	@echo "Compiling Clip.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
-$(JUCE_OBJDIR)/Track_c9ac1f2c.o: ../../Source/Track.cpp
+$(JUCE_OBJDIR)/Playhead_18622f9d.o: ../../Source/Playhead.cpp
 	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
-	@echo "Compiling Track.cpp"
+	@echo "Compiling Playhead.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/include_juce_audio_basics_8a4e984a.o: ../../JuceLibraryCode/include_juce_audio_basics.cpp
