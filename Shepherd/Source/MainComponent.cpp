@@ -340,8 +340,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
     musicalContext.updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
     
-    // Render metornome in generated midi
-    musicalContext.renderMetronomeInSlice(metronomeOn,generatedMidi, bufferToFill.numSamples, metronomeMidiChannel, metronomeLowMidiNote, metronomeHighMidiNote, metronomeMidiVelocity, metronomeTickLengthInSamples);
+    // Render metronome in generated midi
+    musicalContext.renderMetronomeInSlice(generatedMidi, bufferToFill.numSamples);
      
     // Send the generated MIDI buffer to the output
     if (midiOutA != nullptr)
@@ -535,13 +535,13 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_METRONOME)) {
         if (address == OSC_ADDRESS_METRONOME_ON){
             jassert(message.size() == 0);
-            metronomeOn = true;
+            musicalContext.setMetronome(true);
         } else if (address == OSC_ADDRESS_METRONOME_OFF){
             jassert(message.size() == 0);
-            metronomeOn = false;
+            musicalContext.setMetronome(false);
         } else if (address == OSC_ADDRESS_METRONOME_ON_OFF){
             jassert(message.size() == 0);
-            metronomeOn = !metronomeOn;
+            musicalContext.toggleMetronome();
         }
         
     } else if (address.startsWith(OSC_ADDRESS_SETTINGS)) {
@@ -598,7 +598,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             } else {
                 stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
             }
-            stateAsStringParts.add(metronomeOn ? "p":"s");
+            stateAsStringParts.add(musicalContext.metronomeIsOn() ? "p":"s");
             juce::StringArray clipsPlayheadStateParts = {};
             for (int track_num=0; track_num<tracks.size(); track_num++){
                 auto track = tracks[track_num];

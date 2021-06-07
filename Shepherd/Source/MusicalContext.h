@@ -90,15 +90,22 @@ public:
         }
     }
     
-    void renderMetronomeInSlice(bool metronomeOn,
-                                juce::MidiBuffer& bufferToFill,
-                                int bufferSize,
-                                int metronomeMidiChannel,
-                                int metronomeLowMidiNote,
-                                int metronomeHighMidiNote,
-                                float metronomeMidiVelocity,
-                                int metronomeTickLengthInSamples
-                                )
+    void setMetronome(bool onOff)
+    {
+        metronomeOn = onOff;
+    }
+    
+    void toggleMetronome()
+    {
+        metronomeOn != metronomeOn;
+    }
+    
+    bool metronomeIsOn()
+    {
+        return metronomeOn;
+    }
+    
+    void renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
     {
         // Add metronome ticks to the buffer
         if (metronomePendingNoteOffSamplePosition > -1){
@@ -141,6 +148,11 @@ public:
             }
         }
     }
+    
+    void renderMidiClockInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+    {
+    }
+    
 
 private:
     double bpm = 120.0;
@@ -149,6 +161,12 @@ private:
     int barCount = 0;
     double lastBarCountedPlayheadPosition = 0.0;
 
+    bool metronomeOn = true;
+    int metronomeMidiChannel = 16;
+    int metronomeLowMidiNote = 67;
+    int metronomeHighMidiNote = 80;
+    float metronomeMidiVelocity = 1.0f;
+    int metronomeTickLengthInSamples = 100;
     int metronomePendingNoteOffSamplePosition = -1;
     bool metronomePendingNoteOffIsHigh = false;
     

@@ -1,8 +1,8 @@
 from oscpy.client import OSCClient
 from oscpy.server import OSCThreadServer
 import threading
-import asyncio
 import time
+import math
 
 osc_send_host = "127.0.0.1"
 osc_send_port = 9003
@@ -91,7 +91,7 @@ class ShepherdInterface(object):
             self.parsed_state['playhead'] = float(parts[3])
             if self.parsed_state['playhead'] < 0.0:
                 self.showing_countin_message = True
-                self.app.add_display_notification("Will start recording in: {0:.3f}".format(-1 * self.parsed_state['playhead']))
+                self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(-1 * self.parsed_state['playhead'])))
             else:
                 if self.showing_countin_message:
                     self.app.clear_display_notification()

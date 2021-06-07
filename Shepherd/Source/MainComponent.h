@@ -84,14 +84,6 @@ private:
     double nextBpm = 0.0;
     int nextMeter = 0;
     
-    // Metronome
-    bool metronomeOn = true;
-    int metronomeMidiChannel = 16;
-    int metronomeLowMidiNote = 67;
-    int metronomeHighMidiNote = 80;
-    float metronomeMidiVelocity = 1.0f;
-    int metronomeTickLengthInSamples = 100;
-    
     // Tracks
     int nTestTracks = 8;
     juce::OwnedArray<Track> tracks;
