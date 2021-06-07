@@ -312,11 +312,13 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             isPlaying = false;
             playheadPositionInBeats = 0.0;
             musicalContext.resetCounters();
+            musicalContext.renderMidiStopInSlice(generatedMidi, bufferToFill.numSamples);
         } else {
             for (auto track: tracks){
                 track->clipsResetPlayheadPosition();
             }
             isPlaying = true;
+            musicalContext.renderMidiStartInSlice(generatedMidi, bufferToFill.numSamples);
         }
         shouldToggleIsPlaying = false;
     }
@@ -343,8 +345,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Render metronome in generated midi
     musicalContext.renderMetronomeInSlice(generatedMidi, bufferToFill.numSamples);
     
-    musicalContext.renderMidiClockInSlice(generatedMidi, bufferToFill.numSamples);
-     
+    if (sendMidiClock){
+        musicalContext.renderMidiClockInSlice(generatedMidi, bufferToFill.numSamples);
+    }
+    
     // Send the generated MIDI buffer to the output
     if (midiOutA != nullptr)
         midiOutA.get()->sendBlockOfMessagesNow(generatedMidi);

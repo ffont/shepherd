@@ -97,7 +97,7 @@ public:
     
     void toggleMetronome()
     {
-        metronomeOn != metronomeOn;
+        metronomeOn = !metronomeOn;
     }
     
     bool metronomeIsOn()
@@ -138,14 +138,6 @@ public:
                     tickTime = nextBeatNearestQuantized;
                 }
                 
-                // The 8th beat fails to be matched for some unexpected reason?
-                /*
-                std::cout << previousBeat << " " << previousBeatNearestQuantized << " " << nextBeat << " " << nextBeatNearestQuantized << " :" << tickTime << std::endl;
-                std::cout << (previousBeat <= previousBeatNearestQuantized) << " " << (previousBeatNearestQuantized < nextBeat) << std::endl;
-                std::cout << (previousBeat <= nextBeatNearestQuantized) << " " << (nextBeatNearestQuantized < nextBeat) << std::endl;
-                std::cout << "" << std::endl;
-                */
-                
                 if (tickTime > -1.0){
                     bool tickIsHigh = (nextBeat - lastBarCountedPlayheadPosition) < (getGlobalSettings().samplesPerBlock * beatsPerSample);
                     juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
@@ -164,32 +156,6 @@ public:
                 }
                 
                 previousBeat = nextBeat;
-                
-                /*
-                
-                double nextBeat = previousBeat + beatsPerSample;
-                if (previousBeat == 0.0) {
-                    previousBeat = -0.1;  // Edge case for when global playhead has just started, otherwise we miss tick at time 0.0
-                }
-                if ((std::floor(nextBeat)) != std::floor(previousBeat)) {
-                    bool tickIsHigh = (nextBeat - lastBarCountedPlayheadPosition) < (getGlobalSettings().samplesPerBlock * beatsPerSample);
-                    
-                    juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
-                    bufferToFill.addEvent(msgOn, i);
-                    std::cout << "-------- " << std::endl;
-                    if (i + metronomeTickLengthInSamples < bufferSize){
-                        juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
-                        #if !RPI_BUILD
-                        // Don't send note off messages in RPI_BUILD as it messed up external metronome
-                        // Should investigate why...
-                        bufferToFill.addEvent(msgOff, i + metronomeTickLengthInSamples);
-                        #endif
-                    } else {
-                        metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - bufferSize;
-                        metronomePendingNoteOffIsHigh = tickIsHigh;
-                    }
-                }
-                previousBeat = nextBeat;*/
             }
         }
     }
@@ -217,6 +183,18 @@ public:
                 previousBeat = nextBeat;
             }
         }
+    }
+    
+    void renderMidiStartInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+    {
+        juce::MidiMessage clockMsg = juce::MidiMessage::midiStart();
+        bufferToFill.addEvent(clockMsg, 0);
+    }
+    
+    void renderMidiStopInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+    {
+        juce::MidiMessage clockMsg = juce::MidiMessage::midiStop();
+        bufferToFill.addEvent(clockMsg, 0);
     }
     
 

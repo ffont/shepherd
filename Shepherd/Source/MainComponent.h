@@ -79,6 +79,8 @@ private:
     double countInplayheadPositionInBeats = 0.0;
     int fixedLengthRecordingBars = 0;
     
+    bool sendMidiClock = true;
+    
     // Musical context
     MusicalContext musicalContext;
     double nextBpm = 0.0;
