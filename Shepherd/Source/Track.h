@@ -59,8 +59,6 @@ private:
     int nClips = 0;
     juce::OwnedArray<Clip> midiClips;
     
-    int midiOutChannel = 1;
-    
     bool inputMonitoring = false;
     
     

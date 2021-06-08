@@ -71,7 +71,7 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::Midi
         for (const auto metadata : incommingBuffer)
         {
             auto msg = metadata.getMessage();
-            msg.setChannel(midiOutChannel);
+            msg.setChannel(getMidiOutputChannel());
             bufferToFill.addEvent(msg, metadata.samplePosition);
         }
     }
