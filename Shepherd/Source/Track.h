@@ -14,6 +14,7 @@
 #include "defines.h"
 #include "Clip.h"
 #include "MusicalContext.h"
+#include "HardwareDevice.h"
 
 class Track
 {
@@ -23,7 +24,9 @@ public:
           std::function<MusicalContext()> musicalContextGetter
           );
     
-    void setMidiOutChannel(int newMidiOutChannel);
+    void setHardwareDevice(HardwareDevice* device);
+    juce::String getMidiOutputDeviceName();
+    int getMidiOutputChannel();
     
     void prepareClips();
     int getNumberOfClips();
@@ -46,6 +49,8 @@ public:
     void setInputMonitoring(bool enabled);
 
 private:
+    
+    HardwareDevice* device;
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;

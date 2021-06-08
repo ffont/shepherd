@@ -7,6 +7,7 @@
 #include "Playhead.h"
 #include "Clip.h"
 #include "Track.h"
+#include "HardwareDevice.h"
 #include "SynthAudioSource.h"
 #include "DevelopmentUIComponent.h"
 
@@ -41,6 +42,8 @@ private:
 
     GlobalSettingsStruct getGlobalSettings();
     
+    bool mainComponentInitialized = false;
+    
     // OSC
     void initializeOSC();
     void oscMessageReceived (const juce::OSCMessage& message) override;
@@ -52,14 +55,11 @@ private:
     bool oscSenderIsConnected = false;
     
     // Midi devices and other midi stuff
-    void initializeMIDI();
+    void initializeMIDIInputs();
     juce::int64 lastTimeMidiInitializationAttempted = 0;
     std::unique_ptr<juce::MidiInput> midiIn;
     bool midiInIsConnected = false;
     juce::MidiMessageCollector midiInCollector;
-    std::unique_ptr<juce::MidiOutput> midiOutA;
-    bool midiOutAIsConnected = false;
-    int midiOutChannel = 1;
     std::unique_ptr<juce::MidiInput> midiInPush;
     bool midiInPushIsConnected = false;
     juce::MidiMessageCollector pushMidiInCollector;
@@ -69,8 +69,20 @@ private:
     std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
     int lastMidiNoteOnMessagesToStore = 20;
     
+    MidiOutputDeviceData* initializeMidiOutputDevice(juce::String deviceName);
+    juce::OwnedArray<MidiOutputDeviceData> midiOutDevices = {};
+    juce::MidiOutput* getMidiOutputDevice(juce::String deviceName);
+    juce::MidiBuffer& getMidiOutputDeviceBuffer(juce::String deviceName);
+    void clearMidiDeviceOutputBuffers();
+    void sendMidiDeviceOutputBuffers();
+    
+    // Hardware devices
+    juce::OwnedArray<HardwareDevice> hardwareDevices;
+    void initializeHardwareDevices();
+    HardwareDevice* getHardwareDeviceByName(juce::String name);
+    
     // Transport and basic audio settings
-    double sampleRate = 44100.0;
+    double sampleRate = 0.0;
     int samplesPerBlock = 0;
     double playheadPositionInBeats = 0.0;
     bool isPlaying = false;
@@ -79,14 +91,16 @@ private:
     double countInplayheadPositionInBeats = 0.0;
     int fixedLengthRecordingBars = 0;
     
-    bool sendMidiClock = true;
-    
     // Musical context
     MusicalContext musicalContext;
     double nextBpm = 0.0;
     int nextMeter = 0;
+    bool sendMidiClock = true;
+    juce::String sendMidiClockDeviceName = "";
+    juce::String sendMidiMetronomeDeviceName = "";
     
     // Tracks
+    void initializeTracks();
     int nTestTracks = 8;
     juce::OwnedArray<Track> tracks;
     

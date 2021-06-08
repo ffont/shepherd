@@ -453,16 +453,19 @@ double Clip::getLengthInBeats()
 
 void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
 {
-    for (int i=0; i<notesCurrentlyPlayed.size(); i++){
-        juce::MidiMessage msg = juce::MidiMessage::noteOff(getTrackSettings().midiOutChannel, notesCurrentlyPlayed[i], 0.0f);
-        bufferToFill.addEvent(msg, 0);
-    }
-    notesCurrentlyPlayed.clear();
-    
-    if (sustainPedalBeingPressed){
-        juce::MidiMessage msg = juce::MidiMessage::controllerEvent(getTrackSettings().midiOutChannel, 64, 0);  // Sustain pedal down!
-        bufferToFill.addEvent(msg, 0);
-        sustainPedalBeingPressed = false;
+    int midiOutputChannel = getTrackSettings().midiOutChannel;
+    if (midiOutputChannel > -1){
+        for (int i=0; i<notesCurrentlyPlayed.size(); i++){
+            juce::MidiMessage msg = juce::MidiMessage::noteOff(midiOutputChannel, notesCurrentlyPlayed[i], 0.0f);
+            bufferToFill.addEvent(msg, 0);
+        }
+        notesCurrentlyPlayed.clear();
+        
+        if (sustainPedalBeingPressed){
+            juce::MidiMessage msg = juce::MidiMessage::controllerEvent(midiOutputChannel, MIDI_SUSTAIN_PEDAL_CC, 0);  // Sustain pedal down!
+            bufferToFill.addEvent(msg, 0);
+            sustainPedalBeingPressed = false;
+        }
     }
 }
 
@@ -556,15 +559,18 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                     int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getMusicalContext().getBpm());
                     jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
                     
-                    // Re-write MIDI channel (in might have changed...) and add note to the buffer
-                    msg.setChannel(getTrackSettings().midiOutChannel);
-                    bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
+                    // Re-write MIDI channel and add note to the buffer (only if a valid midi channel is set)
+                    int midiOutputChannel = getTrackSettings().midiOutChannel;
+                    if (midiOutputChannel > -1){
+                        msg.setChannel(midiOutputChannel);
+                        bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
+                    }
                     
                     // Keep track of notes currently played so later we can send note offs if needed (include sustain pedal in checks)
                     if      (msg.isNoteOn())  notesCurrentlyPlayed.add (msg.getNoteNumber());
                     else if (msg.isNoteOff()) notesCurrentlyPlayed.removeValue (msg.getNoteNumber());
-                    if      (msg.isController() && msg.getControllerName(64) && msg.getControllerValue() > 0)  sustainPedalBeingPressed = true;
-                    else if (msg.isController() && msg.getControllerName(64) && msg.getControllerValue() == 0) sustainPedalBeingPressed = false;
+                    if      (msg.isController() && msg.getControllerName(MIDI_SUSTAIN_PEDAL_CC) && msg.getControllerValue() > 0)  sustainPedalBeingPressed = true;
+                    else if (msg.isController() && msg.getControllerName(MIDI_SUSTAIN_PEDAL_CC) && msg.getControllerValue() == 0) sustainPedalBeingPressed = false;
                 }
             }
         }

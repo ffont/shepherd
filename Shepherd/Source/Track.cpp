@@ -20,11 +20,28 @@ Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
     nClips = getGlobalSettings().nScenes;
 }
 
-void Track::setMidiOutChannel(int newMidiOutChannel)
+void Track::setHardwareDevice(HardwareDevice* _device)
 {
-    midiOutChannel = newMidiOutChannel;
+    device = _device;
 }
 
+juce::String Track::getMidiOutputDeviceName()
+{
+    if (device != nullptr){
+        return device->getMidiOutputDeviceName();
+    } else {
+        return "";
+    }
+}
+
+int Track::getMidiOutputChannel()
+{
+    if (device != nullptr){
+        return device->getMidiOutputChannel();
+    } else {
+        return -1;
+    }
+}
 
 void Track::prepareClips()
 {
@@ -35,7 +52,7 @@ void Track::prepareClips()
                 getGlobalSettings,
                 [this]{
                     TrackSettingsStruct settings;
-                    settings.midiOutChannel = midiOutChannel;
+                    settings.midiOutChannel = getMidiOutputChannel();
                     return settings;
                 },
                 getMusicalContext

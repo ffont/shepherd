@@ -61,6 +61,17 @@
 #define CLIP_STATUS_IS_NOT_EMPTY "e"
 
 
+#define MIDI_SUSTAIN_PEDAL_CC 64
+#define MIDI_BANK_CHANGE_CC 0
+
+
+struct MidiOutputDeviceData {
+    juce::String identifier;
+    juce::String name;
+    std::unique_ptr<juce::MidiOutput> device;
+    juce::MidiBuffer buffer;
+};
+
 struct GlobalSettingsStruct {
     double sampleRate;
     int samplesPerBlock;
