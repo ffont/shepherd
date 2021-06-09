@@ -292,6 +292,7 @@ void MainComponent::initializeHardwareDevices()
             }
         }
     } else {
+        std::cout << "No hardware devices configuration file found at " << hardwareDeviceDefinitionsLocation.getFullPathName() << std::endl;
         shouldLoadDefaults = true;
     }
     
