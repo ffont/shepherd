@@ -262,21 +262,55 @@ void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, int b
 void MainComponent::initializeHardwareDevices()
 {
     
-    std::cout << "Initializing Hardware Devices" << std::endl;
-    // TODO: do this bit by reading from some config file
+    bool shouldLoadDefaults = false;
     
-    #if RPI_BUILD
-    const juce::String synthsMidiOut = "MIDIFACE 2X2 MIDI 1";
-    #else
-    const juce::String synthsMidiOut = "IAC Driver Bus 1";
-    #endif
+    juce::File hardwareDeviceDefinitionsLocation = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/hardwareDevices").withFileExtension("json");
+    if (hardwareDeviceDefinitionsLocation.existsAsFile()){
+        std::cout << "Initializing Hardware Devices from JSON file" << std::endl;
+        juce::var parsedJson;
+        auto result = juce::JSON::parse(hardwareDeviceDefinitionsLocation.loadFileAsString(), parsedJson);
+        if (!result.wasOk())
+        {
+            std::cout << "Error parsing JSON: " + result.getErrorMessage() << std::endl;
+            std::cout << "Will load default hardware devices" << std::endl;
+            shouldLoadDefaults = true;
+        } else {
+            // At the top level, the JSON file should be an array
+            jassert(parsedJson.isArray());
+            for (int i=0; i<parsedJson.size(); i++){
+                juce::var deviceInfo = parsedJson[i];
+                // Each element in the array should be an object element with the properties needed to create the hardware device
+                jassert(deviceInfo.isObject());
+                juce::String name = deviceInfo.getProperty("name", "NoName").toString();
+                juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
+                juce::String midiDeviceName = deviceInfo.getProperty("midi_out_device", "NoMIDIOutDevice").toString();
+                int midiChannel = (int)deviceInfo.getProperty("midi_out_channel", "NoMIDIOutDevice");
+                HardwareDevice* device = new HardwareDevice(name, shortName, [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
+                device->configureMidiOutput(midiDeviceName, midiChannel);
+                hardwareDevices.add(device);
+                std::cout << "- " << name << std::endl;
+            }
+        }
+    } else {
+        shouldLoadDefaults = true;
+    }
     
-    for (int i=0; i<nTestTracks; i++){
-        juce::String name = "Synth " + juce::String(i + 1);
-        HardwareDevice* device = new HardwareDevice(name, "S" + juce::String(i + 1), [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
-        device->configureMidiOutput(synthsMidiOut, i + 1);
-        hardwareDevices.add(device);
-        std::cout << "- " << name << std::endl;
+    if (shouldLoadDefaults){
+        std::cout << "Initializing default Hardware Devices" << std::endl;
+        
+        #if RPI_BUILD
+        const juce::String synthsMidiOut = "MIDIFACE 2X2 MIDI 1";
+        #else
+        const juce::String synthsMidiOut = "IAC Driver Bus 1";
+        #endif
+
+        for (int i=0; i<nTestTracks; i++){
+            juce::String name = "Synth " + juce::String(i + 1);
+            HardwareDevice* device = new HardwareDevice(name, "S" + juce::String(i + 1), [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
+            device->configureMidiOutput(synthsMidiOut, i + 1);
+            hardwareDevices.add(device);
+            std::cout << "- " << name << std::endl;
+        }
     }
 }
 
@@ -287,15 +321,16 @@ HardwareDevice* MainComponent::getHardwareDeviceByName(juce::String name)
             return device;
         }
     }
-    // No hardware device is available with that name...
-    jassert(false);
+    // If no hardware device is available with that name, simply return null pointer
     return nullptr;
 }
 
 void MainComponent::initializeTracks()
 {    
     // Create some tracks
-    for (int i=0; i<nTestTracks; i++){
+    // By default create one track per available hardware device and assign the device to it (with a maximum of 8)
+    // TODO: In the future this should be done by reading from some Shepherd preset/project/session file
+    for (int i=0; i<juce::jmin(hardwareDevices.size(), 8); i++){
         tracks.add(
           new Track(
                [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / musicalContext.getBpm())}; },
@@ -309,13 +344,8 @@ void MainComponent::initializeTracks()
             return getMidiOutputDeviceBuffer(deviceName);
                }
         ));
-    }
-    
-    for (int i=0; i<tracks.size(); i++){
         auto track = tracks[i];
-        // TODO: assign hardware device objects to tracks. This should be read from some config file
-        juce::String hardwareDeviceName = "S" + juce::String(i + 1);
-        track->setHardwareDevice(getHardwareDeviceByName(hardwareDeviceName));
+        track->setHardwareDevice(hardwareDevices[i]);
         track->prepareClips();
     }
 }
@@ -666,28 +696,29 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_TRACK)) {
         jassert(message.size() >= 1);
         int trackNum = message[0].getInt32();
-        jassert(trackNum < tracks.size());
-        if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
-            jassert(message.size() == 2);
-            bool trueFalse = message[1].getInt32() == 1;
-            auto track = tracks[trackNum];
-            track->setInputMonitoring(trueFalse);
+        if (trackNum < tracks.size()){
+            if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
+                jassert(message.size() == 2);
+                bool trueFalse = message[1].getInt32() == 1;
+                auto track = tracks[trackNum];
+                track->setInputMonitoring(trueFalse);
+            }
+            else if (address == OSC_ADDRESS_TRACK_SEND_ALL_NOTES_OFF_TO_DEVICE){
+                jassert(message.size() == 1);
+                auto track = tracks[trackNum];
+                auto trackDevice = track->getHardwareDevice();
+                if (trackDevice != nullptr) trackDevice->sendAllNotesOff();
+            }
+            else if (address == OSC_ADDRESS_TRACK_LOAD_DEVICE_PRESET){
+                jassert(message.size() == 3);
+                int bank = message[1].getInt32();
+                int preset = message[2].getInt32();
+                auto track = tracks[trackNum];
+                auto trackDevice = track->getHardwareDevice();
+                if (trackDevice != nullptr) trackDevice->loadPreset(bank, preset);
+            }
         }
-        else if (address == OSC_ADDRESS_TRACK_SEND_ALL_NOTES_OFF_TO_DEVICE){
-            jassert(message.size() == 1);
-            auto track = tracks[trackNum];
-            auto trackDevice = track->getHardwareDevice();
-            std::cout << " HEY " << std::endl;
-            if (trackDevice != nullptr) trackDevice->sendAllNotesOff();
-        }
-        else if (address == OSC_ADDRESS_TRACK_LOAD_DEVICE_PRESET){
-            jassert(message.size() == 3);
-            int bank = message[1].getInt32();
-            int preset = message[2].getInt32();
-            auto track = tracks[trackNum];
-            auto trackDevice = track->getHardwareDevice();
-            if (trackDevice != nullptr) trackDevice->loadPreset(bank, preset);
-        }
+        
     } else if (address.startsWith(OSC_ADDRESS_SCENE)) {
         jassert(message.size() == 1);
         int sceneNum = message[0].getInt32();
