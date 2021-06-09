@@ -56,25 +56,30 @@ private:
     
     // Midi devices and other midi stuff
     void initializeMIDIInputs();
-    juce::int64 lastTimeMidiInitializationAttempted = 0;
+    juce::int64 lastTimeMidiInputInitializationAttempted = 0;
     std::unique_ptr<juce::MidiInput> midiIn;
     bool midiInIsConnected = false;
     juce::MidiMessageCollector midiInCollector;
     std::unique_ptr<juce::MidiInput> midiInPush;
     bool midiInPushIsConnected = false;
     juce::MidiMessageCollector pushMidiInCollector;
+    
+    void initializeMIDIOutputs();
+    bool shouldTryInitializeMidiOutputs = false;
+    juce::int64 lastTimeMidiOutputInitializationAttempted = 0;
+    MidiOutputDeviceData* initializeMidiOutputDevice(juce::String deviceName);
+    juce::OwnedArray<MidiOutputDeviceData> midiOutDevices = {};
+    juce::MidiOutput* getMidiOutputDevice(juce::String deviceName);
+    juce::MidiBuffer* getMidiOutputDeviceBuffer(juce::String deviceName);
+    void clearMidiDeviceOutputBuffers();
+    void sendMidiDeviceOutputBuffers();
+    void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, int bufferSize, std::vector<juce::String> midiOutDeviceNames);
+    
     std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
     int fixedVelocity = -1;
     std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
     int lastMidiNoteOnMessagesToStore = 20;
-    
-    MidiOutputDeviceData* initializeMidiOutputDevice(juce::String deviceName);
-    juce::OwnedArray<MidiOutputDeviceData> midiOutDevices = {};
-    juce::MidiOutput* getMidiOutputDevice(juce::String deviceName);
-    juce::MidiBuffer& getMidiOutputDeviceBuffer(juce::String deviceName);
-    void clearMidiDeviceOutputBuffers();
-    void sendMidiDeviceOutputBuffers();
     
     // Hardware devices
     juce::OwnedArray<HardwareDevice> hardwareDevices;
@@ -96,8 +101,13 @@ private:
     double nextBpm = 0.0;
     int nextMeter = 0;
     bool sendMidiClock = true;
-    juce::String sendMidiClockDeviceName = "";
-    juce::String sendMidiMetronomeDeviceName = "";
+    #if RPI_BUILD
+    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"MIDIFACE 2X2 MIDI 1", "Ableton Push 2 MIDI 1"};
+    std::vector<juce::String> sendMetronomeMidiDeviceNames = {"MIDIFACE 2X2 MIDI 1"};
+    #else
+    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"IAC Driver Bus 1"};
+    std::vector<juce::String> sendMetronomeMidiDeviceNames = {"IAC Driver Bus 1"};
+    #endif
     
     // Tracks
     void initializeTracks();

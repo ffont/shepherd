@@ -17,7 +17,7 @@ HardwareDevice::HardwareDevice(juce::String _name,
 {
     name = _name;
     shortName = _shortName;
-    getMidiOutput = outputMidiDeviceGetter;
+    getMidiOutputDevice = outputMidiDeviceGetter;
 }
 
 juce::String HardwareDevice::getName()
@@ -48,12 +48,18 @@ juce::String HardwareDevice::getMidiOutputDeviceName()
 
 void HardwareDevice::sendMidi(juce::MidiMessage msg)
 {
-    getMidiOutput(midiOutputDeviceName)->sendMessageNow(msg);
+    auto midiDevice = getMidiOutputDevice(midiOutputDeviceName);
+    if (midiDevice != nullptr){
+        midiDevice->sendMessageNow(msg);
+    }
 }
 
 void HardwareDevice::sendMidi(juce::MidiBuffer& buffer)
 {
-    getMidiOutput(midiOutputDeviceName)->sendBlockOfMessagesNow(buffer);
+    auto midiDevice = getMidiOutputDevice(midiOutputDeviceName);
+    if (midiDevice != nullptr){
+        midiDevice->sendBlockOfMessagesNow(buffer);
+    }
 }
 
 void HardwareDevice::sendAllNotesOff()

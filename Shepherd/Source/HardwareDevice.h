@@ -39,6 +39,6 @@ private:
     juce::String shortName = "Generic";
     
     juce::String midiOutputDeviceName = "";
-    std::function<juce::MidiOutput*(juce::String deviceName)> getMidiOutput;
+    std::function<juce::MidiOutput*(juce::String deviceName)> getMidiOutputDevice;
     int midiOutputChannel = -1;
 };

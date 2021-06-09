@@ -28,24 +28,15 @@ MainComponent::MainComponent()
         setAudioChannels (2, 2);
     }
     
-    // Init OSC and MIDI
-    initializeOSC();
-    initializeMIDIInputs();
-    
     // Init hardware devices
     initializeHardwareDevices();
     
-    // Initialize midi output devices used for clock and metronome
-    // (these devices might have been already initialized if used by defined hardware devices)
-    #if RPI_BUILD
-    sendMidiClockDeviceName = "MIDIFACE 2X2 MIDI 1";
-    sendMidiMetronomeDeviceName = "MIDIFACE 2X2 MIDI 1";
-    #else
-    sendMidiClockDeviceName = "IAC Driver Bus 1";
-    sendMidiMetronomeDeviceName = "IAC Driver Bus 1";
-    #endif
-    initializeMidiOutputDevice(sendMidiClockDeviceName);
-    initializeMidiOutputDevice(sendMidiMetronomeDeviceName);
+    // Init MIDI
+    initializeMIDIInputs();
+    initializeMIDIOutputs();  // Better to do it after hardware devices so we init devices needed in hardware devices as well
+    
+    // Init OSC
+    initializeOSC();
     
     // Create tracks
     initializeTracks();
@@ -75,9 +66,9 @@ void MainComponent::initializeOSC()
     
     // Setup OSC server
     if (! connect (oscReceivePort)){
-        std::cout << "ERROR starting OSC server" << std::endl;
+        std::cout << "- ERROR starting OSC server" << std::endl;
     } else {
-        std::cout << "Started OSC server, listening at 0.0.0.0:" << oscReceivePort << std::endl;
+        std::cout << "- Started OSC server, listening at 0.0.0.0:" << oscReceivePort << std::endl;
         addListener (this);
     }
     // OSC sender is not set up here because it is done lazily when trying to send a message
@@ -85,9 +76,11 @@ void MainComponent::initializeOSC()
 
 void MainComponent::initializeMIDIInputs()
 {
+    JUCE_ASSERT_MESSAGE_THREAD
+    
     std::cout << "Initializing MIDI input devices" << std::endl;
     
-    lastTimeMidiInitializationAttempted = juce::Time::getCurrentTime().toMilliseconds();
+    lastTimeMidiInputInitializationAttempted = juce::Time::getCurrentTime().toMilliseconds();
     
     // Setup MIDI devices
     auto midiInputs = juce::MidiInput::getAvailableDevices();
@@ -99,21 +92,22 @@ void MainComponent::initializeMIDIInputs()
         const juce::String inDeviceName = "iCON iKEY V1.02";
         #endif
         juce::String inDeviceIdentifier = "";
-        std::cout << "Available MIDI IN devices for Keys input:" << std::endl;
         for (int i=0; i<midiInputs.size(); i++){
-            std::cout << " - " << midiInputs[i].name << std::endl;
             if (midiInputs[i].name == inDeviceName){
                 inDeviceIdentifier = midiInputs[i].identifier;
             }
         }
         midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
         if (midiIn != nullptr){
-            std::cout << "Connected to:" << midiIn.get()->getName() << std::endl;
-            std::cout << "Starting MIDI in callback" << std::endl;
+            std::cout << "- " << midiIn.get()->getName() << std::endl;
             midiIn.get()->start();
             midiInIsConnected = true;
         } else {
-            std::cout << "Could not connect to " << inDeviceName << std::endl;
+            std::cout << "- ERROR " << inDeviceName << ". Available MIDI IN devices: ";
+            for (int i=0; i<midiInputs.size(); i++){
+                std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+            }
+            std::cout << std::endl;
         }
     }
 
@@ -124,35 +118,65 @@ void MainComponent::initializeMIDIInputs()
         const juce::String pushInDeviceName = "Push2Simulator";
         #endif
         juce::String pushInDeviceIdentifier = "";
-        std::cout << "Available MIDI IN devices for Push input:" << std::endl;
         for (int i=0; i<midiInputs.size(); i++){
-            std::cout << " - " << midiInputs[i].name << std::endl;
             if (midiInputs[i].name == pushInDeviceName){
                 pushInDeviceIdentifier = midiInputs[i].identifier;
             }
         }
         midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
         if (midiInPush != nullptr){
-            std::cout << "Connected to:" << midiInPush.get()->getName() << std::endl;
-            std::cout << "Starting MIDI in callback" << std::endl;
+            std::cout << "- " << midiInPush.get()->getName() << std::endl;
             midiInPush.get()->start();
             midiInPushIsConnected = true;
         } else {
-            std::cout << "Could not connect to " << pushInDeviceName << std::endl;
+            std::cout << "- ERROR " << pushInDeviceName << ". Available MIDI IN devices: ";
+            for (int i=0; i<midiInputs.size(); i++){
+                std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+            }
+            std::cout << std::endl;
         }
     }
 }
 
+void MainComponent::initializeMIDIOutputs()
+{
+    JUCE_ASSERT_MESSAGE_THREAD
+    
+    std::cout << "Initializing MIDI output devices" << std::endl;
+    
+    lastTimeMidiOutputInitializationAttempted = juce::Time::getCurrentTime().toMilliseconds();
+    
+    bool someFailedInitialization = false;
+    
+    // Initialize all MIDI devices required by available hardware devices
+    for (auto hwDevice: hardwareDevices){
+        auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
+        if (midiDevice == nullptr) someFailedInitialization = true;
+    }
+    
+    // Initialize midi output devices used for clock and metronome
+    for (auto midiDeviceName: sendMidiClockMidiDeviceNames){
+        auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
+        if (midiDevice == nullptr) someFailedInitialization = true;
+    }
+    for (auto midiDeviceName: sendMetronomeMidiDeviceNames){
+        auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
+        if (midiDevice == nullptr) someFailedInitialization = true;
+    }
+    
+    if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
+}
+
 MidiOutputDeviceData* MainComponent::initializeMidiOutputDevice(juce::String deviceName)
 {
+    JUCE_ASSERT_MESSAGE_THREAD
+        
     for (auto deviceData: midiOutDevices){
         if (deviceData->name == deviceName){
             // If device already initialized, early return
             return nullptr;
         }
     }
-    
-    std::cout << "Initializing MIDI ouput device: " << deviceName << std::endl;
     
     auto midiOutputs = juce::MidiOutput::getAvailableDevices();
     juce::String outDeviceIdentifier = "";
@@ -167,15 +191,16 @@ MidiOutputDeviceData* MainComponent::initializeMidiOutputDevice(juce::String dev
     deviceData->name = deviceName;
     deviceData->device = juce::MidiOutput::openDevice(outDeviceIdentifier);
     if (deviceData->device != nullptr){
-        std::cout << "Connected to:" << deviceData->device.get()->getName() << std::endl;
+        std::cout << "- " << deviceData->device.get()->getName() << std::endl;
         midiOutDevices.add(deviceData);
         return deviceData;
     } else {
-        std::cout << "Could not connect to " << deviceName << std::endl;
-        std::cout << "Available MIDI OUT devices:" << std::endl;
+        delete deviceData; // Delete created MidiOutputDeviceData to avoid memory leaks with created buffer
+        std::cout << "- ERROR " << deviceName << ". Available MIDI OUT devices: ";
         for (int i=0; i<midiOutputs.size(); i++){
-            std::cout << " - " << midiOutputs[i].name << std::endl;
+            std::cout << midiOutputs[i].name << ((i != (midiOutputs.size() - 1)) ? ", ": "");
         }
+        std::cout << std::endl;
         return nullptr;
     }
 }
@@ -187,26 +212,27 @@ juce::MidiOutput* MainComponent::getMidiOutputDevice(juce::String deviceName)
             return deviceData->device.get();
         }
     }
-    // If function did not yet return, it means the requested output device has not yet been requested before
-    // Open the device and add to the owned array before returning it
-    // If the code below asserts, it means the device could not have been initialized. Is the device name correct?
-    MidiOutputDeviceData* deviceData = initializeMidiOutputDevice(deviceName);
-    jassert(deviceData != nullptr);
-    return deviceData->device.get();
+    // If function did not yet return, it means the requested output device has not yet been initialized
+    // Set a flag so the device gets initialized in the message thread and return null pointer.
+    // NOTE: we could check if we're in the message thread and, if this is the case, initialize the device
+    // instead of setting a flag, but this optimization is probably not necessary.
+    shouldTryInitializeMidiOutputs = true;
+    return nullptr;
 }
 
-juce::MidiBuffer& MainComponent::getMidiOutputDeviceBuffer(juce::String deviceName)
+juce::MidiBuffer* MainComponent::getMidiOutputDeviceBuffer(juce::String deviceName)
 {
     for (auto deviceData: midiOutDevices){
         if (deviceData->name == deviceName){
-            return deviceData->buffer;
+            return &deviceData->buffer;
         }
     }
-    // Trying to access the buffer of a MIDI device that has not been opened. Initialize the device first
-    // If the code below asserts, it means the device could not have been initialized. Is the device name correct?
-    MidiOutputDeviceData* deviceData = initializeMidiOutputDevice(deviceName);
-    jassert(deviceData != nullptr);
-    return deviceData->buffer;
+    // If the above code does not return, this means we're trying to access a buffer of a MIDI device that has
+    // not yet been initialized. Set a flag so the device gets initialized in the message thread and return null pointer.
+    // NOTE: we could check if we're in the message thread and, if this is the case, initialize the device
+    // instead of setting a flag, but this optimization is probably not necessary.
+    shouldTryInitializeMidiOutputs = true;
+    return nullptr;
 }
 
 void MainComponent::clearMidiDeviceOutputBuffers()
@@ -223,6 +249,16 @@ void MainComponent::sendMidiDeviceOutputBuffers()
     }
 }
 
+void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, int bufferSize, std::vector<juce::String> midiOutDeviceNames)
+{
+    for (auto deviceName: midiOutDeviceNames){
+        auto bufferToWrite = getMidiOutputDeviceBuffer(deviceName);
+        if (bufferToWrite != nullptr){
+            bufferToWrite->addEvents(buffer, 0, bufferSize, 0);
+        }
+    }
+}
+
 void MainComponent::initializeHardwareDevices()
 {
     
@@ -236,12 +272,11 @@ void MainComponent::initializeHardwareDevices()
     #endif
     
     for (int i=0; i<nTestTracks; i++){
-        HardwareDevice* device = new HardwareDevice("Synth " + juce::String(i + 1), "S" + juce::String(i + 1), [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
+        juce::String name = "Synth " + juce::String(i + 1);
+        HardwareDevice* device = new HardwareDevice(name, "S" + juce::String(i + 1), [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
         device->configureMidiOutput(synthsMidiOut, i + 1);
         hardwareDevices.add(device);
-        
-        // Force initialize the output device here as it is recommended to be done in the message
-        initializeMidiOutputDevice(synthsMidiOut);
+        std::cout << "- " << name << std::endl;
     }
 }
 
@@ -269,6 +304,9 @@ void MainComponent::initializeTracks()
                },
                [this]{
                    return musicalContext;
+               },
+               [this](juce::String deviceName){
+            return getMidiOutputDeviceBuffer(deviceName);
                }
         ));
     }
@@ -330,9 +368,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         }
     }
     
-    // Prepare some references to MIDI out buffers
-    juce::MidiBuffer& bufferToWriteClock = getMidiOutputDeviceBuffer(sendMidiClockDeviceName);
-    juce::MidiBuffer& bufferToWriteMetronome = getMidiOutputDeviceBuffer(sendMidiMetronomeDeviceName);
+    // Prepare some buffers to add messages to them
+    juce::MidiBuffer midiClockMessages;
+    juce::MidiBuffer midiMetronomeMessages;
     
     // Collect messages from MIDI input (keys and push)
     juce::MidiBuffer incomingMidi;
@@ -428,35 +466,34 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     if (shouldToggleIsPlaying){
         if (isPlaying){
             for (auto track: tracks){
-                juce::MidiBuffer& bufferToWrite = getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
-                track->clipsRenderRemainingNoteOffsIntoMidiBuffer(bufferToWrite);
+                track->clipsRenderRemainingNoteOffsIntoMidiBuffer();
                 track->stopAllPlayingClips(true, true, true);
             }
             isPlaying = false;
             playheadPositionInBeats = 0.0;
             musicalContext.resetCounters();
-            musicalContext.renderMidiStopInSlice(bufferToWriteClock, bufferToFill.numSamples);
+            
+            
+            musicalContext.renderMidiStopInSlice(midiClockMessages, bufferToFill.numSamples);
         } else {
             for (auto track: tracks){
                 track->clipsResetPlayheadPosition();
             }
             isPlaying = true;
-            musicalContext.renderMidiStartInSlice(bufferToWriteClock, bufferToFill.numSamples);
+            musicalContext.renderMidiStartInSlice(midiClockMessages, bufferToFill.numSamples);
         }
         shouldToggleIsPlaying = false;
     }
     
     // Copy incoming midi to generated midi buffer for tracks that have input monitoring enabled
     for (auto track: tracks){
-        juce::MidiBuffer& bufferToWrite = getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
-        track->processInputMonitoring(incomingMidi, bufferToWrite);
+        track->processInputMonitoring(incomingMidi);
     }
     
     // Generate notes and/or record notes
     if (isPlaying){
         for (auto track: tracks){
-            juce::MidiBuffer& bufferToWrite = getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
-            track->clipsProcessSlice(incomingMidi, bufferToWrite, bufferToFill.numSamples, lastMidiNoteOnMessages);
+            track->clipsProcessSlice(incomingMidi, bufferToFill.numSamples, lastMidiNoteOnMessages);
         }
     }
     
@@ -468,11 +505,15 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     musicalContext.updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
     
     // Render metronome in generated midi
-    musicalContext.renderMetronomeInSlice(bufferToWriteMetronome, bufferToFill.numSamples);
+    musicalContext.renderMetronomeInSlice(midiMetronomeMessages, bufferToFill.numSamples);
     
     if (sendMidiClock){
-        musicalContext.renderMidiClockInSlice(bufferToWriteClock, bufferToFill.numSamples);
+        musicalContext.renderMidiClockInSlice(midiClockMessages, bufferToFill.numSamples);
     }
+    
+    // Add metronome and midi clock messages to the corresponding buffers
+    writeMidiToDevicesMidiBuffer(midiClockMessages, bufferToFill.numSamples, sendMidiClockMidiDeviceNames);
+    writeMidiToDevicesMidiBuffer(midiMetronomeMessages, bufferToFill.numSamples, sendMetronomeMidiDeviceNames);
     
     // Send the generated MIDI buffers to the outputs
     sendMidiDeviceOutputBuffers();
@@ -544,10 +585,18 @@ void MainComponent::timerCallback()
     
     // Things that need periodic checks
     if (!midiInIsConnected || !midiInPushIsConnected ){
-        if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInitializationAttempted > 2000){
+        if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInputInitializationAttempted > 2000){
             // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
             // time we tried to initialize them, try to initialize again
             initializeMIDIInputs();
+        }
+    }
+    
+    if (shouldTryInitializeMidiOutputs){
+        if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiOutputInitializationAttempted > 2000){
+            // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
+            // time we tried to initialize them, try to initialize again
+            initializeMIDIOutputs();
         }
     }
 }

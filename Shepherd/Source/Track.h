@@ -21,7 +21,8 @@ class Track
 public:
     Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
           std::function<GlobalSettingsStruct()> globalSettingsGetter,
-          std::function<MusicalContext()> musicalContextGetter
+          std::function<MusicalContext()> musicalContextGetter,
+          std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
           );
     
     void setHardwareDevice(HardwareDevice* device);
@@ -31,10 +32,10 @@ public:
     void prepareClips();
     int getNumberOfClips();
     
-    void processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill);
+    void processInputMonitoring(juce::MidiBuffer& incommingBuffer);
     
-    void clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
-    void clipsRenderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill);
+    void clipsProcessSlice(juce::MidiBuffer& incommingBuffer, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
+    void clipsRenderRemainingNoteOffsIntoMidiBuffer();
     void clipsResetPlayheadPosition();
     
     Clip* getClipAt(int clipN);
@@ -55,6 +56,8 @@ private:
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext()> getMusicalContext;
+    std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
+    juce::MidiBuffer* getMidiOutputDeviceBufferIfDevice();
     
     int nClips = 0;
     juce::OwnedArray<Clip> midiClips;

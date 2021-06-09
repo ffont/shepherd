@@ -12,17 +12,37 @@
 
 Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
              std::function<GlobalSettingsStruct()> globalSettingsGetter,
-             std::function<MusicalContext()> musicalContextGetter)
+             std::function<MusicalContext()> musicalContextGetter,
+             std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
+             )
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
     getGlobalSettings = globalSettingsGetter;
     getMusicalContext = musicalContextGetter;
+    getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     nClips = getGlobalSettings().nScenes;
 }
 
 void Track::setHardwareDevice(HardwareDevice* _device)
 {
     device = _device;
+}
+
+juce::MidiBuffer* Track::getMidiOutputDeviceBufferIfDevice()
+{
+    if (device == nullptr){
+        // If device is null pointer, it means no hardware device is yet assinged and no therefore no corresponding MIDI buffer
+        return nullptr;
+    }
+    
+    juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBuffer(device->getMidiOutputDeviceName());
+    if (bufferToFill == nullptr){
+        // If the buffer to fill is null pointer, it means the corresponding MIDI device could not be initialized and there's
+        // no corresponding MIDI buffer
+        return nullptr;
+    } else {
+        return bufferToFill;
+    }
 }
 
 juce::String Track::getMidiOutputDeviceName()
@@ -65,27 +85,34 @@ int Track::getNumberOfClips()
     return midiClips.size();
 }
 
-void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill)
+void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
 {
     if (inputMonitoringEnabled()){
+        juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
+        if (bufferToFill == nullptr){
+            // If no buffer to fill could be found, no need to further process this track for input monitoring
+            return;
+        }
         for (const auto metadata : incommingBuffer)
         {
             auto msg = metadata.getMessage();
             msg.setChannel(getMidiOutputChannel());
-            bufferToFill.addEvent(msg, metadata.samplePosition);
+            bufferToFill->addEvent(msg, metadata.samplePosition);
         }
     }
 }
 
-void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
+    juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
     for (auto clip: midiClips){
         clip->processSlice(incommingBuffer, bufferToFill, bufferSize, lastMidiNoteOnMessages);
     }
 }
 
-void Track::clipsRenderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
+void Track::clipsRenderRemainingNoteOffsIntoMidiBuffer()
 {
+    juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
     for (auto clip: midiClips){
         clip->renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }

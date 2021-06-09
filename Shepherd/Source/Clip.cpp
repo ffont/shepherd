@@ -451,25 +451,25 @@ double Clip::getLengthInBeats()
     return clipLengthInBeats;
 }
 
-void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer& bufferToFill)
+void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
 {
     int midiOutputChannel = getTrackSettings().midiOutChannel;
     if (midiOutputChannel > -1){
         for (int i=0; i<notesCurrentlyPlayed.size(); i++){
             juce::MidiMessage msg = juce::MidiMessage::noteOff(midiOutputChannel, notesCurrentlyPlayed[i], 0.0f);
-            bufferToFill.addEvent(msg, 0);
+            if (bufferToFill != nullptr) bufferToFill->addEvent(msg, 0);
         }
         notesCurrentlyPlayed.clear();
         
         if (sustainPedalBeingPressed){
             juce::MidiMessage msg = juce::MidiMessage::controllerEvent(midiOutputChannel, MIDI_SUSTAIN_PEDAL_CC, 0);  // Sustain pedal down!
-            bufferToFill.addEvent(msg, 0);
+            if (bufferToFill != nullptr) bufferToFill->addEvent(msg, 0);
             sustainPedalBeingPressed = false;
         }
     }
 }
 
-void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     if ((nextClipLength > -1.0) && (nextClipLength != clipLengthInBeats)){
         if (nextClipLength < clipLengthInBeats){
@@ -563,7 +563,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer& buf
                     int midiOutputChannel = getTrackSettings().midiOutChannel;
                     if (midiOutputChannel > -1){
                         msg.setChannel(midiOutputChannel);
-                        bufferToFill.addEvent(msg, eventPositionInSliceInSamples);
+                        if (bufferToFill != nullptr) bufferToFill->addEvent(msg, eventPositionInSliceInSamples);
                     }
                     
                     // Keep track of notes currently played so later we can send note offs if needed (include sustain pedal in checks)
