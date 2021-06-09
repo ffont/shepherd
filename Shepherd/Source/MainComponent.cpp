@@ -807,6 +807,11 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                 stateAsStringParts.add("t");
                 stateAsStringParts.add((juce::String)track->getNumberOfClips());
                 stateAsStringParts.add(track->inputMonitoringEnabled() ? "1":"0");
+                if (track->getHardwareDevice() != nullptr){
+                    stateAsStringParts.add(track->getHardwareDevice()->getShortName());
+                } else {
+                    stateAsStringParts.add("NoDevice");
+                }
                 for (int i=0; i<track->getNumberOfClips(); i++){
                     stateAsStringParts.add(track->getClipAt(i)->getStatus());
                 }

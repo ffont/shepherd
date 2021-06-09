@@ -139,7 +139,8 @@ class ShepherdInterface(object):
                             tracks_state.append({
                                     'numClips': int(current_track_clips_state[0]),
                                     'inputMonitoring': current_track_clips_state[1] == "1",
-                                    'clips': current_track_clips_state[2:]
+                                    'deviceShortName': current_track_clips_state[2],
+                                    'clips': current_track_clips_state[3:]
                                 }) 
                         current_track_clips_state = []
                     else:
@@ -149,7 +150,8 @@ class ShepherdInterface(object):
                     tracks_state.append({
                         'numClips': int(current_track_clips_state[0]),
                         'inputMonitoring': current_track_clips_state[1] == "1",
-                        'clips': current_track_clips_state[2:]
+                        'deviceShortName': current_track_clips_state[2],
+                        'clips': current_track_clips_state[3:]
                     })  # Add last one
 
                 self.parsed_state['tracks'] = tracks_state
