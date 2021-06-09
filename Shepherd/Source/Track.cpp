@@ -28,6 +28,11 @@ void Track::setHardwareDevice(HardwareDevice* _device)
     device = _device;
 }
 
+HardwareDevice* Track::getHardwareDevice()
+{
+    return device;
+}
+
 juce::MidiBuffer* Track::getMidiOutputDeviceBufferIfDevice()
 {
     if (device == nullptr){

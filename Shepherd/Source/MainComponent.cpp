@@ -673,7 +673,21 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             auto track = tracks[trackNum];
             track->setInputMonitoring(trueFalse);
         }
-         
+        else if (address == OSC_ADDRESS_TRACK_SEND_ALL_NOTES_OFF_TO_DEVICE){
+            jassert(message.size() == 1);
+            auto track = tracks[trackNum];
+            auto trackDevice = track->getHardwareDevice();
+            std::cout << " HEY " << std::endl;
+            if (trackDevice != nullptr) trackDevice->sendAllNotesOff();
+        }
+        else if (address == OSC_ADDRESS_TRACK_LOAD_DEVICE_PRESET){
+            jassert(message.size() == 3);
+            int bank = message[1].getInt32();
+            int preset = message[2].getInt32();
+            auto track = tracks[trackNum];
+            auto trackDevice = track->getHardwareDevice();
+            if (trackDevice != nullptr) trackDevice->loadPreset(bank, preset);
+        }
     } else if (address.startsWith(OSC_ADDRESS_SCENE)) {
         jassert(message.size() == 1);
         int sceneNum = message[0].getInt32();

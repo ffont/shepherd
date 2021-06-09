@@ -26,6 +26,8 @@ public:
           );
     
     void setHardwareDevice(HardwareDevice* device);
+    HardwareDevice* getHardwareDevice();
+    
     juce::String getMidiOutputDeviceName();
     int getMidiOutputChannel();
     

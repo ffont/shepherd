@@ -109,16 +109,6 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         bank_num = self.get_current_page() // 2
         return (preset_num, bank_num)
 
-    def send_select_new_preset(self, preset_num):
-        msg = mido.Message('program_change', program=preset_num)  # Should this be 1-indexed?
-        self.app.send_midi(msg)
-
-    def send_select_new_bank(self, bank_num):
-        # If synth only has 1 bank, don't send bank change messages
-        if self.get_num_banks() > 1:
-            msg = mido.Message('control_change', control=0, value=bank_num)  # Should this be 1-indexed?
-            self.app.send_midi(msg)
-
     def notify_status_in_display(self):
         bank_number = self.get_current_page() // 2 + 1
         bank_names = self.get_bank_names() 
@@ -172,8 +162,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
                 self.remove_favourite_preset(preset_num, bank_num)
         else:
             # Send midi message to select the bank and preset preset
-            self.send_select_new_bank(bank_num)
-            self.send_select_new_preset(preset_num)
+            self.app.shepherd_interface.track_load_preset_in_device(self.app.track_selection_mode.selected_track, bank_num, preset_num)
             bank_names = self.get_bank_names()
             if bank_names is not None:
                 bank_name = bank_names[bank_num]

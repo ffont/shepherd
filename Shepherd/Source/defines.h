@@ -28,6 +28,8 @@
 
 #define OSC_ADDRESS_TRACK "/track"
 #define OSC_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
+#define OSC_ADDRESS_TRACK_SEND_ALL_NOTES_OFF_TO_DEVICE "/track/sendAllNotesOff"
+#define OSC_ADDRESS_TRACK_LOAD_DEVICE_PRESET "/track/loadDevicePreset"
 
 #define OSC_ADDRESS_SCENE "/scene"
 #define OSC_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
