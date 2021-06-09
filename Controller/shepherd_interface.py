@@ -63,6 +63,7 @@ class ShepherdInterface(object):
         # re-activate all modes to make sure we initialize things in the backend if needed
         for mode in self.app.active_modes:
             mode.activate()
+        self.app.midi_cc_mode.initialize()
         self.should_sync_state_with_backend = False
 
     def receive_shepherd_ready(self):
@@ -126,6 +127,7 @@ class ShepherdInterface(object):
                 self.app.buttons_need_update = True
 
         elif state.startswith("tracks"):
+            old_num_tracks = self.parsed_state.get('numTracks', 0)
             if state != self.last_received_tracks_raw_state:
                 parts = state.split(',')
                 self.parsed_state['numTracks'] = int(parts[1])
@@ -157,6 +159,9 @@ class ShepherdInterface(object):
                 self.parsed_state['tracks'] = tracks_state
                 self.app.pads_need_update = True
                 self.last_received_tracks_raw_state = state
+
+            if old_num_tracks != self.parsed_state.get('numTracks', 0):
+                self.app.midi_cc_mode.initialize()
 
         if 'tracks' in self.parsed_state and 'bpm' in self.parsed_state and self.should_sync_state_with_backend:
             # Once full state has been received from backend, sync back to it
@@ -257,16 +262,6 @@ class ShepherdInterface(object):
         else:
             return 0.0
 
-
-    def get_track_is_input_monitoring(self, track_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return self.parsed_state['tracks'][track_num]['inputMonitoring']
-            except IndexError:
-                return False
-        else:
-            return False
-
     def get_track_num_clips(self, track_num):
         if 'tracks' in self.parsed_state:
             try:
@@ -342,7 +337,26 @@ class ShepherdInterface(object):
         self.app.add_display_notification("Meter: {0} beats".format(meter))
 
     def get_num_tracks(self):
-        return self.parsed_state.get('numTracks', 0)
+        # return self.parsed_state.get('numTracks', 0)
+        return len(self.parsed_state.get('tracks', []))
+
+    def get_track_is_input_monitoring(self, track_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return self.parsed_state['tracks'][track_num]['inputMonitoring']
+            except IndexError:
+                return False
+        else:
+            return False
+
+    def get_track_device_short_name(self, track_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return self.parsed_state['tracks'][track_num]['deviceShortName']
+            except IndexError:
+                return ""
+        else:
+            return ""
 
     def get_fixed_length_amount(self):
         return self.parsed_state.get('fixedLengthRecordingAmount', 0)

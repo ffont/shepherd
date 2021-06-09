@@ -369,22 +369,6 @@ class ShepherdControllerApp(object):
         else:
             self.init_notes_midi_in(None)
 
-    def send_midi(self, msg, use_original_msg_channel=False):
-        # Unless we specifically say we want to use the original msg mnidi channel, set it to global midi out channel or to the channel of the current track
-        if not use_original_msg_channel and hasattr(msg, 'channel'):
-            midi_out_channel = self.midi_out_channel    
-            if self.midi_out_channel == -1:
-                # Send the message to the midi channel of the currently selected track (or to track 1 if selected track has no midi channel information)
-                track_midi_channel = self.track_selection_mode.get_current_track_info()['midi_channel']
-                if track_midi_channel == -1:
-                    midi_out_channel = 0
-                else:
-                    midi_out_channel = track_midi_channel - 1 # msg.channel is 0-indexed
-            msg = msg.copy(channel=midi_out_channel)
-        
-        if self.midi_out is not None:
-            self.midi_out.send(msg)
-
     def midi_in_handler(self, msg):
         if hasattr(msg, 'channel'):  # This will rule out sysex and other "strange" messages that don't have channel info
             if self.midi_in_channel == -1 or msg.channel == self.midi_in_channel:   # If midi input channel is set to -1 (all) or a specific channel
@@ -399,9 +383,6 @@ class ShepherdControllerApp(object):
                     self.last_cp_value_recevied_time = time.time()
                     
                 if not skip_message:
-                    # Forward message to the main MIDI out
-                    self.send_midi(msg)
-
                     # Forward the midi message to the active modes
                     for mode in self.active_modes:
                         mode.on_midi_in(msg, source=self.midi_in.name)

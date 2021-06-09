@@ -111,10 +111,11 @@ class MIDICCMode(ShepherdControllerMode):
     current_selected_section_and_page = {}
 
     def initialize(self, settings=None):
+        print('Initializing MIDI CC mappings...')
         for instrument_short_name in self.get_all_distinct_instrument_short_names_helper():
             try:
-                midi_cc = json.load(open(os.path.join(definitions.INSTRUMENT_DEFINITION_FOLDER, '{}.json'.format(instrument_short_name)))).get('midi_cc', None)
-            except FileNotFoundError:
+                midi_cc = self.app.track_selection_mode.devices_info[instrument_short_name]['midi_cc']
+            except KeyError:
                 midi_cc = None
             
             if midi_cc is not None:
@@ -127,7 +128,7 @@ class MIDICCMode(ShepherdControllerMode):
                         if section.get('control_value_label_maps', {}).get(name, False):
                             control.value_labels_map = section['control_value_label_maps'][name]
                         self.instrument_midi_control_ccs[instrument_short_name].append(control)
-                print('Loaded {0} MIDI cc mappings for instrument {1}'.format(len(self.instrument_midi_control_ccs[instrument_short_name]), instrument_short_name))
+                print('- Loaded {0} MIDI cc mappings for instrument {1}'.format(len(self.instrument_midi_control_ccs[instrument_short_name]), instrument_short_name))
             else:
                 # No definition file for instrument exists, or no midi CC were defined for that instrument
                 self.instrument_midi_control_ccs[instrument_short_name] = []
@@ -136,7 +137,7 @@ class MIDICCMode(ShepherdControllerMode):
                     section_e = section_s + 15
                     control = MIDICCControl(i, 'CC {0}'.format(i), '{0} to {1}'.format(section_s, section_e), self.get_current_track_color_helper)
                     self.instrument_midi_control_ccs[instrument_short_name].append(control)
-                print('Loaded default MIDI cc mappings for instrument {0}'.format(instrument_short_name))
+                print('- Loaded default MIDI cc mappings for instrument {0}'.format(instrument_short_name))
       
         # Fill in current page and section variables
         for instrument_short_name in self.instrument_midi_control_ccs:
@@ -160,7 +161,7 @@ class MIDICCMode(ShepherdControllerMode):
         return section_names
 
     def get_currently_selected_midi_cc_section_and_page(self):
-        return self.current_selected_section_and_page[self.get_current_track_instrument_short_name_helper()]
+        return self.current_selected_section_and_page.get(self.get_current_track_instrument_short_name_helper(), [[], 0])
 
     def get_midi_cc_controls_for_current_track_and_section(self):
         section, _ = self.get_currently_selected_midi_cc_section_and_page()

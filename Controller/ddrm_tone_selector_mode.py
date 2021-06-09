@@ -694,8 +694,9 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                 else:
                     values_to_send = [midi_val]
                 for val in values_to_send:
-                    msg = mido.Message('control_change', control=midi_cc, value=val)  # Should we subtract 1 from midi_cc because mido being 0-indexed?
-                    self.app.send_midi(msg)
+                    msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)  # Should we subtract 1 from midi_cc because mido being 0-indexed?
+                    # TODO: send to backend and backend will send to device
+                    self.app.midi_out.send(msg)
                     if self.inter_message_message_min_time_ms:
                         time.sleep(self.inter_message_message_min_time_ms*1.0/1000)
 
@@ -707,8 +708,9 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                 else:
                     values_to_send = [midi_val]
                 for val in values_to_send:
-                    msg = mido.Message('control_change', control=midi_cc, value=val)  # Should we subtract 1 from midi_cc because mido being 0-indexed?
-                    self.app.send_midi(msg)
+                    msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)  # Should we subtract 1 from midi_cc because mido being 0-indexed?
+                    # TODO: send to backend and backend will send to device
+                    self.app.midi_out.send(msg)
                     if self.inter_message_message_min_time_ms:
                         time.sleep(self.inter_message_message_min_time_ms*1.0/1000)
 
