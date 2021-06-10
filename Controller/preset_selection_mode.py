@@ -32,25 +32,25 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         self.app.buttons_need_update = True
     
     def add_favourite_preset(self, preset_number, bank_number):
-        instrument_short_name = self.app.track_selection_mode.get_current_track_instrument_short_name() 
-        if instrument_short_name not in self.favourtie_presets:
-            self.favourtie_presets[instrument_short_name] = []
-        self.favourtie_presets[instrument_short_name].append((preset_number, bank_number))
+        device_short_name = self.app.track_selection_mode.get_current_track_device_short_name() 
+        if device_short_name not in self.favourtie_presets:
+            self.favourtie_presets[device_short_name] = []
+        self.favourtie_presets[device_short_name].append((preset_number, bank_number))
         json.dump(self.favourtie_presets, open(self.favourtie_presets_filename, 'w'))  # Save to file
 
     def remove_favourite_preset(self, preset_number, bank_number):
-        instrument_short_name = self.app.track_selection_mode.get_current_track_instrument_short_name() 
-        if instrument_short_name in self.favourtie_presets:
-            self.favourtie_presets[instrument_short_name] = \
-                [(fp_preset_number, fp_bank_number) for fp_preset_number, fp_bank_number in self.favourtie_presets[instrument_short_name] 
+        device_short_name = self.app.track_selection_mode.get_current_track_device_short_name() 
+        if device_short_name in self.favourtie_presets:
+            self.favourtie_presets[device_short_name] = \
+                [(fp_preset_number, fp_bank_number) for fp_preset_number, fp_bank_number in self.favourtie_presets[device_short_name] 
                 if preset_number != fp_preset_number or bank_number != fp_bank_number]
             json.dump(self.favourtie_presets, open(self.favourtie_presets_filename, 'w'))  # Save to file
 
     def preset_num_in_favourites(self, preset_number, bank_number):
-        instrument_short_name = self.app.track_selection_mode.get_current_track_instrument_short_name() 
-        if instrument_short_name not in self.favourtie_presets:
+        device_short_name = self.app.track_selection_mode.get_current_track_device_short_name() 
+        if device_short_name not in self.favourtie_presets:
             return False
-        for fp_preset_number, fp_bank_number in self.favourtie_presets[instrument_short_name]:
+        for fp_preset_number, fp_bank_number in self.favourtie_presets[device_short_name]:
             if preset_number == fp_preset_number and bank_number == fp_bank_number:
                 return True
         return False
@@ -138,7 +138,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         self.set_button_color_if_expression(self.page_right_button, show_next)
 
     def update_pads(self):
-        instrument_short_name = self.app.track_selection_mode.get_current_track_instrument_short_name() 
+        device_short_name = self.app.track_selection_mode.get_current_track_device_short_name() 
         track_color = self.app.track_selection_mode.get_current_track_color() 
         color_matrix = []
         for i in range(0, 8):
@@ -162,7 +162,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
                 self.remove_favourite_preset(preset_num, bank_num)
         else:
             # Send midi message to select the bank and preset preset
-            self.app.shepherd_interface.track_load_preset_in_device(self.app.track_selection_mode.selected_track, bank_num, preset_num)
+            self.app.shepherd_interface.device_load_preset(self.app.track_selection_mode.get_current_track_device_short_name(), bank_num, preset_num)
             bank_names = self.get_bank_names()
             if bank_names is not None:
                 bank_name = bank_names[bank_num]

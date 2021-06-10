@@ -679,7 +679,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
     send_messages_double = False  # This is a workaround for a DDRM bug that will ignore single CC messages. We'll send 2 messages in a row for the same control with slightly different values
 
     def should_be_enabled(self):
-        return self.app.track_selection_mode.get_current_track_instrument_short_name() == "DDRM"
+        return self.app.track_selection_mode.get_current_track_device_short_name() == "DDRM"
 
     def get_should_show_next_prev(self):
         show_prev = self.page_n == 1

@@ -38,25 +38,25 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         example, a list of midi CC parameter mappings).
         """
         print('Loading hardware device definitions...')
-        for filename in os.listdir(definitions.INSTRUMENT_DEFINITION_FOLDER):
+        for filename in os.listdir(definitions.DEVICE_DEFINITION_FOLDER):
             if filename.endswith('.json'):
                 device_short_name = filename.replace('.json', '')
-                self.devices_info[device_short_name] = json.load(open(os.path.join(definitions.INSTRUMENT_DEFINITION_FOLDER, filename)))
+                self.devices_info[device_short_name] = json.load(open(os.path.join(definitions.DEVICE_DEFINITION_FOLDER, filename)))
                 print('- {}'.format(device_short_name))
 
     def get_settings_to_save(self):
         return {}
 
-    def get_all_distinct_instrument_short_names(self):
+    def get_all_distinct_device_short_names(self):
         return list(set([self.app.shepherd_interface.get_track_device_short_name(i) for i in range(0, self.app.shepherd_interface.get_num_tracks())]))
 
     def get_current_track_device_info(self):
         return self.devices_info[self.app.shepherd_interface.get_track_device_short_name(self.selected_track)]
 
-    def get_track_instrument_short_name(self, i):
+    def get_track_device_short_name(self, i):
         return self.app.shepherd_interface.get_track_device_short_name(i)
 
-    def get_current_track_instrument_short_name(self):
+    def get_current_track_device_short_name(self):
         return self.app.shepherd_interface.get_track_device_short_name(self.selected_track)
 
     def get_track_color(self, i):
@@ -126,10 +126,10 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             else:
                 background_color = definitions.BLACK
                 font_color = track_color
-            instrument_short_name = self.get_track_instrument_short_name(i)
+            device_short_name = self.get_track_device_short_name(i)
             if self.app.shepherd_interface.get_track_is_input_monitoring(i):
-                instrument_short_name = '+' + instrument_short_name
-            show_text(ctx, i, h - height, instrument_short_name, height=height,
+                device_short_name = '+' + device_short_name
+            show_text(ctx, i, h - height, device_short_name, height=height,
                       font_color=font_color, background_color=background_color)
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
@@ -147,4 +147,4 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                     self.select_track(self.track_button_names.index(button_name))
                 else:
                     # If button shift pressed, send all notes off to that track
-                    self.app.shepherd_interface.track_send_all_notes_off_to_device(track_idx)
+                    self.app.shepherd_interface.device_send_all_notes_off(self.get_track_device_short_name(track_idx))

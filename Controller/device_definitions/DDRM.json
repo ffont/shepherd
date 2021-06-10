@@ -1,6 +1,4 @@
 {
-    "instrument_name": "Deckard's Dream",
-    "instrument_short_name": "DDRM",
     "n_banks": 1,
     "bank_names": [
         "1",

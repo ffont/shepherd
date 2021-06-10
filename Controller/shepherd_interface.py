@@ -178,11 +178,11 @@ class ShepherdInterface(object):
     def track_set_input_monitoring(self, track_num, enabled):
         self.osc_sender.send_message('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
 
-    def track_send_all_notes_off_to_device(self, track_num):
-        self.osc_sender.send_message('/track/sendAllNotesOff', [track_num])
+    def device_send_all_notes_off(self, device_name):
+        self.osc_sender.send_message('/device/sendAllNotesOff', [device_name])
 
-    def track_load_preset_in_device(self, track_num, bank, preset):
-        self.osc_sender.send_message('/track/loadDevicePreset', [track_num, bank, preset])
+    def device_load_preset(self, device_name, bank, preset):
+        self.osc_sender.send_message('/device/loadDevicePreset', [device_name, bank, preset])
 
     def clip_play_stop(self, track_num, clip_num):
         self.osc_sender.send_message('/clip/playStop', [track_num, clip_num])

@@ -276,19 +276,26 @@ void MainComponent::initializeHardwareDevices()
             shouldLoadDefaults = true;
         } else {
             // At the top level, the JSON file should be an array
-            jassert(parsedJson.isArray());
-            for (int i=0; i<parsedJson.size(); i++){
-                juce::var deviceInfo = parsedJson[i];
-                // Each element in the array should be an object element with the properties needed to create the hardware device
-                jassert(deviceInfo.isObject());
-                juce::String name = deviceInfo.getProperty("name", "NoName").toString();
-                juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
-                juce::String midiDeviceName = deviceInfo.getProperty("midi_out_device", "NoMIDIOutDevice").toString();
-                int midiChannel = (int)deviceInfo.getProperty("midi_out_channel", "NoMIDIOutDevice");
-                HardwareDevice* device = new HardwareDevice(name, shortName, [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
-                device->configureMidiOutput(midiDeviceName, midiChannel);
-                hardwareDevices.add(device);
-                std::cout << "- " << name << std::endl;
+            if (!parsedJson.isArray()){
+                std::cout << "Devices configuration file has wrong contents or can't be read. Are permissions granted to access the file?" << std::endl;
+                shouldLoadDefaults = true;
+            } else {
+                for (int i=0; i<parsedJson.size(); i++){
+                    // Each element in the array should be an object element with the properties needed to create the hardware device
+                    juce::var deviceInfo = parsedJson[i];
+                    if (!parsedJson.isObject()){
+                        std::cout << "Devices configuration file has wrong contents or can't be read." << std::endl;
+                        shouldLoadDefaults = true;
+                    }
+                    juce::String name = deviceInfo.getProperty("name", "NoName").toString();
+                    juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
+                    juce::String midiDeviceName = deviceInfo.getProperty("midi_out_device", "NoMIDIOutDevice").toString();
+                    int midiChannel = (int)deviceInfo.getProperty("midi_out_channel", "NoMIDIOutDevice");
+                    HardwareDevice* device = new HardwareDevice(name, shortName, [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
+                    device->configureMidiOutput(midiDeviceName, midiChannel);
+                    hardwareDevices.add(device);
+                    std::cout << "- " << name << std::endl;
+                }
             }
         }
     } else {
@@ -697,29 +704,29 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_TRACK)) {
         jassert(message.size() >= 1);
         int trackNum = message[0].getInt32();
-        if (trackNum < tracks.size()){
-            if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
-                jassert(message.size() == 2);
-                bool trueFalse = message[1].getInt32() == 1;
-                auto track = tracks[trackNum];
-                track->setInputMonitoring(trueFalse);
-            }
-            else if (address == OSC_ADDRESS_TRACK_SEND_ALL_NOTES_OFF_TO_DEVICE){
-                jassert(message.size() == 1);
-                auto track = tracks[trackNum];
-                auto trackDevice = track->getHardwareDevice();
-                if (trackDevice != nullptr) trackDevice->sendAllNotesOff();
-            }
-            else if (address == OSC_ADDRESS_TRACK_LOAD_DEVICE_PRESET){
-                jassert(message.size() == 3);
-                int bank = message[1].getInt32();
-                int preset = message[2].getInt32();
-                auto track = tracks[trackNum];
-                auto trackDevice = track->getHardwareDevice();
-                if (trackDevice != nullptr) trackDevice->loadPreset(bank, preset);
-            }
+        if (trackNum >= tracks.size()) return;   
+        auto track = tracks[trackNum];
+        if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
+            jassert(message.size() == 2);
+            bool trueFalse = message[1].getInt32() == 1;
+            track->setInputMonitoring(trueFalse);
         }
         
+    } else if (address.startsWith(OSC_ADDRESS_DEVICE)) {
+        jassert(message.size() >= 1);
+        juce::String deviceName = message[0].getString();
+        auto device = getHardwareDeviceByName(deviceName);
+        if (device == nullptr) return;
+        if (address == OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE){
+             device->sendAllNotesOff();
+        }
+        else if (address == OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
+            jassert(message.size() == 3);
+            int bank = message[1].getInt32();
+            int preset = message[2].getInt32();
+            device->loadPreset(bank, preset);
+        }
+    
     } else if (address.startsWith(OSC_ADDRESS_SCENE)) {
         jassert(message.size() == 1);
         int sceneNum = message[0].getInt32();

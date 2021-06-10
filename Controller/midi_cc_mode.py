@@ -106,66 +106,66 @@ class MIDICCMode(ShepherdControllerMode):
 
     buttons_used = midi_cc_button_names + [page_left_button, page_right_button]
 
-    instrument_midi_control_ccs = {}
+    device_midi_control_ccs = {}
     active_midi_control_ccs = []
     current_selected_section_and_page = {}
 
     def initialize(self, settings=None):
         print('Initializing MIDI CC mappings...')
-        for instrument_short_name in self.get_all_distinct_instrument_short_names_helper():
+        for device_short_name in self.get_all_distinct_device_short_names_helper():
             try:
-                midi_cc = self.app.track_selection_mode.devices_info[instrument_short_name]['midi_cc']
+                midi_cc = self.app.track_selection_mode.devices_info[device_short_name]['midi_cc']
             except KeyError:
                 midi_cc = None
             
             if midi_cc is not None:
                 # Create MIDI CC mappings for instruments with definitions
-                self.instrument_midi_control_ccs[instrument_short_name] = []
+                self.device_midi_control_ccs[device_short_name] = []
                 for section in midi_cc:
                     section_name = section['section']
                     for name, cc_number in section['controls']:
                         control = MIDICCControl(cc_number, name, section_name, self.get_current_track_color_helper)
                         if section.get('control_value_label_maps', {}).get(name, False):
                             control.value_labels_map = section['control_value_label_maps'][name]
-                        self.instrument_midi_control_ccs[instrument_short_name].append(control)
-                print('- Loaded {0} MIDI cc mappings for instrument {1}'.format(len(self.instrument_midi_control_ccs[instrument_short_name]), instrument_short_name))
+                        self.device_midi_control_ccs[device_short_name].append(control)
+                print('- Loaded {0} MIDI cc mappings for instrument {1}'.format(len(self.device_midi_control_ccs[device_short_name]), device_short_name))
             else:
                 # No definition file for instrument exists, or no midi CC were defined for that instrument
-                self.instrument_midi_control_ccs[instrument_short_name] = []
+                self.device_midi_control_ccs[device_short_name] = []
                 for i in range(0, 128):
                     section_s = (i // 16) * 16
                     section_e = section_s + 15
                     control = MIDICCControl(i, 'CC {0}'.format(i), '{0} to {1}'.format(section_s, section_e), self.get_current_track_color_helper)
-                    self.instrument_midi_control_ccs[instrument_short_name].append(control)
-                print('- Loaded default MIDI cc mappings for instrument {0}'.format(instrument_short_name))
+                    self.device_midi_control_ccs[device_short_name].append(control)
+                print('- Loaded default MIDI cc mappings for instrument {0}'.format(device_short_name))
       
         # Fill in current page and section variables
-        for instrument_short_name in self.instrument_midi_control_ccs:
-            self.current_selected_section_and_page[instrument_short_name] = (self.instrument_midi_control_ccs[instrument_short_name][0].section, 0)
+        for device_short_name in self.device_midi_control_ccs:
+            self.current_selected_section_and_page[device_short_name] = (self.device_midi_control_ccs[device_short_name][0].section, 0)
 
-    def get_all_distinct_instrument_short_names_helper(self):
-        return self.app.track_selection_mode.get_all_distinct_instrument_short_names()
+    def get_all_distinct_device_short_names_helper(self):
+        return self.app.track_selection_mode.get_all_distinct_device_short_names()
 
     def get_current_track_color_helper(self):
         return self.app.track_selection_mode.get_current_track_color()
 
-    def get_current_track_instrument_short_name_helper(self):
-        return self.app.track_selection_mode.get_current_track_instrument_short_name()
+    def get_current_track_device_short_name_helper(self):
+        return self.app.track_selection_mode.get_current_track_device_short_name()
 
     def get_current_track_midi_cc_sections(self):
         section_names = []
-        for control in self.instrument_midi_control_ccs.get(self.get_current_track_instrument_short_name_helper(), []):
+        for control in self.device_midi_control_ccs.get(self.get_current_track_device_short_name_helper(), []):
             section_name = control.section
             if section_name not in section_names:
                 section_names.append(section_name)
         return section_names
 
     def get_currently_selected_midi_cc_section_and_page(self):
-        return self.current_selected_section_and_page.get(self.get_current_track_instrument_short_name_helper(), [[], 0])
+        return self.current_selected_section_and_page.get(self.get_current_track_device_short_name_helper(), [[], 0])
 
     def get_midi_cc_controls_for_current_track_and_section(self):
         section, _ = self.get_currently_selected_midi_cc_section_and_page()
-        return [control for control in self.instrument_midi_control_ccs.get(self.get_current_track_instrument_short_name_helper(), []) if control.section == section]
+        return [control for control in self.device_midi_control_ccs.get(self.get_current_track_device_short_name_helper(), []) if control.section == section]
 
     def get_midi_cc_controls_for_current_track_section_and_page(self):
         all_section_controls = self.get_midi_cc_controls_for_current_track_and_section()
@@ -182,7 +182,7 @@ class MIDICCMode(ShepherdControllerMode):
             result[0] = new_section
         if new_page is not None:
             result[1] = new_page
-        self.current_selected_section_and_page[self.get_current_track_instrument_short_name_helper()] = result
+        self.current_selected_section_and_page[self.get_current_track_device_short_name_helper()] = result
         self.active_midi_control_ccs = self.get_midi_cc_controls_for_current_track_section_and_page()
         self.app.buttons_need_update = True
         self.update_encoders_backend_mapping()

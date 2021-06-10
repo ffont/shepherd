@@ -1,6 +1,4 @@
 {
-    "instrument_name": "Kijimi",
-    "instrument_short_name": "KIJIMI",
     "n_banks": 11,
     "bank_names": [
         "MJ",

@@ -95,7 +95,7 @@ NOTE_ON_COLOR = GREEN
 
 DEFAULT_ANIMATION = push2_python.constants.ANIMATION_PULSING_QUARTER
 
-INSTRUMENT_DEFINITION_FOLDER = 'instrument_definitions'
+DEVICE_DEFINITION_FOLDER = 'device_definitions'
 TRACK_LISTING_PATH = 'track_listing.json'
 
 BUTTON_LONG_PRESS_TIME = 0.25
