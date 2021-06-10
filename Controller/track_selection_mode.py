@@ -97,6 +97,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                 self.app.midi_cc_mode.new_track_selected()
                 self.app.preset_selection_mode.new_track_selected()
                 self.app.clip_triggering_mode.new_track_selected()
+                self.app.melodic_mode.send_all_note_offs_to_lumi()
             except AttributeError:
                 # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
                 pass

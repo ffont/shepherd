@@ -57,6 +57,13 @@ class MelodicMode(definitions.ShepherdControllerMode):
             else:
                 msg = mido.Message('sysex', data=[0x00, 0x21, 0x10, 0x77, 0x27, 0x10, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04])
             self.lumi_midi_out.send(msg)
+
+    def send_all_note_offs_to_lumi(self):
+        for i in range(0, 128):
+            msg = mido.Message('note_off', note=i)
+            if self.lumi_midi_out is not None:
+                self.lumi_midi_out.send(msg)
+
    
     def initialize(self, settings=None):
         if settings is not None:
