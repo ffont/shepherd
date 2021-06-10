@@ -250,21 +250,9 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.push.pads.set_pads_color(color_matrix)
 
     def on_pad_pressed_raw(self, pad_n, pad_ij, velocity):
-        midi_note = self.pad_ij_to_midi_note(pad_ij)
-        if midi_note is not None:
-            self.latest_velocity_value = (time.time(), velocity)
-            self.add_note_being_played(midi_note, 'push')
-            self.update_pads()  # Directly calling update pads method because we want user to feel feedback as quick as possible
-            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
-            return True
-
-    def on_pad_released_raw(self, pad_n, pad_ij, velocity):
-        midi_note = self.pad_ij_to_midi_note(pad_ij)
-        if midi_note is not None:
-            self.remove_note_being_played(midi_note, 'push')
-            self.update_pads()  # Directly calling update pads method because we want user to feel feedback as quick as possible
-            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
-            return True
+        # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
+        self.latest_velocity_value = (time.time(), velocity)
+        return True
 
     def on_pad_aftertouch(self, pad_n, pad_ij, velocity):
         if pad_n is not None:

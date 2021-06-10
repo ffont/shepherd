@@ -265,20 +265,18 @@ class ShepherdControllerApp(object):
             self.init_notes_midi_in(None)
 
     def notes_midi_in_handler(self, msg):
-        # Check if message is note on or off and check if the MIDI channel is the one assigned to the currently selected track
-        # Then, send message to the melodic/rhythmic active modes so the notes are shown in pads/keys
+        # Check if message is note on or off and if that is the case, send message to the melodic/rhythmic active modes 
+        # so the notes are shown in pads/keys
         if msg.type == 'note_on' or msg.type == 'note_off':
-            track_midi_channel = self.track_selection_mode.get_current_track_info()['midi_channel']
-            if msg.channel == track_midi_channel - 1:  # msg.channel is 0-indexed
-                for mode in self.active_modes:
-                    if mode == self.melodic_mode or mode == self.rhyhtmic_mode:
-                        mode.on_midi_in(msg, source=self.notes_midi_in.name)
-                        if mode.lumi_midi_out is not None:
-                            mode.lumi_midi_out.send(msg)
-                        else:
-                            # If midi not properly initialized try to re-initialize but don't do it too ofter
-                            if time.time() - mode.last_time_tried_initialize_lumi > 5:
-                                mode.init_lumi_midi_out()
+            for mode in self.active_modes:
+                if mode == self.melodic_mode or mode == self.rhyhtmic_mode:
+                    mode.on_midi_in(msg, source=self.notes_midi_in.name)
+                    if mode.lumi_midi_out is not None:
+                        mode.lumi_midi_out.send(msg)
+                    else:
+                        # If midi not properly initialized try to re-initialize but don't do it too often
+                        if time.time() - mode.last_time_tried_initialize_lumi > 5:
+                            mode.init_lumi_midi_out()
 
     def add_display_notification(self, text):
         self.notification_text = text
