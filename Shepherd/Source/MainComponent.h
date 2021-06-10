@@ -74,6 +74,7 @@ private:
     void clearMidiDeviceOutputBuffers();
     void sendMidiDeviceOutputBuffers();
     void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, int bufferSize, std::vector<juce::String> midiOutDeviceNames);
+    std::unique_ptr<juce::MidiOutput> notesMonitoringMidiOutput;
     
     std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
@@ -111,8 +112,9 @@ private:
     
     // Tracks
     void initializeTracks();
-    int nTestTracks = 8;
     juce::OwnedArray<Track> tracks;
+    int activeUiNotesMonitoringTrack = -1;
+    juce::MidiBuffer monitoringNotesMidiBuffer;
     
     // Scenes
     void playScene(int sceneN);

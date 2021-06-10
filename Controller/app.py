@@ -32,6 +32,7 @@ class ShepherdControllerApp(object):
     available_midi_in_device_names = []
     notes_midi_in = None  # MIDI input device only used to receive note messages and illuminate pads/keys
     notes_midi_in_tmp_device_idx = None  # This is to store device names while rotating encoders
+    last_attempt_configuring_notes_in = 0
 
     # push
     push = None
@@ -217,7 +218,7 @@ class ShepherdControllerApp(object):
         # NOTE: when saving device names, eliminate the last bit with XX:Y numbers as this might vary across runs
         # if different devices are connected 
         settings = {
-            'default_notes_midi_in_device_name': self.notes_midi_in.name[:-4] if self.notes_midi_in is not None else None,
+            'default_notes_midi_in_device_name': self.notes_midi_in.name if self.notes_midi_in is not None else None,
             'use_push2_display': self.use_push2_display,
             'target_frame_rate': self.target_frame_rate,
         }
@@ -332,7 +333,22 @@ class ShepherdControllerApp(object):
     def check_for_delayed_actions(self):
         # If MIDI not configured, make sure we try sending messages so it gets configured
         if not self.push.midi_is_configured():
-            self.push.configure_midi()
+            try:
+                self.push.configure_midi()
+            except:
+                # This is to avoid a bug in mido (?) which is triggered when JUCE is
+                # creating a virtual output device
+                # See https://github.com/pallets/flask/issues/3626
+                pass
+
+        # If notes in is not configured, try to do it (but not too oftern)
+        if self.notes_midi_in is None and time.time() - self.last_attempt_configuring_notes_in > 2:
+            self.last_attempt_configuring_notes_in = time.time()
+            if os.path.exists('settings.json'):
+                settings = json.load(open('settings.json'))
+            else:
+                settings = {}
+            self.init_notes_midi_in(device_name=settings.get('default_notes_midi_in_device_name', None))
 
         # Call dalyed actions in active modes
         for mode in self.active_modes:

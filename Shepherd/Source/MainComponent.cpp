@@ -34,6 +34,7 @@ MainComponent::MainComponent()
     // Init MIDI
     initializeMIDIInputs();
     initializeMIDIOutputs();  // Better to do it after hardware devices so we init devices needed in hardware devices as well
+    notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice("ShepherdBackendNotesMonitoring");
     
     // Init OSC
     initializeOSC();
@@ -312,7 +313,7 @@ void MainComponent::initializeHardwareDevices()
         const juce::String synthsMidiOut = "IAC Driver Bus 1";
         #endif
 
-        for (int i=0; i<nTestTracks; i++){
+        for (int i=0; i<8; i++){
             juce::String name = "Synth " + juce::String(i + 1);
             HardwareDevice* device = new HardwareDevice(name, "S" + juce::String(i + 1), [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
             device->configureMidiOutput(synthsMidiOut, i + 1);
@@ -556,6 +557,24 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Send the generated MIDI buffers to the outputs
     sendMidiDeviceOutputBuffers();
     
+    // Send monitred track notes to the notes output (if any selected)
+    if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack >= 0) && (activeUiNotesMonitoringTrack < tracks.size())){
+        monitoringNotesMidiBuffer.clear();
+        auto track = tracks[activeUiNotesMonitoringTrack];
+        auto buffer = getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
+        // TODO: send only current track buffer, not all contents of the device...
+        // Maybe always store last buffer computer for a track in the track object
+        if (buffer != nullptr){
+            for (auto event: *buffer){
+                auto msg = event.getMessage();
+                if (msg.isNoteOnOrOff() && msg.getChannel() == track->getMidiOutputChannel()){
+                    monitoringNotesMidiBuffer.addEvent(msg, event.samplePosition);
+                }
+            }
+            notesMonitoringMidiOutput.get()->sendBlockOfMessagesNow(monitoringNotesMidiBuffer);
+        }
+    }
+    
     #if !RPI_BUILD
     if (renderWithInternalSynth){
         // Render the generated MIDI buffers with the sine synth for quick testing
@@ -704,12 +723,14 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_TRACK)) {
         jassert(message.size() >= 1);
         int trackNum = message[0].getInt32();
-        if (trackNum >= tracks.size()) return;   
+        if (trackNum >= tracks.size()) return;
         auto track = tracks[trackNum];
         if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
             jassert(message.size() == 2);
             bool trueFalse = message[1].getInt32() == 1;
             track->setInputMonitoring(trueFalse);
+        } else if (address == OSC_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK){
+            activeUiNotesMonitoringTrack = trackNum;
         }
         
     } else if (address.startsWith(OSC_ADDRESS_DEVICE)) {

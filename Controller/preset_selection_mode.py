@@ -66,7 +66,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         return self.current_page    
 
     def get_num_banks(self):
-        # Returns the number of available banks of the selected instrument
+        # Returns the number of available banks of the selected device
         return self.app.track_selection_mode.get_current_track_device_info().get('n_banks', 1)
 
     def get_bank_names(self):
@@ -74,7 +74,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         return self.app.track_selection_mode.get_current_track_device_info().get('bank_names', None)
 
     def get_num_pages(self):
-        # Returns the number of available preset pages per instrument (2 per bank)
+        # Returns the number of available preset pages per device (2 per bank)
         return self.get_num_banks() * 2
 
     def next_page(self):

@@ -100,7 +100,8 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             except AttributeError:
                 # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
                 pass
-        
+            self.app.shepherd_interface.track_set_active_ui_notes_monitoring(track_idx)
+            
     def activate(self):
         self.update_buttons()
         self.update_pads()

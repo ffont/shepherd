@@ -28,6 +28,7 @@
 
 #define OSC_ADDRESS_TRACK "/track"
 #define OSC_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
+#define OSC_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK "/track/setActiveUiNotesMonitoringTrack"
 
 #define OSC_ADDRESS_DEVICE "/device"
 #define OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"

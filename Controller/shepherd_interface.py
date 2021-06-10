@@ -178,6 +178,9 @@ class ShepherdInterface(object):
     def track_set_input_monitoring(self, track_num, enabled):
         self.osc_sender.send_message('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
 
+    def track_set_active_ui_notes_monitoring(self, track_num):
+        self.osc_sender.send_message('/track/setActiveUiNotesMonitoringTrack', [track_num])
+
     def device_send_all_notes_off(self, device_name):
         self.osc_sender.send_message('/device/sendAllNotesOff', [device_name])
 
