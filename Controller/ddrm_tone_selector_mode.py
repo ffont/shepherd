@@ -33,6 +33,7 @@ NAME_FUNKY_2 = 'Funky\n2'
 NAME_FUNKY_3 = 'Funky\n3'
 NAME_FUNKY_4 = 'Funky\n4'
 
+DDRM_DEVICE_NAME = "DDRM"
 
 tone_selector_values = {  # (MIDI CC for upper row, MIDI CC for lower row, MIDI value)
     NAME_BASS: [(40, 67, 0),
@@ -679,7 +680,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
     send_messages_double = False  # This is a workaround for a DDRM bug that will ignore single CC messages. We'll send 2 messages in a row for the same control with slightly different values
 
     def should_be_enabled(self):
-        return self.app.track_selection_mode.get_current_track_device_short_name() == "DDRM"
+        return self.app.track_selection_mode.get_current_track_device_short_name() == DDRM_DEVICE_NAME
 
     def get_should_show_next_prev(self):
         show_prev = self.page_n == 1
@@ -694,9 +695,8 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                 else:
                     values_to_send = [midi_val]
                 for val in values_to_send:
-                    msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)  # Should we subtract 1 from midi_cc because mido being 0-indexed?
-                    # TODO: send to backend and backend will send to device
-                    self.app.midi_out.send(msg)
+                    msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)
+                    self.app.shepherd_interface.device_send_midi(DDRM_DEVICE_NAME, msg)
                     if self.inter_message_message_min_time_ms:
                         time.sleep(self.inter_message_message_min_time_ms*1.0/1000)
 
@@ -708,9 +708,8 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                 else:
                     values_to_send = [midi_val]
                 for val in values_to_send:
-                    msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)  # Should we subtract 1 from midi_cc because mido being 0-indexed?
-                    # TODO: send to backend and backend will send to device
-                    self.app.midi_out.send(msg)
+                    msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)
+                    self.app.shepherd_interface.device_send_midi(DDRM_DEVICE_NAME, msg)
                     if self.inter_message_message_min_time_ms:
                         time.sleep(self.inter_message_message_min_time_ms*1.0/1000)
 

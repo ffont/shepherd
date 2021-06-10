@@ -20,10 +20,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
     # - Channel aftertouch range
 
     # MIDI settings
-    # - Midi device IN
-    # - Midi channel IN
-    # - Midi device OUT
-    # - Midi channel OUT
     # - Notes Midi
     # - Rerun MIDI initial configuration
 
@@ -71,18 +67,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
     def check_for_delayed_actions(self):
         current_time = time.time()
-        
-        if self.app.midi_in_tmp_device_idx is not None:
-            # Means we are in the process of changing the MIDI in device
-            if current_time - self.encoders_state[push2_python.constants.ENCODER_TRACK1_ENCODER]['last_message_received'] > definitions.DELAYED_ACTIONS_APPLY_TIME:
-                self.app.set_midi_in_device_by_index(self.app.midi_in_tmp_device_idx)
-                self.app.midi_in_tmp_device_idx = None
-        
-        if self.app.midi_out_tmp_device_idx is not None:
-            # Means we are in the process of changing the MIDI out device
-            if current_time - self.encoders_state[push2_python.constants.ENCODER_TRACK3_ENCODER]['last_message_received'] > definitions.DELAYED_ACTIONS_APPLY_TIME:
-                self.app.set_midi_out_device_by_index(self.app.midi_out_tmp_device_idx)
-                self.app.midi_out_tmp_device_idx = None
 
         if self.app.notes_midi_in_tmp_device_idx is not None:
             # Means we are in the process of changing the notes MIDI in device
@@ -103,11 +87,11 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
         elif self.current_page == 1: # MIDI settings
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.WHITE)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.WHITE)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.WHITE)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.WHITE)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.WHITE)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.GREEN, animation=definitions.DEFAULT_ANIMATION)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.GREEN, animation=definitions.DEFAULT_ANIMATION)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.OFF_BTN_COLOR)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.OFF_BTN_COLOR)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.OFF_BTN_COLOR)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
             
@@ -174,51 +158,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     show_value(ctx, part_x, h, self.app.melodic_mode.poly_at_curve_bending, color)
 
             elif self.current_page == 1:  # MIDI settings
-                if i == 0:  # MIDI in device
-                    if self.app.midi_in_tmp_device_idx is not None:
-                        color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DELAYED_ACTIONS)
-                        if self.app.midi_in_tmp_device_idx < 0:
-                            name = "None"
-                        else:
-                            name = "{0} {1}".format(self.app.midi_in_tmp_device_idx + 1, self.app.available_midi_in_device_names[self.app.midi_in_tmp_device_idx])
-                    else:
-                        if self.app.midi_in is not None:
-                            name = "{0} {1}".format(self.app.available_midi_in_device_names.index(self.app.midi_in.name) + 1, self.app.midi_in.name)
-                        else:
-                            color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DISABLED)
-                            name = "None"
-                    show_title(ctx, part_x, h, 'IN DEVICE')
-                    show_value(ctx, part_x, h, name, color)
-
-                elif i == 1:  # MIDI in channel
-                    if self.app.midi_in is None:
-                        color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DISABLED)
-                    show_title(ctx, part_x, h, 'IN CH')
-                    show_value(ctx, part_x, h, self.app.midi_in_channel + 1 if self.app.midi_in_channel > -1 else "All", color)
-
-                elif i == 2:  # MIDI out device
-                    if self.app.midi_out_tmp_device_idx is not None:
-                        color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DELAYED_ACTIONS)
-                        if self.app.midi_out_tmp_device_idx < 0:
-                            name = "None"
-                        else:
-                            name = "{0} {1}".format(self.app.midi_out_tmp_device_idx + 1, self.app.available_midi_out_device_names[self.app.midi_out_tmp_device_idx])
-                    else:
-                        if self.app.midi_out is not None:
-                            name = "{0} {1}".format(self.app.available_midi_out_device_names.index(self.app.midi_out.name) + 1, self.app.midi_out.name)
-                        else:
-                            color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DISABLED)
-                            name = "None"
-                    show_title(ctx, part_x, h, 'OUT DEVICE')
-                    show_value(ctx, part_x, h, name, color)
-
-                elif i == 3:  # MIDI out channel
-                    if self.app.midi_out is None:
-                        color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DISABLED)
-                    show_title(ctx, part_x, h, 'OUT CH')
-                    show_value(ctx, part_x, h, self.app.midi_out_channel + 1 if self.app.midi_out_channel >= 0 else 'TR', color)
-                
-                elif i == 4:  # Notes MIDI in device
+                if i == 0:  # Notes MIDI in device
                     if self.app.notes_midi_in_tmp_device_idx is not None:
                         color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DELAYED_ACTIONS)
                         if self.app.notes_midi_in_tmp_device_idx < 0:
@@ -234,7 +174,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     show_title(ctx, part_x, h, 'NOTES IN')
                     show_value(ctx, part_x, h, name, color)
 
-                elif i == 5:  # Re-send MIDI connection established (to push, not MIDI in/out device)
+                elif i == 1:  # Re-send MIDI connection established (to push, not MIDI in/out device)
                     show_title(ctx, part_x, h, 'RESET MIDI')
 
             elif self.current_page == 2:  # About
@@ -324,37 +264,8 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 self.app.melodic_mode.set_poly_at_curve_bending(self.app.melodic_mode.poly_at_curve_bending + increment)
 
         elif self.current_page == 1:  # MIDI settings
+            
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
-                if self.app.midi_in_tmp_device_idx is None:
-                    if self.app.midi_in is not None:
-                        self.app.midi_in_tmp_device_idx = self.app.available_midi_in_device_names.index(self.app.midi_in.name)
-                    else:
-                        self.app.midi_in_tmp_device_idx = -1
-                self.app.midi_in_tmp_device_idx += increment
-                if self.app.midi_in_tmp_device_idx >= len(self.app.available_midi_in_device_names):
-                    self.app.midi_in_tmp_device_idx = len(self.app.available_midi_in_device_names) - 1
-                elif self.app.midi_in_tmp_device_idx < -1:
-                    self.app.midi_in_tmp_device_idx = -1  # Will use -1 for "None"
-
-            elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
-                self.app.set_midi_in_channel(self.app.midi_in_channel + increment, wrap=False)
-
-            elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
-                if self.app.midi_out_tmp_device_idx is None:
-                    if self.app.midi_out is not None:
-                        self.app.midi_out_tmp_device_idx = self.app.available_midi_out_device_names.index(self.app.midi_out.name)
-                    else:
-                        self.app.midi_out_tmp_device_idx = -1
-                self.app.midi_out_tmp_device_idx += increment
-                if self.app.midi_out_tmp_device_idx >= len(self.app.available_midi_out_device_names):
-                    self.app.midi_out_tmp_device_idx = len(self.app.available_midi_out_device_names) - 1
-                elif self.app.midi_out_tmp_device_idx < -1:
-                    self.app.midi_out_tmp_device_idx = -1  # Will use -1 for "None"
-
-            elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
-                self.app.set_midi_out_channel(self.app.midi_out_channel + increment, wrap=False)
-
-            elif encoder_name == push2_python.constants.ENCODER_TRACK5_ENCODER:
                 if self.app.notes_midi_in_tmp_device_idx is None:
                     if self.app.notes_midi_in is not None:
                         self.app.notes_midi_in_tmp_device_idx = self.app.available_midi_in_device_names.index(self.app.notes_midi_in.name)
@@ -389,42 +300,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
         elif self.current_page == 1:  # MIDI settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
-                if self.app.midi_in_tmp_device_idx is None:
-                    if self.app.midi_in is not None:
-                        self.app.midi_in_tmp_device_idx = self.app.available_midi_in_device_names.index(self.app.midi_in.name)
-                    else:
-                        self.app.midi_in_tmp_device_idx = -1
-                self.app.midi_in_tmp_device_idx += 1
-                # Make index position wrap
-                if self.app.midi_in_tmp_device_idx >= len(self.app.available_midi_in_device_names):
-                    self.app.midi_in_tmp_device_idx = -1  # Will use -1 for "None"
-                elif self.app.midi_in_tmp_device_idx < -1:
-                    self.app.midi_in_tmp_device_idx = len(self.app.available_midi_in_device_names) - 1
-                return True
-
-            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_2:
-                self.app.set_midi_in_channel(self.app.midi_in_channel + 1, wrap=True)
-                return True
-
-            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
-                if self.app.midi_out_tmp_device_idx is None:
-                    if self.app.midi_out is not None:
-                        self.app.midi_out_tmp_device_idx = self.app.available_midi_out_device_names.index(self.app.midi_out.name)
-                    else:
-                        self.app.midi_out_tmp_device_idx = -1
-                self.app.midi_out_tmp_device_idx += 1
-                # Make index position wrap
-                if self.app.midi_out_tmp_device_idx >= len(self.app.available_midi_out_device_names):
-                    self.app.midi_out_tmp_device_idx = -1  # Will use -1 for "None"
-                elif self.app.midi_out_tmp_device_idx < -1:
-                    self.app.midi_out_tmp_device_idx = len(self.app.available_midi_out_device_names) - 1
-                return True
-
-            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_4:
-                self.app.set_midi_out_channel(self.app.midi_out_channel + 1, wrap=True)
-                return True
-
-            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_5:
                 if self.app.notes_midi_in_tmp_device_idx is None:
                     if self.app.notes_midi_in is not None:
                         self.app.notes_midi_in_tmp_device_idx = self.app.available_midi_in_device_names.index(self.app.notes_midi_in.name)
@@ -438,7 +313,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     self.app.notes_midi_in_tmp_device_idx = len(self.app.available_midi_in_device_names) - 1
                 return True
 
-            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_6:
+            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_2:
                 self.app.on_midi_push_connection_established()
                 return True
 

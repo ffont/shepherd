@@ -184,6 +184,9 @@ class ShepherdInterface(object):
     def device_load_preset(self, device_name, bank, preset):
         self.osc_sender.send_message('/device/loadDevicePreset', [device_name, bank, preset])
 
+    def device_send_midi(self, device_name, msg):
+        self.osc_sender.send_message('/device/sendMidi', [device_name] + msg.bytes())
+
     def clip_play_stop(self, track_num, clip_num):
         self.osc_sender.send_message('/clip/playStop', [track_num, clip_num])
 

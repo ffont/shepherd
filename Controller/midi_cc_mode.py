@@ -119,7 +119,7 @@ class MIDICCMode(ShepherdControllerMode):
                 midi_cc = None
             
             if midi_cc is not None:
-                # Create MIDI CC mappings for instruments with definitions
+                # Create MIDI CC mappings for devices with definitions
                 self.device_midi_control_ccs[device_short_name] = []
                 for section in midi_cc:
                     section_name = section['section']
@@ -128,16 +128,16 @@ class MIDICCMode(ShepherdControllerMode):
                         if section.get('control_value_label_maps', {}).get(name, False):
                             control.value_labels_map = section['control_value_label_maps'][name]
                         self.device_midi_control_ccs[device_short_name].append(control)
-                print('- Loaded {0} MIDI cc mappings for instrument {1}'.format(len(self.device_midi_control_ccs[device_short_name]), device_short_name))
+                print('- Loaded {0} MIDI cc mappings for {1}'.format(len(self.device_midi_control_ccs[device_short_name]), device_short_name))
             else:
-                # No definition file for instrument exists, or no midi CC were defined for that instrument
+                # No definition file for device exists, or no midi CC were defined for that device
                 self.device_midi_control_ccs[device_short_name] = []
                 for i in range(0, 128):
                     section_s = (i // 16) * 16
                     section_e = section_s + 15
                     control = MIDICCControl(i, 'CC {0}'.format(i), '{0} to {1}'.format(section_s, section_e), self.get_current_track_color_helper)
                     self.device_midi_control_ccs[device_short_name].append(control)
-                print('- Loaded default MIDI cc mappings for instrument {0}'.format(device_short_name))
+                print('- Loaded default MIDI cc mappings for {0}'.format(device_short_name))
       
         # Fill in current page and section variables
         for device_short_name in self.device_midi_control_ccs:

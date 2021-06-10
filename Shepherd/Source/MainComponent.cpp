@@ -719,12 +719,15 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         if (device == nullptr) return;
         if (address == OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE){
              device->sendAllNotesOff();
-        }
-        else if (address == OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
+        } else if (address == OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
             jassert(message.size() == 3);
             int bank = message[1].getInt32();
             int preset = message[2].getInt32();
             device->loadPreset(bank, preset);
+        } else if (address == OSC_ADDRESS_DEVICE_SEND_MIDI){
+            jassert(message.size() == 4);
+            juce::MidiMessage msg = juce::MidiMessage(message[1].getInt32(), message[2].getInt32(), message[3].getInt32());
+            device->sendMidi(msg);
         }
     
     } else if (address.startsWith(OSC_ADDRESS_SCENE)) {

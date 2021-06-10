@@ -29,16 +29,7 @@ from display_utils import show_notification
 class ShepherdControllerApp(object):
 
     # midi
-    midi_out = None
-    available_midi_out_device_names = []
-    midi_out_channel = 0  # 0-15
-    midi_out_tmp_device_idx = None  # This is to store device names while rotating encoders
-
-    midi_in = None
     available_midi_in_device_names = []
-    midi_in_channel = 0  # 0-15
-    midi_in_tmp_device_idx = None  # This is to store device names while rotating encoders
-
     notes_midi_in = None  # MIDI input device only used to receive note messages and illuminate pads/keys
     notes_midi_in_tmp_device_idx = None  # This is to store device names while rotating encoders
 
@@ -77,13 +68,9 @@ class ShepherdControllerApp(object):
 
         self.shepherd_interface = ShepherdInterface(self)
 
-        self.set_midi_in_channel(settings.get('midi_in_default_channel', 0))
-        self.set_midi_out_channel(settings.get('midi_out_default_channel', 0))
         self.target_frame_rate = settings.get('target_frame_rate', 60)
         self.use_push2_display = settings.get('use_push2_display', True)
 
-        self.init_midi_in(device_name=settings.get('default_midi_in_device_name', None))
-        self.init_midi_out(device_name=settings.get('default_midi_out_device_name', None))
         self.init_notes_midi_in(device_name=settings.get('default_notes_midi_in_device_name', None))
         self.init_push()
 
@@ -230,10 +217,6 @@ class ShepherdControllerApp(object):
         # NOTE: when saving device names, eliminate the last bit with XX:Y numbers as this might vary across runs
         # if different devices are connected 
         settings = {
-            'midi_in_default_channel': self.midi_in_channel,
-            'midi_out_default_channel': self.midi_out_channel,
-            'default_midi_in_device_name': self.midi_in.name[:-4] if self.midi_in is not None else None,
-            'default_midi_out_device_name': self.midi_out.name[:-4] if self.midi_out is not None else None,
             'default_notes_midi_in_device_name': self.notes_midi_in.name[:-4] if self.notes_midi_in is not None else None,
             'use_push2_display': self.use_push2_display,
             'target_frame_rate': self.target_frame_rate,
@@ -243,67 +226,6 @@ class ShepherdControllerApp(object):
             if mode_settings:
                 settings.update(mode_settings)
         json.dump(settings, open('settings.json', 'w'))
-
-    def init_midi_in(self, device_name=None):
-        print('Configuring MIDI in to {}...'.format(device_name))
-        self.available_midi_in_device_names = [name for name in mido.get_input_names() if 'Ableton Push' not in name and 'RtMidi' not in name and 'Through' not in name]
-        if device_name is not None:
-            try:
-                full_name = [name for name in self.available_midi_in_device_names if device_name in name][0]
-            except IndexError:
-                full_name = None
-            if full_name is not None:
-                if self.midi_in is not None:
-                    self.midi_in.callback = None  # Disable current callback (if any)
-                try:
-                    self.midi_in = mido.open_input(full_name)
-                    self.midi_in.callback = self.midi_in_handler
-                    print('Receiving MIDI in from "{0}"'.format(full_name))
-                except IOError:
-                    print('Could not connect to MIDI input port "{0}"\nAvailable device names:'.format(full_name))
-                    for name in self.available_midi_in_device_names:
-                        print(' - {0}'.format(name))
-            else:
-                print('No available device name found for {}'.format(device_name))
-        else:
-            if self.midi_in is not None:
-                self.midi_in.callback = None  # Disable current callback (if any)
-                self.midi_in.close()
-                self.midi_in = None
-
-        if self.midi_in is None:
-            print('Not receiving from any MIDI input')
-
-    def init_midi_out(self, device_name=None):
-        print('Configuring MIDI out to {}...'.format(device_name))
-        self.available_midi_out_device_names = [name for name in mido.get_output_names() if 'Ableton Push' not in name  and 'RtMidi' not in name and 'Through' not in name]
-        self.available_midi_out_device_names += ['Virtual']
-
-        if device_name is not None:
-            try:
-                full_name = [name for name in self.available_midi_out_device_names if device_name in name][0]
-            except IndexError:
-                full_name = None
-            if full_name is not None:
-                try:
-                    if full_name == 'Virtual':
-                        self.midi_out = mido.open_output(full_name, virtual=True)
-                    else:
-                        self.midi_out = mido.open_output(full_name)
-                    print('Will send MIDI to "{0}"'.format(full_name))
-                except IOError:
-                    print('Could not connect to MIDI output port "{0}"\nAvailable device names:'.format(full_name))
-                    for name in self.available_midi_out_device_names:
-                        print(' - {0}'.format(name))
-            else:
-                print('No available device name found for {}'.format(device_name))
-        else:
-            if self.midi_out is not None:
-                self.midi_out.close()
-                self.midi_out = None
-
-        if self.midi_out is None:
-            print('Won\'t send MIDI to any device')
 
     def init_notes_midi_in(self, device_name=None):
         print('Configuring notes MIDI in to {}...'.format(device_name))
@@ -336,56 +258,11 @@ class ShepherdControllerApp(object):
         if self.notes_midi_in is None:
             print('Could not configures notes MIDI input')
 
-    def set_midi_in_channel(self, channel, wrap=False):
-        self.midi_in_channel = channel
-        if self.midi_in_channel < -1:  # Use "-1" for "all channels"
-            self.midi_in_channel = -1 if not wrap else 15
-        elif self.midi_in_channel > 15:
-            self.midi_in_channel = 15 if not wrap else -1
-
-    def set_midi_out_channel(self, channel, wrap=False):
-        # We use channel -1 for the "track setting" in which midi channel is taken from currently selected track
-        self.midi_out_channel = channel
-        if self.midi_out_channel < -1:
-            self.midi_out_channel = -1 if not wrap else 15
-        elif self.midi_out_channel > 15:
-            self.midi_out_channel = 15 if not wrap else -1
-
-    def set_midi_in_device_by_index(self, device_idx):
-        if device_idx >= 0 and device_idx < len(self.available_midi_in_device_names):
-            self.init_midi_in(self.available_midi_in_device_names[device_idx])
-        else:
-            self.init_midi_in(None)
-
-    def set_midi_out_device_by_index(self, device_idx):
-        if device_idx >= 0 and device_idx < len(self.available_midi_out_device_names):
-            self.init_midi_out(self.available_midi_out_device_names[device_idx])
-        else:
-            self.init_midi_out(None)
-
     def set_notes_midi_in_device_by_index(self, device_idx):
         if device_idx >= 0 and device_idx < len(self.available_midi_in_device_names):
             self.init_notes_midi_in(self.available_midi_in_device_names[device_idx])
         else:
             self.init_notes_midi_in(None)
-
-    def midi_in_handler(self, msg):
-        if hasattr(msg, 'channel'):  # This will rule out sysex and other "strange" messages that don't have channel info
-            if self.midi_in_channel == -1 or msg.channel == self.midi_in_channel:   # If midi input channel is set to -1 (all) or a specific channel
-
-                skip_message = False
-                if msg.type == 'aftertouch':
-                    now = time.time()
-                    if (abs(self.last_cp_value_recevied - msg.value) > 10) and (now - self.last_cp_value_recevied_time < 0.5):
-                        skip_message = True
-                    else:
-                        self.last_cp_value_recevied = msg.value
-                    self.last_cp_value_recevied_time = time.time()
-                    
-                if not skip_message:
-                    # Forward the midi message to the active modes
-                    for mode in self.active_modes:
-                        mode.on_midi_in(msg, source=self.midi_in.name)
 
     def notes_midi_in_handler(self, msg):
         # Check if message is note on or off and check if the MIDI channel is the one assigned to the currently selected track
@@ -505,13 +382,6 @@ class ShepherdControllerApp(object):
     def on_midi_push_connection_established(self):
         # Do initial configuration of Push
         print('Doing initial Push config...')
-
-        # Force configure MIDI out (in case it wasn't...)
-        try:
-            app.push.configure_midi_out()
-        except push2_python.exceptions.Push2MIDIeviceNotFound:
-            # App can still run with simulator...
-            pass
 
         # Configure custom color palette
         app.push.color_palette = {}
