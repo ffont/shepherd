@@ -506,6 +506,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                             }
                             int currentValue = device->getMidiCCParameterValue(mappedCCNumber);
                             int newValue = currentValue + increment;
+                            if (newValue > 127){
+                                newValue = 127;
+                            } else if (newValue < 0){
+                                newValue = 0;
+                            }
                             auto newMsg = juce::MidiMessage::controllerEvent (msg.getChannel(), mappedCCNumber, newValue);
                             newMsg.setTimeStamp (msg.getTimeStamp());
                             incomingMidi.addEvent(newMsg, metadata.samplePosition);
