@@ -13,11 +13,17 @@
 
 HardwareDevice::HardwareDevice(juce::String _name,
                juce::String _shortName,
-               std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter)
+               std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
+               std::function<void(const juce::OSCMessage& message)> oscMessageSender)
 {
     name = _name;
     shortName = _shortName;
     getMidiOutputDevice = outputMidiDeviceGetter;
+    sendOscMessage = oscMessageSender;
+    
+    for (int i=0; i<midiCCParameterValues.size(); i++){
+        midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (mid value)
+    }
 }
 
 juce::String HardwareDevice::getName()
@@ -51,14 +57,9 @@ void HardwareDevice::sendMidi(juce::MidiMessage msg)
     auto midiDevice = getMidiOutputDevice(midiOutputDeviceName);
     if (midiDevice != nullptr){
         midiDevice->sendMessageNow(msg);
-    }
-}
-
-void HardwareDevice::sendMidi(juce::MidiBuffer& buffer)
-{
-    auto midiDevice = getMidiOutputDevice(midiOutputDeviceName);
-    if (midiDevice != nullptr){
-        midiDevice->sendBlockOfMessagesNow(buffer);
+        if (msg.isController()){
+            setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+        }
     }
 }
 
@@ -80,4 +81,28 @@ void HardwareDevice::loadPreset(int bankNumber, int presetNumber)
     sendMidi(juce::MidiMessage::controllerEvent(getMidiOutputChannel(), MIDI_BANK_CHANGE_CC, bankNumber));
     juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
     sendMidi(juce::MidiMessage::programChange(getMidiOutputChannel(), presetNumber));
+}
+
+int HardwareDevice::getMidiCCParameterValue(int index)
+{
+    // NOTE: this function is to read the parameter value form the internal state, but it is not expected to read
+    // the value from the hardware device
+    jassert(index >= 0 && index < 128);
+    return midiCCParameterValues[index];
+}
+
+void HardwareDevice::setMidiCCParameterValue(int index, int value, bool notifyController)
+{
+    // NOTE: this function is to store the parameter value in the internal state, but it is not expected to communicate
+    // this value to the hardware device
+    jassert(index >= 0 && index < 128);
+    midiCCParameterValues[index] = value;
+    
+    if (notifyController){
+        juce::OSCMessage returnMessage = juce::OSCMessage("/midiCCParameterValuesForDevice");
+        returnMessage.addString(getShortName());
+        returnMessage.addInt32(index);
+        returnMessage.addInt32(value);
+        sendOscMessage(returnMessage);
+    }
 }

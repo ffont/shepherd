@@ -14,6 +14,14 @@
 #include "defines.h"
 #include "Playhead.h"
 #include "MusicalContext.h"
+#include "HardwareDevice.h"
+
+
+struct TrackSettingsStruct {
+    int midiOutChannel;
+    HardwareDevice* device;
+};
+
 
 class Clip
 {

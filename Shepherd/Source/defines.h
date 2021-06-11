@@ -34,6 +34,8 @@
 #define OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"
 #define OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET "/device/loadDevicePreset"
 #define OSC_ADDRESS_DEVICE_SEND_MIDI "/device/sendMidi"
+#define OSC_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS "/device/setMidiCCParameterValues"
+#define OSC_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS "/device/getMidiCCParameterValues"
 
 #define OSC_ADDRESS_SCENE "/scene"
 #define OSC_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
@@ -49,6 +51,7 @@
 #define OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
 #define OSC_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
 #define OSC_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
+#define OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"
 
 #define OSC_ADDRESS_STATE "/state"
 #define OSC_ADDRESS_STATE_TRACKS "/state/tracks"
@@ -87,10 +90,8 @@ struct GlobalSettingsStruct {
     double countInplayheadPositionInBeats;
     bool isPlaying;
     bool doingCountIn;
-};
-
-struct TrackSettingsStruct {
-    int midiOutChannel;
+    bool recordAutomationEnabled;
 };
 
 
+// NOTE: TrackSettingsStruct is defined in Clip.h to avoid circular import depedency issues as it requires HardwareDevice class

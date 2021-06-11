@@ -292,7 +292,11 @@ void MainComponent::initializeHardwareDevices()
                     juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
                     juce::String midiDeviceName = deviceInfo.getProperty("midi_out_device", "NoMIDIOutDevice").toString();
                     int midiChannel = (int)deviceInfo.getProperty("midi_out_channel", "NoMIDIOutDevice");
-                    HardwareDevice* device = new HardwareDevice(name, shortName, [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
+                    HardwareDevice* device = new HardwareDevice(name,
+                                                                shortName,
+                                                                [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
+                                                                [this](const juce::OSCMessage &message){sendOscMessage(message);}
+                                                                );
                     device->configureMidiOutput(midiDeviceName, midiChannel);
                     hardwareDevices.add(device);
                     std::cout << "- " << name << std::endl;
@@ -315,7 +319,11 @@ void MainComponent::initializeHardwareDevices()
 
         for (int i=0; i<8; i++){
             juce::String name = "Synth " + juce::String(i + 1);
-            HardwareDevice* device = new HardwareDevice(name, "S" + juce::String(i + 1), [this](juce::String deviceName){return getMidiOutputDevice(deviceName);});
+            HardwareDevice* device = new HardwareDevice(name,
+                                                        "S" + juce::String(i + 1),
+                                                        [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
+                                                        [this](const juce::OSCMessage &message){sendOscMessage(message);}
+                                                        );
             device->configureMidiOutput(synthsMidiOut, i + 1);
             hardwareDevices.add(device);
             std::cout << "- " << name << std::endl;
@@ -484,11 +492,28 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             if (msg.getControllerNumber() >= 71 && msg.getControllerNumber() <= 78){
                 // If midi message is a control change from one of the 8 encoders above the display, check if there's any mapping active
                 // and use it (or discard the message).
-                int mappedCCNumber = pushEncodersCCMapping[msg.getControllerNumber() - 71];
-                if (mappedCCNumber > -1){
-                    auto newMsg = juce::MidiMessage::controllerEvent (msg.getChannel(), mappedCCNumber, msg.getControllerValue());
-                    newMsg.setTimeStamp (msg.getTimeStamp());
-                    incomingMidi.addEvent(newMsg, metadata.samplePosition);
+                if (pushEncodersCCMappingHardwareDeviceShortName != ""){
+                    auto device = getHardwareDeviceByName(pushEncodersCCMappingHardwareDeviceShortName);
+                    if (device != nullptr){
+                        int mappedCCNumber = pushEncodersCCMapping[msg.getControllerNumber() - 71];
+                        if (mappedCCNumber > -1){
+                            int rawControllerValue = msg.getControllerValue();
+                            int increment = 0;
+                            if (rawControllerValue > 0 && rawControllerValue < 64){
+                                increment = rawControllerValue;
+                            } else {
+                                increment = rawControllerValue - 128;
+                            }
+                            int currentValue = device->getMidiCCParameterValue(mappedCCNumber);
+                            int newValue = currentValue + increment;
+                            auto newMsg = juce::MidiMessage::controllerEvent (msg.getChannel(), mappedCCNumber, newValue);
+                            newMsg.setTimeStamp (msg.getTimeStamp());
+                            incomingMidi.addEvent(newMsg, metadata.samplePosition);
+                            
+                            // Store value and notify the controller about the cc change so it can show updated value information
+                            device->setMidiCCParameterValue(mappedCCNumber, newValue, true);
+                        }
+                    }
                 }
             }
         }
@@ -629,6 +654,7 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
     settings.playheadPositionInBeats = playheadPositionInBeats;
     settings.countInplayheadPositionInBeats = countInplayheadPositionInBeats;
     settings.doingCountIn = doingCountIn;
+    settings.recordAutomationEnabled = recordAutomationEnabled;
     return settings;
 }
 
@@ -749,6 +775,25 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             jassert(message.size() == 4);
             juce::MidiMessage msg = juce::MidiMessage(message[1].getInt32(), message[2].getInt32(), message[3].getInt32());
             device->sendMidi(msg);
+        } else if (address ==  OSC_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS){
+            jassert(message.size() > 1);
+            for (int i=1; i<message.size(); i=i+2){
+                int index = message[i].getInt32();
+                int value = message[i + 1].getInt32();
+                device->setMidiCCParameterValue(index, value, false);
+                // Don't notify controller about the cc value change as the change is most probably comming from the controller itself
+            }
+        } else if (address ==  OSC_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS){
+            jassert(message.size() > 1);
+            juce::OSCMessage returnMessage = juce::OSCMessage("/midiCCParameterValuesForDevice");
+            returnMessage.addString(device->getShortName());
+            for (int i=1; i<message.size(); i++){
+                int index = message[i].getInt32();
+                int value = device->getMidiCCParameterValue(index);
+                returnMessage.addInt32(index);
+                returnMessage.addInt32(value);
+            }
+            sendOscMessage(returnMessage);
         }
     
     } else if (address.startsWith(OSC_ADDRESS_SCENE)) {
@@ -815,16 +860,39 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                 pushPadsNoteMapping[i] = message[i].getInt32();
             }
         } else if (address == OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING){
-            jassert(message.size() == 8);
-            for (int i=0; i<8; i++){
-                pushEncodersCCMapping[i] = message[i].getInt32();
+            jassert(message.size() == 9);
+            juce::String deviceName = message[0].getString();
+            pushEncodersCCMappingHardwareDeviceShortName = deviceName;
+            for (int i=1; i<9; i++){
+                pushEncodersCCMapping[i - 1] = message[i].getInt32();
             }
+            
+            // Send the currently stored values for these controls to the controller
+            // The Controller needs these values to display current cc parameter values on the display
+            auto device = getHardwareDeviceByName(deviceName);
+            if (device != nullptr){
+                juce::OSCMessage returnMessage = juce::OSCMessage("/midiCCParameterValuesForDevice");
+                returnMessage.addString(device->getShortName());
+                for (int i=0; i<8; i++){
+                    int index = pushEncodersCCMapping[i];
+                    if (index > -1){
+                        int value = device->getMidiCCParameterValue(index);
+                        returnMessage.addInt32(index);
+                        returnMessage.addInt32(value);
+                    }
+                }
+                sendOscMessage(returnMessage);
+            }
+
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
             jassert(message.size() == 1);
             fixedVelocity = message[0].getInt32();
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
             jassert(message.size() == 1);
             fixedLengthRecordingBars = message[0].getInt32();
+        } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
+            jassert(message.size() == 0);
+            recordAutomationEnabled = !recordAutomationEnabled;
         }
         
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
@@ -883,6 +951,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
             stateAsStringParts.add(juce::String(fixedLengthRecordingBars));
             stateAsStringParts.add(juce::String(musicalContext.getMeter()));
+            stateAsStringParts.add(juce::String(recordAutomationEnabled ? "1":"0"));
             
             juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
             returnMessage.addString(stateAsStringParts.joinIntoString(","));

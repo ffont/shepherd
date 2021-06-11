@@ -17,7 +17,6 @@ class MIDICCControl(object):
     name = 'Unknown'
     section = 'unknown'
     cc_number = 10  # 0-127
-    value = 64
     vmin = 0
     vmax = 127
     get_color_func = None
@@ -29,7 +28,7 @@ class MIDICCControl(object):
         self.section = section_name
         self.get_color_func = get_color_func
 
-    def draw(self, ctx, x_part):
+    def draw(self, ctx, x_part, value):
         margin_top = 25
         
         # Param name
@@ -39,7 +38,7 @@ class MIDICCControl(object):
         # Param value
         val_height = 30
         color = self.get_color_func()
-        show_text(ctx, x_part, margin_top + name_height, self.value_labels_map.get(str(self.value), str(self.value)), height=val_height, font_color=color)
+        show_text(ctx, x_part, margin_top + name_height, self.value_labels_map.get(str(value), str(value)), height=val_height, font_color=color)
 
         # Knob
         ctx.save()
@@ -73,21 +72,12 @@ class MIDICCControl(object):
         ctx.stroke()
 
         # Outer circle
-        ctx.arc(xc, yc, radius, start_rad, get_rad_for_value(self.value))
+        ctx.arc(xc, yc, radius, start_rad, get_rad_for_value(value))
         ctx.set_source_rgb(* definitions.get_color_rgb_float(color))
         ctx.set_line_width(3)
         ctx.stroke()
 
         ctx.restore()
-    
-    def update_value(self, increment): 
-        if self.value + increment > self.vmax:
-            self.value = self.vmax
-        elif self.value + increment < self.vmin:
-            self.value = self.vmin
-        else:
-            self.value += increment
-        # NOTE: we do not send MIDI messages here because these will be received directly in Shepherd backend and mapped to correct MIDI CC
 
 class MIDICCMode(ShepherdControllerMode):
 
@@ -200,6 +190,7 @@ class MIDICCMode(ShepherdControllerMode):
 
     def new_track_selected(self):
         self.active_midi_control_ccs = self.get_midi_cc_controls_for_current_track_section_and_page()
+        self.update_encoders_backend_mapping()
 
     def update_encoders_backend_mapping(self):
         mapping = []
@@ -208,10 +199,10 @@ class MIDICCMode(ShepherdControllerMode):
                 mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
             except IndexError:
                 mapping.append(-1)
-        self.app.shepherd_interface.set_push_encoders_mapping(mapping)
+        self.app.shepherd_interface.set_push_encoders_mapping(self.get_current_track_device_short_name_helper(), mapping)
 
     def clear_encoders_backend_mapping(self):
-        self.app.shepherd_interface.set_push_encoders_mapping([-1 for i in range(0, 8)])
+        self.app.shepherd_interface.set_push_encoders_mapping("", [-1 for i in range(0, 8)])
 
     def activate(self):
         self.update_buttons()
@@ -263,7 +254,8 @@ class MIDICCMode(ShepherdControllerMode):
             if self.active_midi_control_ccs:
                 for i in range(0, min(len(self.active_midi_control_ccs), 8)):
                     try:
-                        self.active_midi_control_ccs[i].draw(ctx, i)
+                        value = self.app.shepherd_interface.device_get_midi_cc_parameter_value(self.get_current_track_device_short_name_helper(), self.active_midi_control_ccs[i].cc_number)
+                        self.active_midi_control_ccs[i].draw(ctx, i, value)
                     except IndexError:
                         continue
     
@@ -299,9 +291,9 @@ class MIDICCMode(ShepherdControllerMode):
                     push2_python.constants.ENCODER_TRACK7_ENCODER,
                     push2_python.constants.ENCODER_TRACK8_ENCODER,
                 ].index(encoder_name)
-                if self.active_midi_control_ccs:
-                    self.active_midi_control_ccs[encoder_num].update_value(increment)
                 return True  # Always return True because encoder should not be used in any other mode if this is first active
+                # Note that we don't do anything else here because actual midi CC triggering action happens in the
+                # backend using the enbcoders mapping
             except ValueError: 
                 pass  # Encoder not in list 
         

@@ -81,6 +81,7 @@ private:
     int fixedVelocity = -1;
     std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
     int lastMidiNoteOnMessagesToStore = 20;
+    juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
     
     // Hardware devices
     juce::OwnedArray<HardwareDevice> hardwareDevices;
@@ -96,6 +97,7 @@ private:
     bool doingCountIn = false;
     double countInplayheadPositionInBeats = 0.0;
     int fixedLengthRecordingBars = 0;
+    bool recordAutomationEnabled = true;
     
     // Musical context
     MusicalContext musicalContext;

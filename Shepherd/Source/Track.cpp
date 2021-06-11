@@ -78,6 +78,7 @@ void Track::prepareClips()
                 [this]{
                     TrackSettingsStruct settings;
                     settings.midiOutChannel = getMidiOutputChannel();
+                    settings.device = getHardwareDevice();
                     return settings;
                 },
                 getMusicalContext
@@ -103,6 +104,13 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
             auto msg = metadata.getMessage();
             msg.setChannel(getMidiOutputChannel());
             bufferToFill->addEvent(msg, metadata.samplePosition);
+            
+            // If message is of type controller, also update the internal stored state of the controller
+            if (msg.isController()){
+                if (device != nullptr){
+                    device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+                }
+            }
         }
     }
 }

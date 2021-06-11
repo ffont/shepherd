@@ -566,6 +566,14 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                         if (bufferToFill != nullptr) bufferToFill->addEvent(msg, eventPositionInSliceInSamples);
                     }
                     
+                    // If message is of type controller, also update the internal stored state of the controller
+                    if (msg.isController()){
+                        auto device = getTrackSettings().device;
+                        if (device != nullptr){
+                            device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+                        }
+                    }
+                    
                     // Keep track of notes currently played so later we can send note offs if needed (include sustain pedal in checks)
                     if      (msg.isNoteOn())  notesCurrentlyPlayed.add (msg.getNoteNumber());
                     else if (msg.isNoteOff()) notesCurrentlyPlayed.removeValue (msg.getNoteNumber());
@@ -613,13 +621,17 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                 auto msg = metadata.getMessage();
                 double eventPositionInBeats = sliceInBeats.getStart() + sliceInBeats.getLength() * metadata.samplePosition / bufferSize;
                 
-                if (sliceInBeats.contains(eventPositionInBeats) && eventPositionInBeats >= hasJustStartedRecordingAt) {
-                    // This condition should always be true except maybe when recorder was just started or just stopped
-                    // TODO: the current implementation does record events in the slice that happen after willStopRecordingAt. This should be refactored...
-                    msg.setTimeStamp(eventPositionInBeats);
-                    recordedMidiSequence.addEvent(msg);
+                if (!getGlobalSettings().recordAutomationEnabled && msg.isController()){
+                    // If message is of type controller but record automation is not enabled, don't record the message
                 } else {
-                    //jassert() ?
+                    if (sliceInBeats.contains(eventPositionInBeats) && eventPositionInBeats >= hasJustStartedRecordingAt) {
+                        // This condition should always be true except maybe when recorder was just started or just stopped
+                        // TODO: the current implementation does record events in the slice that happen after willStopRecordingAt. This should be refactored...
+                        msg.setTimeStamp(eventPositionInBeats);
+                        recordedMidiSequence.addEvent(msg);
+                    } else {
+                        //jassert() ?
+                    }
                 }
             }
         }

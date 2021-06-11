@@ -37,6 +37,7 @@ class ShepherdInterface(object):
         sock = self.osc_server.listen(address='0.0.0.0', port=osc_receive_port, default=True)
         self.osc_server.bind(b'/shepherdReady', self.receive_shepherd_ready)
         self.osc_server.bind(b'/stateFromShepherd', self.receive_state_from_shepherd)
+        self.osc_server.bind(b'/midiCCParameterValuesForDevice', self.receive_midi_cc_values_for_device)
         
         self.run_get_state_transport_thread()
         self.run_get_state_tracks_thread()
@@ -59,6 +60,9 @@ class ShepherdInterface(object):
             time.sleep(1.0/tracks_state_fps)
             self.osc_sender.send_message('/state/tracks', [])
 
+    def request_midi_cc_values_for_device(self, device_name, ccs):
+        self.osc_sender.send_message('/device/getMidiCCParameterValues', [device_name] + ccs)
+
     def sync_state_to_shepherd(self):
         # re-activate all modes to make sure we initialize things in the backend if needed
         for mode in self.app.active_modes:
@@ -68,6 +72,18 @@ class ShepherdInterface(object):
 
     def receive_shepherd_ready(self):
         self.should_sync_state_with_backend = True
+
+    def receive_midi_cc_values_for_device(self, *values):
+        device_name = values[0].decode("utf-8")        
+        if 'devices' not in self.parsed_state:
+            self.parsed_state['devices'] = {}
+        if device_name not in self.parsed_state['devices']:
+            self.parsed_state['devices'][device_name] = {}
+        if 'midi_cc' not in self.parsed_state['devices'][device_name]:
+            self.parsed_state['devices'][device_name]['midi_cc'] = [64 for i in range(0, 128)]
+        if len(values) > 1:
+            for i in range(1, len(values) - 1):
+                self.parsed_state['devices'][device_name]['midi_cc'][int(values[i])] = int(values[i + 1])
         
     def receive_state_from_shepherd(self, values):
         state = values.decode("utf-8")
@@ -76,6 +92,7 @@ class ShepherdInterface(object):
             old_is_playing = self.parsed_state.get('isPlaying', False)
             old_is_recording = self.parsed_state.get('isRecording', False)
             old_metronome_on = self.parsed_state.get('metronomeOn', False)
+            old_record_automation_on = self.parsed_state.get('recordAutomaionOn', False)
             self.parsed_state['isPlaying'] = parts[1] == "p"
             if 'tracks' in self.parsed_state:
                 is_recording = False
@@ -120,10 +137,12 @@ class ShepherdInterface(object):
             
             self.parsed_state['fixedLengthRecordingAmount'] = int(parts[6])
             self.parsed_state['meter'] = int(parts[7])
+            self.parsed_state['recordAutomaionOn'] = parts[8] == "1"
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
                 old_is_recording != self.parsed_state['isRecording'] or \
-                    old_metronome_on != self.parsed_state['metronomeOn']:
+                    old_metronome_on != self.parsed_state['metronomeOn'] or \
+                        old_record_automation_on != self.parsed_state['recordAutomaionOn']:
                 self.app.buttons_need_update = True
 
         elif state.startswith("tracks"):
@@ -190,6 +209,13 @@ class ShepherdInterface(object):
     def device_send_midi(self, device_name, msg):
         self.osc_sender.send_message('/device/sendMidi', [device_name] + msg.bytes())
 
+    def device_get_midi_cc_parameter_value(self, device_name, midi_cc_parameter):
+        if 'devices' in self.parsed_state:
+            if device_name in self.parsed_state['devices']:
+                if 'midi_cc' in self.parsed_state['devices'][device_name]:
+                    return self.parsed_state['devices'][device_name]['midi_cc'][midi_cc_parameter]
+        return 0
+        
     def clip_play_stop(self, track_num, clip_num):
         self.osc_sender.send_message('/clip/playStop', [track_num, clip_num])
 
@@ -315,9 +341,11 @@ class ShepherdInterface(object):
         if new_mapping:
             self.osc_sender.send_message('/settings/pushNotesMapping', new_mapping)
 
-    def set_push_encoders_mapping(self, new_mapping=[]):
+    def set_push_encoders_mapping(self, device_name, new_mapping=[]):
+        if device_name == "":
+            device_name = "-"
         if new_mapping:
-            self.osc_sender.send_message('/settings/pushEncodersMapping', new_mapping)
+            self.osc_sender.send_message('/settings/pushEncodersMapping', [device_name] + new_mapping)
 
     def set_fixed_velocity(self, velocity):
         self.osc_sender.send_message('/settings/fixedVelocity', [velocity])
@@ -373,5 +401,12 @@ class ShepherdInterface(object):
             self.app.add_display_notification("Fixed length bars: {0} ({1} beats)".format(fixed_length, fixed_length * self.get_meter()))
         else:
             self.app.add_display_notification("No fixed length recording")
+
+    def get_record_automation_enabled(self):
+        return self.parsed_state.get('recordAutomaionOn', False)
+
+    def set_record_automation_enabled(self):
+        self.osc_sender.send_message('/settings/toggleRecordAutomation', [])
+
 
     

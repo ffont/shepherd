@@ -23,9 +23,11 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     metronome_button = push2_python.constants.BUTTON_METRONOME
     tap_tempo_button = push2_python.constants.BUTTON_TAP_TEMPO
     fixed_length_button = push2_python.constants.BUTTON_FIXED_LENGTH
+    record_automation_button = push2_python.constants.BUTTON_AUTOMATE
 
     buttons_used = [toggle_display_button, settings_button, melodic_rhythmic_toggle_button, track_triggering_button, preset_selection_mode_button, 
-                    ddrm_tone_selection_mode_button, shift_button, select_button, play_button, record_button, metronome_button, fixed_length_button]
+                    ddrm_tone_selection_mode_button, shift_button, select_button, play_button, record_button, metronome_button, fixed_length_button,
+                    record_automation_button]
 
     def activate(self):
         self.update_buttons()
@@ -66,6 +68,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         # Fixed length button
         fixed_length_amount = self.app.shepherd_interface.get_fixed_length_amount()
         self.set_button_color_if_expression(self.fixed_length_button, fixed_length_amount > 0.0, animation=definitions.DEFAULT_ANIMATION)
+        
+        # Record automation button
+        record_automation_enabled = self.app.shepherd_interface.get_record_automation_enabled()
+        self.set_button_color_if_expression(self.record_automation_button, record_automation_enabled, color=definitions.RED)
         
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
@@ -124,6 +130,9 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                 if next_fixed_length > 8:
                     next_fixed_length = 0
             self.app.shepherd_interface.set_fixed_length_amount(next_fixed_length)
+
+        elif button_name == self.record_automation_button:
+            self.app.shepherd_interface.set_record_automation_enabled()
 
     def on_button_pressed_raw(self, button_name):    
         if button_name == self.track_triggering_button:
