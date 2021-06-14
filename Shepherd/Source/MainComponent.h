@@ -105,7 +105,7 @@ private:
     int nextMeter = 0;
     bool sendMidiClock = true;
     #if RPI_BUILD
-    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"ESI M4U eX MIDI 5", "Ableton Push 2 MIDI 1"};
+    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"ESI M4U eX MIDI 6", "Ableton Push 2 MIDI 1"};
     std::vector<juce::String> sendMetronomeMidiDeviceNames = {"ESI M4U eX MIDI 5"};
     #else
     std::vector<juce::String> sendMidiClockMidiDeviceNames = {"IAC Driver Bus 1"};
