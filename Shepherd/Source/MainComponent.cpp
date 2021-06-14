@@ -312,7 +312,7 @@ void MainComponent::initializeHardwareDevices()
         std::cout << "Initializing default Hardware Devices" << std::endl;
         
         #if RPI_BUILD
-        const juce::String synthsMidiOut = "MIDIFACE 2X2 MIDI 1";
+        const juce::String synthsMidiOut = "ESI M4U eX MIDI 4";
         #else
         const juce::String synthsMidiOut = "IAC Driver Bus 1";
         #endif
