@@ -118,6 +118,7 @@ private:
     
     void removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence);
     void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
+    void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
     
     double currentQuantizationStep = 0.0;
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);

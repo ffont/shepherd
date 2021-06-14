@@ -118,7 +118,7 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int 
         #endif
         metronomePendingNoteOffSamplePosition = -1;
     }
-    if (metronomeOn && (getGlobalSettings().isPlaying || getGlobalSettings().doingCountIn)) {
+    if ((metronomeOn && getGlobalSettings().isPlaying) || getGlobalSettings().doingCountIn) {
         
         double previousBeat = getGlobalSettings().isPlaying ? getGlobalSettings().playheadPositionInBeats : getGlobalSettings().countInplayheadPositionInBeats;
         double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
