@@ -74,6 +74,10 @@
 #define MIDI_BANK_CHANGE_CC 0
 
 
+#define PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS 500
+#define PUSH_MIDI_IN_DEVICE_NAME "Ableton Push 2 MIDI 1"
+
+
 struct MidiOutputDeviceData {
     juce::String identifier;
     juce::String name;

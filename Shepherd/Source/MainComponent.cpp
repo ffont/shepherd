@@ -165,6 +165,10 @@ void MainComponent::initializeMIDIOutputs()
         if (midiDevice == nullptr) someFailedInitialization = true;
     }
     
+    // Initialize midi output to Push MIDI input (used for sending clock messages)
+    auto pushMidiDevice = initializeMidiOutputDevice(PUSH_MIDI_IN_DEVICE_NAME);
+    if (pushMidiDevice == nullptr) someFailedInitialization = true;
+    
     if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
 }
 
@@ -393,9 +397,15 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Clear midi output buffers
     clearMidiDeviceOutputBuffers();
     
+    // Prepare some buffers to add messages to them
+    juce::MidiBuffer midiClockMessages;
+    juce::MidiBuffer midiMetronomeMessages;
+    juce::MidiBuffer pushMidiClockMessages;
+    
     // Check if tempo/meter should be updated
     if (nextBpm > 0.0){
         musicalContext.setBpm(nextBpm);
+        shouldStartSendingPushMidiClockBurst = true;
         nextBpm = 0.0;
     }
     if (nextMeter > 0){
@@ -414,10 +424,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             countInplayheadPositionInBeats = 0.0;
         }
     }
-    
-    // Prepare some buffers to add messages to them
-    juce::MidiBuffer midiClockMessages;
-    juce::MidiBuffer midiMetronomeMessages;
     
     // Collect messages from MIDI input (keys and push)
     juce::MidiBuffer incomingMidi;
@@ -541,8 +547,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             isPlaying = false;
             playheadPositionInBeats = 0.0;
             musicalContext.resetCounters();
-            
-            
             musicalContext.renderMidiStopInSlice(midiClockMessages, bufferToFill.numSamples);
         } else {
             for (auto track: tracks){
@@ -566,8 +570,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         }
     }
     
-    // TODO: do MIDI FX processing of the generatedMidi buffer per track (or per clip if we decide effects are clip-based?)
-
+    // TODO: do MIDI FX processing of the generatedMidi buffer per track/clip
     
     // Update musical context bar counter
     // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
@@ -575,15 +578,33 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Render metronome in generated midi
     musicalContext.renderMetronomeInSlice(midiMetronomeMessages, bufferToFill.numSamples);
-    
     if (sendMidiClock){
         musicalContext.renderMidiClockInSlice(midiClockMessages, bufferToFill.numSamples);
     }
     
-    // Add metronome and midi clock messages to the corresponding buffers
+    // Render clock in push midi buffer if required (and playing)
+    if ((shouldStartSendingPushMidiClockBurst) && (isPlaying)){
+        lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
+        shouldStartSendingPushMidiClockBurst = false;
+        musicalContext.renderMidiStartInSlice(pushMidiClockMessages, bufferToFill.numSamples);
+    }
+    if (lastTimePushMidiClockBurstStarted > -1.0){
+        double timeNow = juce::Time::getCurrentTime().toMilliseconds();
+        if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
+            pushMidiClockMessages.addEvents(midiClockMessages, 0, bufferToFill.numSamples, 0);
+        } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
+            musicalContext.renderMidiStopInSlice(pushMidiClockMessages, bufferToFill.numSamples);
+            lastTimePushMidiClockBurstStarted = -1.0;
+        }
+    }
+    
+    // Add metronome and midi clock messages to the corresponding buffers (also push midi clock messages)
     writeMidiToDevicesMidiBuffer(midiClockMessages, bufferToFill.numSamples, sendMidiClockMidiDeviceNames);
     writeMidiToDevicesMidiBuffer(midiMetronomeMessages, bufferToFill.numSamples, sendMetronomeMidiDeviceNames);
-    
+    if (pushMidiClockMessages.getNumEvents() > 0){
+        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, bufferToFill.numSamples, std::vector<juce::String>{PUSH_MIDI_IN_DEVICE_NAME});
+    }
+
     // Send the generated MIDI buffers to the outputs
     sendMidiDeviceOutputBuffers();
     

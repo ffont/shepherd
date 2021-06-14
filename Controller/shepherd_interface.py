@@ -180,7 +180,11 @@ class ShepherdInterface(object):
                 self.last_received_tracks_raw_state = state
 
             if old_num_tracks != self.parsed_state.get('numTracks', 0):
-                self.app.midi_cc_mode.initialize()
+                try:
+                    self.app.midi_cc_mode.initialize()
+                except AttributeError:
+                    # Mode has not yet been created in app...
+                    pass
 
         if 'tracks' in self.parsed_state and 'bpm' in self.parsed_state and self.should_sync_state_with_backend:
             # Once full state has been received from backend, sync back to it

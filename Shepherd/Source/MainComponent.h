@@ -104,11 +104,13 @@ private:
     double nextBpm = 0.0;
     int nextMeter = 0;
     bool sendMidiClock = true;
+    bool shouldStartSendingPushMidiClockBurst = true;
+    double lastTimePushMidiClockBurstStarted = -1.0;
     #if RPI_BUILD
-    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"ESI M4U eX MIDI 6", "Ableton Push 2 MIDI 1"};
+    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"ESI M4U eX MIDI 6"};
     std::vector<juce::String> sendMetronomeMidiDeviceNames = {"ESI M4U eX MIDI 5"};
     #else
-    std::vector<juce::String> sendMidiClockMidiDeviceNames = {"IAC Driver Bus 1"};
+    std::vector<juce::String> sendMidiClockMidiDeviceNames = {};
     std::vector<juce::String> sendMetronomeMidiDeviceNames = {"IAC Driver Bus 1"};
     #endif
     
