@@ -797,7 +797,7 @@ void Clip::removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& seq
 void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
 {
     // Add pitch-bend reset message at the beggining if sequence contains pitch bend messages which do not end at 0
-    int lastPitchWheelMessage = 0;
+    int lastPitchWheelMessage = 8192;
     for (int i=sequence.getNumEvents() - 1; i>=0; i--){
         juce::MidiMessage msg = sequence.getEventPointer(i)->message;
         if (msg.isPitchWheel()){
@@ -805,9 +805,9 @@ void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
             break;
         }
     }
-    if (lastPitchWheelMessage != 0){
+    if (lastPitchWheelMessage != 8192){
         // NOTE: don't care about the midi channel as it is re-written when message is thrown to the output
-        juce::MidiMessage pitchWheelResetMessage = juce::MidiMessage::pitchWheel(1, 0);
+        juce::MidiMessage pitchWheelResetMessage = juce::MidiMessage::pitchWheel(1, 8192);
         pitchWheelResetMessage.setTimeStamp(0.0);
         sequence.addEvent(pitchWheelResetMessage);
     }
