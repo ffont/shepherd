@@ -39,6 +39,9 @@ class ShepherdInterface(object):
         self.osc_server.bind(b'/stateFromShepherd', self.receive_state_from_shepherd)
         self.osc_server.bind(b'/midiCCParameterValuesForDevice', self.receive_midi_cc_values_for_device)
         
+        # Send first message notifying backend that controller is ready and start threads that 
+        # request periodic state updates
+        self.osc_sender.send_message('/shepherdControllerReady', [])
         self.run_get_state_transport_thread()
         self.run_get_state_tracks_thread()
 
@@ -65,9 +68,11 @@ class ShepherdInterface(object):
 
     def sync_state_to_shepherd(self):
         # re-activate all modes to make sure we initialize things in the backend if needed
+        print('Synching with Shepherd backend state')
         for mode in self.app.active_modes:
             mode.activate()
         self.app.midi_cc_mode.initialize()
+        self.app.init_notes_midi_in()
         self.should_sync_state_with_backend = False
 
     def receive_shepherd_ready(self):
@@ -86,6 +91,10 @@ class ShepherdInterface(object):
                 self.parsed_state['devices'][device_name]['midi_cc'][int(values[i])] = int(values[i + 1])
         
     def receive_state_from_shepherd(self, values):
+        if not self.parsed_state:
+            # If this is the first time receiving state, schedule full sync
+            self.should_sync_state_with_backend = True
+
         state = values.decode("utf-8")
         if state.startswith("transport"):
             parts = state.split(',')

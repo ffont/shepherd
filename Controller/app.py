@@ -239,15 +239,17 @@ class ShepherdControllerApp(object):
                 full_name = None
             if full_name is not None:
                 if self.notes_midi_in is not None:
-                    self.notes_midi_in.callback = None  # Disable current callback (if any)
+                    self.notes_midi_in.callback = None  # Disable current callback first (if any)
                 try:
                     self.notes_midi_in = mido.open_input(full_name)
                     self.notes_midi_in.callback = self.notes_midi_in_handler
                     print('Receiving notes MIDI in from "{0}"'.format(full_name))
                 except IOError:
-                    print('Could not connect to notes MIDI input port "{0}"\nAvailable device names:'.format(full_name))
-                    for name in self.available_midi_in_device_names:
-                        print(' - {0}'.format(name))
+                    print('Could not connect to notes MIDI input port "{}"'.format(full_name))
+                    print('- Available device names: {}'.format(','.join([name for name in self.available_midi_in_device_names])))
+                except Exception as e:
+                    print('Could not connect to notes MIDI input port "{}"'.format(full_name))
+                    print('- Unexpected error occurred: {}'.format(str(e)))
             else:
                 print('No available device name found for {}'.format(device_name))
         else:

@@ -21,11 +21,11 @@ class DevelopmentUIComponent  : public juce::Component
 public:
     DevelopmentUIComponent()
     {
-        reloadBrowser.onClick = [this] {
-            browser.goToURL("http://localhost:6128/");
+        reloadBrowserButton.onClick = [this] {
+            reloadBrowser();
         };
-        reloadBrowser.setButtonText("Reload UI");
-        addAndMakeVisible (reloadBrowser);
+        reloadBrowserButton.setButtonText("Reload UI");
+        addAndMakeVisible (reloadBrowserButton);
         
         toggleStateVisualizer.onClick = [this] {
             showState = !showState;
@@ -68,6 +68,11 @@ public:
         stateTracks = state;
         updateStateInVisualizer();
     }
+    
+    void reloadBrowser()
+    {
+        browser.goToURL("http://localhost:6128/");
+    }
 
     void paint (juce::Graphics& g) override
     {
@@ -76,7 +81,7 @@ public:
 
     void resized() override
     {
-        reloadBrowser.setBounds(5, 5, 70, 20);
+        reloadBrowserButton.setBounds(5, 5, 70, 20);
         toggleStateVisualizer.setBounds(80, 5, 120, 20);
         browser.setBounds(0, 30, browserWidth, browserHeight);
         if (showState){
@@ -104,7 +109,7 @@ private:
     juce::String stateTracks = "";
     
     juce::WebBrowserComponent browser;
-    juce::TextButton reloadBrowser;
+    juce::TextButton reloadBrowserButton;
     juce::TextButton toggleStateVisualizer;
     juce::TextEditor stateVisualizer;
     

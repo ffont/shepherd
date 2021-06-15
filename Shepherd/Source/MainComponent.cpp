@@ -28,6 +28,14 @@ MainComponent::MainComponent()
         setAudioChannels (2, 2);
     }
     
+    // Set ssome defaults
+    if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
+        sendMidiClockMidiDeviceNames = {DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME};
+    }
+    if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
+        sendMetronomeMidiDeviceNames = {DEFAULT_MIDI_OUT_DEVICE_NAME};
+    }
+    
     // Init hardware devices
     initializeHardwareDevices();
     
@@ -50,8 +58,8 @@ MainComponent::MainComponent()
     #endif
     
     // Send OSC message to frontend indiating that Shepherd is ready
-    juce::OSCMessage returnMessage = juce::OSCMessage("/shepherdReady");
-    sendOscMessage(returnMessage);
+    juce::OSCMessage message = juce::OSCMessage("/shepherdReady");
+    sendOscMessage(message);
     
     mainComponentInitialized = true;
 }
@@ -87,11 +95,7 @@ void MainComponent::initializeMIDIInputs()
     auto midiInputs = juce::MidiInput::getAvailableDevices();
 
     if (!midiInIsConnected){ // Keyboard MIDI in
-        #if RPI_BUILD
-        const juce::String inDeviceName = "LUMI Keys BLOCK MIDI 1";
-        #else
-        const juce::String inDeviceName = "iCON iKEY V1.02";
-        #endif
+        const juce::String inDeviceName = DEFAULT_KEYBOARD_MIDI_IN_DEVICE_NAME;
         juce::String inDeviceIdentifier = "";
         for (int i=0; i<midiInputs.size(); i++){
             if (midiInputs[i].name == inDeviceName){
@@ -113,11 +117,7 @@ void MainComponent::initializeMIDIInputs()
     }
 
     if (!midiInPushIsConnected){ // Push messages MIDI in (used for triggering notes and encoders if mode is active)
-        #if RPI_BUILD
-        const juce::String pushInDeviceName = "Ableton Push 2 MIDI 1";
-        #else
-        const juce::String pushInDeviceName = "Push2Simulator";
-        #endif
+        const juce::String pushInDeviceName = PUSH_MIDI_IN_DEVICE_NAME;
         juce::String pushInDeviceIdentifier = "";
         for (int i=0; i<midiInputs.size(); i++){
             if (midiInputs[i].name == pushInDeviceName){
@@ -165,9 +165,11 @@ void MainComponent::initializeMIDIOutputs()
         if (midiDevice == nullptr) someFailedInitialization = true;
     }
     
-    // Initialize midi output to Push MIDI input (used for sending clock messages)
-    auto pushMidiDevice = initializeMidiOutputDevice(PUSH_MIDI_IN_DEVICE_NAME);
-    if (pushMidiDevice == nullptr) someFailedInitialization = true;
+    // Initialize midi output to Push MIDI input (used for sending clock messages to push and sync animations with Shepherd tempo)
+    if (juce::String(PUSH_MIDI_OUT_DEVICE_NAME).length() > 0){
+        auto pushMidiDevice = initializeMidiOutputDevice(PUSH_MIDI_OUT_DEVICE_NAME);
+        if (pushMidiDevice == nullptr) someFailedInitialization = true;
+    }
     
     if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
 }
@@ -314,13 +316,7 @@ void MainComponent::initializeHardwareDevices()
     
     if (shouldLoadDefaults){
         std::cout << "Initializing default Hardware Devices" << std::endl;
-        
-        #if RPI_BUILD
-        const juce::String synthsMidiOut = "ESI M4U eX MIDI 5";
-        #else
-        const juce::String synthsMidiOut = "IAC Driver Bus 1";
-        #endif
-
+        const juce::String synthsMidiOut = DEFAULT_MIDI_OUT_DEVICE_NAME;
         for (int i=0; i<8; i++){
             juce::String name = "Synth " + juce::String(i + 1);
             HardwareDevice* device = new HardwareDevice(name,
@@ -602,7 +598,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     writeMidiToDevicesMidiBuffer(midiClockMessages, bufferToFill.numSamples, sendMidiClockMidiDeviceNames);
     writeMidiToDevicesMidiBuffer(midiMetronomeMessages, bufferToFill.numSamples, sendMetronomeMidiDeviceNames);
     if (pushMidiClockMessages.getNumEvents() > 0){
-        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, bufferToFill.numSamples, std::vector<juce::String>{PUSH_MIDI_IN_DEVICE_NAME});
+        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, bufferToFill.numSamples, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
     }
 
     // Send the generated MIDI buffers to the outputs
@@ -707,6 +703,33 @@ void MainComponent::timerCallback()
             // time we tried to initialize them, try to initialize again
             initializeMIDIOutputs();
         }
+    }
+}
+
+//==============================================================================
+void MainComponent::playScene(int sceneN)
+{
+    jassert(sceneN < nScenes);
+    for (auto track: tracks){
+        auto clip = track->getClipAt(sceneN);
+        track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
+        clip->clearStopCue();
+        if (!clip->isPlaying() && !clip->isCuedToPlay()){
+            clip->togglePlayStop();
+        }
+    }
+}
+
+void MainComponent::duplicateScene(int sceneN)
+{
+    // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
+    jassert(sceneN < nScenes - 1);
+    
+    // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
+    // sceneN.
+    for (auto track: tracks){
+        auto clip = track->getClipAt(sceneN);
+        track->insertClipAt(sceneN, clip->clone());
     }
 }
 
@@ -988,32 +1011,17 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             #endif
             
         }
-    }
-}
-
-//==============================================================================
-void MainComponent::playScene(int sceneN)
-{
-    jassert(sceneN < nScenes);
-    for (auto track: tracks){
-        auto clip = track->getClipAt(sceneN);
-        track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
-        clip->clearStopCue();
-        if (!clip->isPlaying() && !clip->isCuedToPlay()){
-            clip->togglePlayStop();
-        }
-    }
-}
-
-void MainComponent::duplicateScene(int sceneN)
-{
-    // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
-    jassert(sceneN < nScenes - 1);
-    
-    // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
-    // sceneN.
-    for (auto track: tracks){
-        auto clip = track->getClipAt(sceneN);
-        track->insertClipAt(sceneN, clip->clone());
+        
+    } else if (address == OSC_ADDRESS_SHEPHERD_CONTROLLER_READY) {
+        jassert(message.size() == 0);
+        // Set midi in push connection to false so the method to initialize midi in is retrieggered at next timer call
+        // This is to prevent issues caused by the order in which frontend and backend are started
+        midiInPushIsConnected = false;
+        
+        // Also in dev mode trigger reload ui
+        #if !RPI_BUILD
+        juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 2000);
+        devUiComponent.reloadBrowser();
+        #endif
     }
 }
