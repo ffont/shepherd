@@ -31,7 +31,6 @@ class ShepherdControllerApp(object):
     # midi
     available_midi_in_device_names = []
     notes_midi_in = None  # MIDI input device only used to receive note messages and illuminate pads/keys
-    notes_midi_in_tmp_device_idx = None  # This is to store device names while rotating encoders
     last_attempt_configuring_notes_in = 0
 
     # push
@@ -72,9 +71,7 @@ class ShepherdControllerApp(object):
         self.target_frame_rate = settings.get('target_frame_rate', 60)
         self.use_push2_display = settings.get('use_push2_display', True)
 
-        self.init_notes_midi_in(device_name=settings.get('default_notes_midi_in_device_name', None))
         self.init_push()
-
         self.init_modes(settings)
 
     def init_modes(self, settings):
@@ -215,10 +212,7 @@ class ShepherdControllerApp(object):
         self.unset_mode_for_xor_group(self.preset_selection_mode)
 
     def save_current_settings_to_file(self):
-        # NOTE: when saving device names, eliminate the last bit with XX:Y numbers as this might vary across runs
-        # if different devices are connected 
         settings = {
-            'default_notes_midi_in_device_name': self.notes_midi_in.name if self.notes_midi_in is not None else None,
             'use_push2_display': self.use_push2_display,
             'target_frame_rate': self.target_frame_rate,
         }
@@ -259,13 +253,7 @@ class ShepherdControllerApp(object):
                 self.notes_midi_in = None
 
         if self.notes_midi_in is None:
-            print('Could not configures notes MIDI input')
-
-    def set_notes_midi_in_device_by_index(self, device_idx):
-        if device_idx >= 0 and device_idx < len(self.available_midi_in_device_names):
-            self.init_notes_midi_in(self.available_midi_in_device_names[device_idx])
-        else:
-            self.init_notes_midi_in(None)
+            print('Could not configure notes MIDI input')
 
     def notes_midi_in_handler(self, msg):
         # Check if message is note on or off and if that is the case, send message to the melodic/rhythmic active modes 
@@ -346,11 +334,10 @@ class ShepherdControllerApp(object):
         # If notes in is not configured, try to do it (but not too oftern)
         if self.notes_midi_in is None and time.time() - self.last_attempt_configuring_notes_in > 2:
             self.last_attempt_configuring_notes_in = time.time()
-            if os.path.exists('settings.json'):
-                settings = json.load(open('settings.json'))
-            else:
-                settings = {}
-            self.init_notes_midi_in(device_name=settings.get('default_notes_midi_in_device_name', None))
+            try:
+                self.init_notes_midi_in(device_name=self.shepherd_interface.parsed_state['notesMidiInDeviceName'])
+            except Exception as e:
+                print('Can\'t get information about which notes midi in device to configure: {}'.format(str(e)))
 
         # Call dalyed actions in active modes
         for mode in self.active_modes:

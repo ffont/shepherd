@@ -35,7 +35,7 @@ public:
         addAndMakeVisible (toggleStateVisualizer);
         
         addAndMakeVisible(browser);
-        browser.goToURL("http://localhost:6128/");
+        browser.goToURL(DEV_UI_SIMULATOR_URL);
         
         addAndMakeVisible(stateVisualizer);
         stateVisualizer.setMultiLine(true, true);
@@ -71,7 +71,7 @@ public:
     
     void reloadBrowser()
     {
-        browser.goToURL("http://localhost:6128/");
+        browser.goToURL(DEV_UI_SIMULATOR_URL);
     }
 
     void paint (juce::Graphics& g) override

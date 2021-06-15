@@ -72,7 +72,7 @@ class ShepherdInterface(object):
         for mode in self.app.active_modes:
             mode.activate()
         self.app.midi_cc_mode.initialize()
-        self.app.init_notes_midi_in()
+        self.app.notes_midi_in = None
         self.should_sync_state_with_backend = False
 
     def receive_shepherd_ready(self):
@@ -147,6 +147,7 @@ class ShepherdInterface(object):
             self.parsed_state['fixedLengthRecordingAmount'] = int(parts[6])
             self.parsed_state['meter'] = int(parts[7])
             self.parsed_state['recordAutomaionOn'] = parts[8] == "1"
+            self.parsed_state['notesMidiInDeviceName'] = parts[9]
 
             if old_is_playing != self.parsed_state['isPlaying'] or \
                 old_is_recording != self.parsed_state['isRecording'] or \

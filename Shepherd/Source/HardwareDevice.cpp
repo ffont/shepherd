@@ -99,7 +99,7 @@ void HardwareDevice::setMidiCCParameterValue(int index, int value, bool notifyCo
     midiCCParameterValues[index] = value;
     
     if (notifyController){
-        juce::OSCMessage returnMessage = juce::OSCMessage("/midiCCParameterValuesForDevice");
+        juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
         returnMessage.addString(getShortName());
         returnMessage.addInt32(index);
         returnMessage.addInt32(value);

@@ -49,8 +49,8 @@ private:
     void oscMessageReceived (const juce::OSCMessage& message) override;
     void sendOscMessage (const juce::OSCMessage& message);
     juce::OSCSender oscSender;
-    int oscReceivePort = 9003;
-    int oscSendPort = 9004;
+    int oscReceivePort = OSC_BACKEND_RECEIVE_PORT;
+    int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
     juce::String oscSendHost = "127.0.0.1";
     bool oscSenderIsConnected = false;
     

@@ -59,6 +59,16 @@
 
 #define OSC_ADDRESS_SHEPHERD_CONTROLLER_READY "/shepherdControllerReady"
 
+#define OSC_ADDRESS_STATE_FROM_SHEPHERD "/stateFromShepherd"
+#define OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE "/midiCCParameterValuesForDevice"
+#define OSC_ADDRESS_SHEPHERD_READY "/shepherdReady"
+
+#define OSC_BACKEND_RECEIVE_PORT 9003
+#define OSC_CONRTOLLER_RECEIVE_PORT 9004
+
+
+#define DEV_UI_SIMULATOR_URL "http://localhost:6128/"
+
 
 #define CLIP_STATUS_PLAYING "p"
 #define CLIP_STATUS_STOPPED "s"
@@ -74,6 +84,9 @@
 
 #define MIDI_SUSTAIN_PEDAL_CC 64
 #define MIDI_BANK_CHANGE_CC 0
+
+
+#define SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME "ShepherdBackendNotesMonitoring"
 
 
 #define PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS 500

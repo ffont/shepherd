@@ -42,7 +42,7 @@ MainComponent::MainComponent()
     // Init MIDI
     initializeMIDIInputs();
     initializeMIDIOutputs();  // Better to do it after hardware devices so we init devices needed in hardware devices as well
-    notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice("ShepherdBackendNotesMonitoring");
+    notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
     
     // Init OSC
     initializeOSC();
@@ -58,7 +58,7 @@ MainComponent::MainComponent()
     #endif
     
     // Send OSC message to frontend indiating that Shepherd is ready
-    juce::OSCMessage message = juce::OSCMessage("/shepherdReady");
+    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
     sendOscMessage(message);
     
     mainComponentInitialized = true;
@@ -834,7 +834,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             }
         } else if (address ==  OSC_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS){
             jassert(message.size() > 1);
-            juce::OSCMessage returnMessage = juce::OSCMessage("/midiCCParameterValuesForDevice");
+            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
             returnMessage.addString(device->getShortName());
             for (int i=1; i<message.size(); i++){
                 int index = message[i].getInt32();
@@ -920,7 +920,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             // The Controller needs these values to display current cc parameter values on the display
             auto device = getHardwareDeviceByName(deviceName);
             if (device != nullptr){
-                juce::OSCMessage returnMessage = juce::OSCMessage("/midiCCParameterValuesForDevice");
+                juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
                 returnMessage.addString(device->getShortName());
                 for (int i=0; i<8; i++){
                     int index = pushEncodersCCMapping[i];
@@ -964,7 +964,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     stateAsStringParts.add(track->getClipAt(i)->getStatus());
                 }
             }
-            juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
+            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_STATE_FROM_SHEPHERD);
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
             sendOscMessage(returnMessage);
             
@@ -1001,8 +1001,10 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add(juce::String(fixedLengthRecordingBars));
             stateAsStringParts.add(juce::String(musicalContext.getMeter()));
             stateAsStringParts.add(juce::String(recordAutomationEnabled ? "1":"0"));
+            stateAsStringParts.add(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
             
-            juce::OSCMessage returnMessage = juce::OSCMessage("/stateFromShepherd");
+            
+            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_STATE_FROM_SHEPHERD);
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
             sendOscMessage(returnMessage);
             
