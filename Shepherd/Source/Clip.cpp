@@ -716,7 +716,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     // -------------------------------------------------------------------------------------------------
     // Check if Clip's player is cued to stop in this slice and call stopNow if needed
     // If it has to stop, also add note off messages at the end of the buffer
-    if (isCuedToPlayInThisSlice){
+    if (isCuedToStopInThisSlice){
         stopNow();
         renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }
