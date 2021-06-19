@@ -74,13 +74,11 @@ bool Playhead::hasJustStopped()
 
 double Playhead::getPlayAtCueBeats() const
 {
-    jassert(isCuedToPlay() == true);  // Getting play at beats without being cued to play
     return willPlayAt;
 }
 
 double Playhead::getStopAtCueBeats() const
 {
-    jassert(isCuedToStop() == true);  // Getting stop at beats without being cued to stop
     return willStopAt;
 }
 
