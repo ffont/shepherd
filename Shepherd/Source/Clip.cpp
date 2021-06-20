@@ -718,6 +718,11 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     // If it has to stop, also add note off messages at the end of the buffer
     if (isCuedToStopInThisSlice){
         stopNow();
+    }
+    
+    // If clip has just stopped (because of a cue or because playead.stopNow() has been called externally
+    // for some other reason, make sure we send note offs for pending notes
+    if (playhead.hasJustStopped()){
         renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }
     
