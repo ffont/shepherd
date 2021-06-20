@@ -379,6 +379,7 @@ void Clip::doubleSequenceHelper()
     }
     midiSequence = doubledSequence;
     clipLengthInBeats = clipLengthInBeats * 2;
+    shouldUpdatePreProcessedSequence = true;
 }
 
 
