@@ -115,11 +115,11 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
     }
 }
 
-void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
     for (auto clip: midiClips){
-        clip->processSlice(incommingBuffer, bufferToFill, bufferSize, lastMidiNoteOnMessages);
+        clip->processSlice(incommingBuffer, bufferToFill, lastMidiNoteOnMessages);
     }
 }
 

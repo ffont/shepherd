@@ -119,7 +119,7 @@ struct MidiOutputDeviceData {
 
 struct GlobalSettingsStruct {
     double sampleRate;
-    int samplesPerBlock;
+    int samplesPerSlice;
     int nScenes;
     int fixedLengthRecordingBars;
     double playheadPositionInBeats;

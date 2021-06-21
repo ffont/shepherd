@@ -256,12 +256,12 @@ void MainComponent::sendMidiDeviceOutputBuffers()
     }
 }
 
-void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, int bufferSize, std::vector<juce::String> midiOutDeviceNames)
+void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames)
 {
     for (auto deviceName: midiOutDeviceNames){
         auto bufferToWrite = getMidiOutputDeviceBuffer(deviceName);
         if (bufferToWrite != nullptr){
-            bufferToWrite->addEvents(buffer, 0, bufferSize, 0);
+            bufferToWrite->addEvents(buffer, 0, samplesPerSlice, 0);
         }
     }
 }
@@ -350,7 +350,7 @@ void MainComponent::initializeTracks()
     for (int i=0; i<juce::jmin(hardwareDevices.size(), 8); i++){
         tracks.add(
           new Track(
-               [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerBlock / (60.0 * sampleRate / musicalContext.getBpm())}; },
+               [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerSlice / (60.0 * sampleRate / musicalContext.getBpm())}; },
                [this]{
                    return getGlobalSettings();
                },
@@ -373,7 +373,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
     std::cout << "Prepare to play called with samples per block " << samplesPerBlockExpected << " and sample rate " << _sampleRate << std::endl;
 
     sampleRate = _sampleRate;
-    samplesPerBlock = samplesPerBlockExpected;
+    samplesPerSlice = samplesPerBlockExpected; // We store samplesPerBlockExpected calling it samplesPerSlice as in our MIDI sequencer context we call our processig blocks "slices"
     
     midiInCollector.reset(_sampleRate);
     pushMidiInCollector.reset(_sampleRate);
@@ -543,13 +543,13 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             isPlaying = false;
             playheadPositionInBeats = 0.0;
             musicalContext.resetCounters();
-            musicalContext.renderMidiStopInSlice(midiClockMessages, bufferToFill.numSamples);
+            musicalContext.renderMidiStopInSlice(midiClockMessages);
         } else {
             for (auto track: tracks){
                 track->clipsResetPlayheadPosition();
             }
             isPlaying = true;
-            musicalContext.renderMidiStartInSlice(midiClockMessages, bufferToFill.numSamples);
+            musicalContext.renderMidiStartInSlice(midiClockMessages);
         }
         shouldToggleIsPlaying = false;
     }
@@ -562,7 +562,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Generate notes and/or record notes
     if (isPlaying){
         for (auto track: tracks){
-            track->clipsProcessSlice(incomingMidi, bufferToFill.numSamples, lastMidiNoteOnMessages);
+            track->clipsProcessSlice(incomingMidi, lastMidiNoteOnMessages);
         }
     }
     
@@ -573,32 +573,32 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     musicalContext.updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
     
     // Render metronome in generated midi
-    musicalContext.renderMetronomeInSlice(midiMetronomeMessages, bufferToFill.numSamples);
+    musicalContext.renderMetronomeInSlice(midiMetronomeMessages);
     if (sendMidiClock){
-        musicalContext.renderMidiClockInSlice(midiClockMessages, bufferToFill.numSamples);
+        musicalContext.renderMidiClockInSlice(midiClockMessages);
     }
     
     // Render clock in push midi buffer if required (and playing)
     if ((shouldStartSendingPushMidiClockBurst) && (isPlaying)){
         lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
         shouldStartSendingPushMidiClockBurst = false;
-        musicalContext.renderMidiStartInSlice(pushMidiClockMessages, bufferToFill.numSamples);
+        musicalContext.renderMidiStartInSlice(pushMidiClockMessages);
     }
     if (lastTimePushMidiClockBurstStarted > -1.0){
         double timeNow = juce::Time::getCurrentTime().toMilliseconds();
         if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
             pushMidiClockMessages.addEvents(midiClockMessages, 0, bufferToFill.numSamples, 0);
         } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
-            musicalContext.renderMidiStopInSlice(pushMidiClockMessages, bufferToFill.numSamples);
+            musicalContext.renderMidiStopInSlice(pushMidiClockMessages);
             lastTimePushMidiClockBurstStarted = -1.0;
         }
     }
     
     // Add metronome and midi clock messages to the corresponding buffers (also push midi clock messages)
-    writeMidiToDevicesMidiBuffer(midiClockMessages, bufferToFill.numSamples, sendMidiClockMidiDeviceNames);
-    writeMidiToDevicesMidiBuffer(midiMetronomeMessages, bufferToFill.numSamples, sendMetronomeMidiDeviceNames);
+    writeMidiToDevicesMidiBuffer(midiClockMessages, sendMidiClockMidiDeviceNames);
+    writeMidiToDevicesMidiBuffer(midiMetronomeMessages, sendMetronomeMidiDeviceNames);
     if (pushMidiClockMessages.getNumEvents() > 0){
-        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, bufferToFill.numSamples, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
+        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
     }
 
     // Send the generated MIDI buffers to the outputs
@@ -671,7 +671,7 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
     settings.fixedLengthRecordingBars = fixedLengthRecordingBars;
     settings.nScenes = nScenes;
     settings.sampleRate = sampleRate;
-    settings.samplesPerBlock = samplesPerBlock;
+    settings.samplesPerSlice = samplesPerSlice;
     settings.isPlaying = isPlaying;
     settings.playheadPositionInBeats = playheadPositionInBeats;
     settings.countInplayheadPositionInBeats = countInplayheadPositionInBeats;

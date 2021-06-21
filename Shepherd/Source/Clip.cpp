@@ -461,13 +461,13 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
     if (midiOutputChannel > -1){
         for (int i=0; i<notesCurrentlyPlayed.size(); i++){
             juce::MidiMessage msg = juce::MidiMessage::noteOff(midiOutputChannel, notesCurrentlyPlayed[i], 0.0f);
-            if (bufferToFill != nullptr) bufferToFill->addEvent(msg, getGlobalSettings().samplesPerBlock - 1);
+            if (bufferToFill != nullptr) bufferToFill->addEvent(msg, getGlobalSettings().samplesPerSlice - 1);
         }
         notesCurrentlyPlayed.clear();
         
         if (sustainPedalBeingPressed){
             juce::MidiMessage msg = juce::MidiMessage::controllerEvent(midiOutputChannel, MIDI_SUSTAIN_PEDAL_CC, 0);  // Sustain pedal down!
-            if (bufferToFill != nullptr) bufferToFill->addEvent(msg, getGlobalSettings().samplesPerBlock - 1);
+            if (bufferToFill != nullptr) bufferToFill->addEvent(msg, getGlobalSettings().samplesPerSlice - 1);
             sustainPedalBeingPressed = false;
         }
     }
@@ -476,7 +476,6 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
 /** Process the current slice of the global playhead to tigger notes that this clip should be playing (if any) and/or record incoming notes to the clip recording sequence (if any).
     @param incommingBuffer                  MIDI buffer with the incoming MIDI notes for that slice
     @param bufferToFill                         MIDI buffer to be filled with notes triggered by this clip
-    @param bufferSize                              size the slice in number of samples
     @param lastMidiNoteOnMessages   list of recent MIDI note on messages triggered during and before this slice
  
  This method should be called for each processed slice of the global playhead, regardless of whether the actual clip is being played or not. The implementation of this method is
@@ -516,7 +515,7 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
  See comments in the implementation for more details about each step.
  
 */
-void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     // 1) -------------------------------------------------------------------------------------------------
     
@@ -636,7 +635,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
 
                     // Calculate note position for the MIDI buffer (in samples)
                     int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getMusicalContext().getBpm());
-                    jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, bufferSize));
+                    jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, getGlobalSettings().samplesPerSlice));
                     
                     // Re-write MIDI channel to use track's configured device, and add note to the buffer
                     int midiOutputChannel = getTrackSettings().midiOutChannel;
@@ -714,7 +713,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
             for (const auto metadata : incommingBuffer)
             {
                 auto msg = metadata.getMessage();
-                double eventPositionInBeats = sliceInBeats.getStart() + sliceInBeats.getLength() * metadata.samplePosition / bufferSize;
+                double eventPositionInBeats = sliceInBeats.getStart() + sliceInBeats.getLength() * metadata.samplePosition / getGlobalSettings().samplesPerSlice;
                 
                 if (!getGlobalSettings().recordAutomationEnabled && msg.isController()){
                     // If message is of type controller but record automation is not enabled, don't record the message

@@ -105,7 +105,7 @@ double MusicalContext::getBeatsInBarCount()
 
 //==============================================================================
 
-void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill)
 {
     // Add metronome ticks to the buffer
     if (metronomePendingNoteOffSamplePosition > -1){
@@ -122,7 +122,7 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int 
         
         double previousBeat = getGlobalSettings().isPlaying ? getGlobalSettings().playheadPositionInBeats : getGlobalSettings().countInplayheadPositionInBeats;
         double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
-        for (int i=0; i<bufferSize; i++){
+        for (int i=0; i<getGlobalSettings().samplesPerSlice; i++){
             
             double nextBeat = previousBeat + beatsPerSample;
             double previousBeatNearestQuantized = std::round(previousBeat);
@@ -139,10 +139,10 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int 
             }
             
             if (tickTime > -1.0){
-                bool tickIsHigh = (nextBeat - lastBarCountedPlayheadPosition) < (getGlobalSettings().samplesPerBlock * beatsPerSample);
+                bool tickIsHigh = (nextBeat - lastBarCountedPlayheadPosition) < (getGlobalSettings().samplesPerSlice * beatsPerSample);
                 juce::MidiMessage msgOn = juce::MidiMessage::noteOn(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, metronomeMidiVelocity);
                 bufferToFill.addEvent(msgOn, i);
-                if (i + metronomeTickLengthInSamples < bufferSize){
+                if (i + metronomeTickLengthInSamples < getGlobalSettings().samplesPerSlice){
                     juce::MidiMessage msgOff = juce::MidiMessage::noteOff(metronomeMidiChannel, tickIsHigh ? metronomeHighMidiNote: metronomeLowMidiNote, 0.0f);
                     #if !RPI_BUILD
                     // Don't send note off messages in RPI_BUILD as it messed up external metronome
@@ -150,7 +150,7 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int 
                     bufferToFill.addEvent(msgOff, i + metronomeTickLengthInSamples);
                     #endif
                 } else {
-                    metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - bufferSize;
+                    metronomePendingNoteOffSamplePosition = i + metronomeTickLengthInSamples - getGlobalSettings().samplesPerSlice;
                     metronomePendingNoteOffIsHigh = tickIsHigh;
                 }
             }
@@ -160,13 +160,13 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int 
     }
 }
 
-void MusicalContext::renderMidiClockInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+void MusicalContext::renderMidiClockInSlice(juce::MidiBuffer& bufferToFill)
 {
     // Addd 24 ticks per beat
     if (getGlobalSettings().isPlaying){
         double previousBeat = getGlobalSettings().playheadPositionInBeats;
         double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
-        for (int i=0; i<bufferSize; i++){
+        for (int i=0; i<getGlobalSettings().samplesPerSlice; i++){
             double nextBeat = previousBeat + beatsPerSample;
             double previousBeatNearestQuantized = std::round(previousBeat * 24.0) / 24.0;
             double nextBeatNearestQuantized = std::round(nextBeat * 24.0) / 24.0;
@@ -185,13 +185,13 @@ void MusicalContext::renderMidiClockInSlice(juce::MidiBuffer& bufferToFill, int 
     }
 }
 
-void MusicalContext::renderMidiStartInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+void MusicalContext::renderMidiStartInSlice(juce::MidiBuffer& bufferToFill)
 {
     juce::MidiMessage clockMsg = juce::MidiMessage::midiStart();
     bufferToFill.addEvent(clockMsg, 0);
 }
 
-void MusicalContext::renderMidiStopInSlice(juce::MidiBuffer& bufferToFill, int bufferSize)
+void MusicalContext::renderMidiStopInSlice(juce::MidiBuffer& bufferToFill)
 {
     juce::MidiMessage clockMsg = juce::MidiMessage::midiStop();
     bufferToFill.addEvent(clockMsg, 0);

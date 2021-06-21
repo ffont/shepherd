@@ -33,7 +33,7 @@ public:
          );
     Clip* clone() const;
     
-    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, int bufferSize, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
+    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
     
     void playNow();

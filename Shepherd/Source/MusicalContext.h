@@ -34,10 +34,10 @@ public:
     int getBarCount();
     double getBeatsInBarCount();
     
-    void renderMetronomeInSlice(juce::MidiBuffer& bufferToFill, int bufferSize);
-    void renderMidiClockInSlice(juce::MidiBuffer& bufferToFill, int bufferSize);
-    void renderMidiStartInSlice(juce::MidiBuffer& bufferToFill, int bufferSize);
-    void renderMidiStopInSlice(juce::MidiBuffer& bufferToFill, int bufferSize);
+    void renderMetronomeInSlice(juce::MidiBuffer& bufferToFill);
+    void renderMidiClockInSlice(juce::MidiBuffer& bufferToFill);
+    void renderMidiStartInSlice(juce::MidiBuffer& bufferToFill);
+    void renderMidiStopInSlice(juce::MidiBuffer& bufferToFill);
     
 private:
     double bpm = 120.0;

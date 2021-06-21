@@ -73,7 +73,7 @@ private:
     juce::MidiBuffer* getMidiOutputDeviceBuffer(juce::String deviceName);
     void clearMidiDeviceOutputBuffers();
     void sendMidiDeviceOutputBuffers();
-    void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, int bufferSize, std::vector<juce::String> midiOutDeviceNames);
+    void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames);
     std::unique_ptr<juce::MidiOutput> notesMonitoringMidiOutput;
     
     std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
@@ -90,7 +90,7 @@ private:
     
     // Transport and basic audio settings
     double sampleRate = 0.0;
-    int samplesPerBlock = 0;
+    int samplesPerSlice = 0;
     double playheadPositionInBeats = 0.0;
     bool isPlaying = false;
     bool shouldToggleIsPlaying = false;
