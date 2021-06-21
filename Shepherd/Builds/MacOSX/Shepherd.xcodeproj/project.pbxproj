@@ -47,6 +47,7 @@
 		03A987C18D6403999FAF9FFF /* IOKit.framework */ /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		0434063F638FC0C093FAC059 /* MusicalContext.cpp */ /* MusicalContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = MusicalContext.cpp; path = ../../Source/MusicalContext.cpp; sourceTree = SOURCE_ROOT; };
 		1165206DA23C1C4B0EFDBB10 /* juce_gui_basics */ /* juce_gui_basics */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_gui_basics; path = ../../3rdParty/JUCE/modules/juce_gui_basics; sourceTree = SOURCE_ROOT; };
+		1A65617FD5CE7F0E6F9D8299 /* drow_ValueTreeObjectList.h */ /* drow_ValueTreeObjectList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = drow_ValueTreeObjectList.h; path = ../../Source/drow_ValueTreeObjectList.h; sourceTree = SOURCE_ROOT; };
 		1DAD1704B1D93FDEC6C715C8 /* CoreAudioKit.framework */ /* CoreAudioKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudioKit.framework; path = System/Library/Frameworks/CoreAudioKit.framework; sourceTree = SDKROOT; };
 		27547FAF8278FA3D1DBF58EC /* Carbon.framework */ /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		2AE33E40AC8487429A60201C /* Playhead.cpp */ /* Playhead.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = Playhead.cpp; path = ../../Source/Playhead.cpp; sourceTree = SOURCE_ROOT; };
@@ -227,6 +228,7 @@
 				DBC84B163AD356A9BA6CAC06,
 				88047A17ACDCB94896047705,
 				511F075D71A0AE8CCBABDFDD,
+				1A65617FD5CE7F0E6F9D8299,
 				B846BD05D97B63F98ABC68A2,
 				5E43A549B77C5624A5CE0DBC,
 				79F8C866EEDCFAEFF254BA0C,

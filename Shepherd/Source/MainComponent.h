@@ -102,6 +102,7 @@ private:
     double sampleRate = 0.0;
     int samplesPerSlice = 0;
     bool shouldToggleIsPlaying = false;
+    juce::CachedValue<juce::String> name;
     juce::CachedValue<double> playheadPositionInBeats;
     juce::CachedValue<bool> isPlaying;
     juce::CachedValue<bool> doingCountIn;
@@ -122,7 +123,7 @@ private:
 
     // Tracks
     void initializeTracks();
-    juce::OwnedArray<Track> tracks;
+    std::unique_ptr<TrackList> tracks;
     int activeUiNotesMonitoringTrack = -1;
     juce::MidiBuffer monitoringNotesMidiBuffer;
     

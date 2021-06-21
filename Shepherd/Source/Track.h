@@ -16,14 +16,18 @@
 #include "MusicalContext.h"
 #include "HardwareDevice.h"
 
+
 class Track
 {
 public:
-    Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
+    Track(const juce::ValueTree& state,
+          std::function<juce::Range<double>()> playheadParentSliceGetter,
           std::function<GlobalSettingsStruct()> globalSettingsGetter,
           std::function<MusicalContext*()> musicalContextGetter,
           std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
           );
+    void bindState();
+    juce::ValueTree state;
     
     void setHardwareDevice(HardwareDevice* device);
     HardwareDevice* getHardwareDevice();
@@ -53,6 +57,10 @@ public:
 
 private:
     
+    juce::CachedValue<juce::String> name;
+    juce::CachedValue<bool> inputMonitoring;
+    juce::CachedValue<int> nClips;
+    
     HardwareDevice* device;
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
@@ -61,11 +69,57 @@ private:
     std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
     juce::MidiBuffer* getMidiOutputDeviceBufferIfDevice();
     
-    int nClips = 0;
     juce::OwnedArray<Clip> midiClips;
     
-    bool inputMonitoring = false;
-    
-    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Track)
+};
+
+struct TrackList: public drow::ValueTreeObjectList<Track>
+{
+    TrackList (const juce::ValueTree& v,
+               std::function<juce::Range<double>()> playheadParentSliceGetter,
+               std::function<GlobalSettingsStruct()> globalSettingsGetter,
+               std::function<MusicalContext*()> musicalContextGetter,
+               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
+    : drow::ValueTreeObjectList<Track> (v)
+    {
+        getPlayheadParentSlice = playheadParentSliceGetter;
+        getGlobalSettings = globalSettingsGetter;
+        getMusicalContext = musicalContextGetter;
+        getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
+        rebuildObjects();
+    }
+
+    ~TrackList()
+    {
+        freeObjects();
+    }
+
+    bool isSuitableType (const juce::ValueTree& v) const override
+    {
+        return v.hasType (IDs::TRACK);
+    }
+
+    Track* createNewObject (const juce::ValueTree& v) override
+    {
+        return new Track (v,
+                          getPlayheadParentSlice,
+                          getGlobalSettings,
+                          getMusicalContext,
+                          getMidiOutputDeviceBuffer);
+    }
+
+    void deleteObject (Track* c) override
+    {
+        delete c;
+    }
+
+    void newObjectAdded (Track*) override    {}
+    void objectRemoved (Track*) override     {}
+    void objectOrderChanged() override       {}
+    
+    std::function<juce::Range<double>()> getPlayheadParentSlice;
+    std::function<GlobalSettingsStruct()> getGlobalSettings;
+    std::function<MusicalContext*()> getMusicalContext;
+    std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
 };

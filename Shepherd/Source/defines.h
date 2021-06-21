@@ -112,6 +112,7 @@
 
 namespace Defaults
 {
+    inline juce::String name = "";
     inline double playheadPosition = 0.0;
     inline bool isPlaying = false;
     inline bool doingCountIn = false;
@@ -122,6 +123,8 @@ namespace Defaults
     inline int meter = 4;
     inline int barCount = 0;
     inline bool metronomeOn = true;
+    inline bool inputMonitoring = false;
+    inline int nClips = 0;
 }
 
 namespace IDs
@@ -148,6 +151,8 @@ namespace IDs
     DECLARE_ID (meter)
     DECLARE_ID (barCount)
     DECLARE_ID (metronomeOn)
+    DECLARE_ID (inputMonitoring)
+    DECLARE_ID (nClips)
 
     #undef DECLARE_ID
 }

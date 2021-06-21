@@ -80,6 +80,7 @@ void MainComponent::bindState()
 {
     state.addListener(this);
     
+    name.referTo(state, IDs::name, nullptr, Defaults::name);
     playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
     isPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
     doingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
@@ -366,27 +367,25 @@ HardwareDevice* MainComponent::getHardwareDeviceByName(juce::String name)
 }
 
 void MainComponent::initializeTracks()
-{    
-    // Create some tracks
-    // By default create one track per available hardware device and assign the device to it (with a maximum of 8)
-    // TODO: In the future this should be done by reading from some Shepherd preset/project/session file
-    for (int i=0; i<juce::jmin(hardwareDevices.size(), 8); i++){
-        tracks.add(
-          new Track(
-               [this]{
-                   return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerSlice / (60.0 * sampleRate / musicalContext.get()->getBpm())};
-               },
-               [this]{
-                   return getGlobalSettings();
-               },
-               [this]{
-                   return musicalContext.get();
-               },
-               [this](juce::String deviceName){
-            return getMidiOutputDeviceBuffer(deviceName);
-               }
-        ));
-        auto track = tracks[i];
+{
+    // Create some tracks according to state
+    tracks = std::make_unique<TrackList>(state,
+                                         [this]{
+                                             return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerSlice / (60.0 * sampleRate / musicalContext.get()->getBpm())};
+                                         },
+                                         [this]{
+                                             return getGlobalSettings();
+                                         },
+                                         [this]{
+                                             return musicalContext.get();
+                                         },
+                                         [this](juce::String deviceName){
+                                             return getMidiOutputDeviceBuffer(deviceName);
+                                         });
+    
+    // Set hardware devices and create clips for the tracks themselves
+    for (int i=0; i<tracks->objects.size(); i++){
+        auto track = tracks->objects[i];
         track->setHardwareDevice(hardwareDevices[i]);
         track->prepareClips();
     }
@@ -439,10 +438,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     if (!isPlaying && doingCountIn){
         if (musicalContext.get()->getMeter() >= countInplayheadPositionInBeats && musicalContext.get()->getMeter() < countInplayheadPositionInBeats + bufferLengthInBeats){
             // Count in finishes in the current getNextAudioBlock execution
-            playheadPositionInBeats.setValue(-(musicalContext.get()->getMeter() - countInplayheadPositionInBeats), nullptr); // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            playheadPositionInBeats = -(musicalContext.get()->getMeter() - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
             shouldToggleIsPlaying = true;
-            doingCountIn.setValue(false, nullptr);
-            countInplayheadPositionInBeats.setValue(0.0, nullptr);
+            doingCountIn = false;
+            countInplayheadPositionInBeats = 0.0;
         }
     }
     
@@ -561,32 +560,32 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Check if global playhead should be start/stopped
     if (shouldToggleIsPlaying){
         if (isPlaying){
-            for (auto track: tracks){
+            for (auto track: tracks->objects){
                 track->clipsRenderRemainingNoteOffsIntoMidiBuffer();
                 track->stopAllPlayingClips(true, true, true);
             }
-            isPlaying.setValue(false, nullptr);
+            isPlaying = false;
             playheadPositionInBeats = 0.0;
             musicalContext.get()->resetCounters();
             musicalContext.get()->renderMidiStopInSlice(midiClockMessages);
         } else {
-            for (auto track: tracks){
+            for (auto track: tracks->objects){
                 track->clipsResetPlayheadPosition();
             }
-            isPlaying.setValue(true, nullptr);
+            isPlaying = true;
             musicalContext.get()->renderMidiStartInSlice(midiClockMessages);
         }
         shouldToggleIsPlaying = false;
     }
     
     // Copy incoming midi to generated midi buffer for tracks that have input monitoring enabled
-    for (auto track: tracks){
+    for (auto track: tracks->objects){
         track->processInputMonitoring(incomingMidi);
     }
     
     // Generate notes and/or record notes
     if (isPlaying){
-        for (auto track: tracks){
+        for (auto track: tracks->objects){
             track->clipsProcessSlice(incomingMidi, lastMidiNoteOnMessages);
         }
     }
@@ -630,9 +629,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     sendMidiDeviceOutputBuffers();
     
     // Send monitred track notes to the notes output (if any selected)
-    if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack >= 0) && (activeUiNotesMonitoringTrack < tracks.size())){
+    if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack >= 0) && (activeUiNotesMonitoringTrack < tracks->objects.size())){
         monitoringNotesMidiBuffer.clear();
-        auto track = tracks[activeUiNotesMonitoringTrack];
+        auto track = tracks->objects[activeUiNotesMonitoringTrack];
         auto buffer = getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
         // TODO: send only current track buffer, not all contents of the device...
         // Maybe always store last buffer computer for a track in the track object
@@ -661,10 +660,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Update playhead positions
     if (isPlaying){
-        playheadPositionInBeats.setValue(playheadPositionInBeats + bufferLengthInBeats, nullptr);
+        playheadPositionInBeats = playheadPositionInBeats + bufferLengthInBeats;
     } else {
         if (doingCountIn) {
-            countInplayheadPositionInBeats.setValue(countInplayheadPositionInBeats + bufferLengthInBeats, nullptr);
+            countInplayheadPositionInBeats = countInplayheadPositionInBeats + bufferLengthInBeats;
         }
     }
 }
@@ -708,7 +707,6 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 //==============================================================================
 void MainComponent::timerCallback()
 {
-    
     std::cout << state.toXmlString() << std::endl;
     // If prepareToPlay has been called, we can now initializeTracks
     
@@ -734,7 +732,7 @@ void MainComponent::timerCallback()
 void MainComponent::playScene(int sceneN)
 {
     jassert(sceneN < nScenes);
-    for (auto track: tracks){
+    for (auto track: tracks->objects){
         auto clip = track->getClipAt(sceneN);
         track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
         clip->clearStopCue();
@@ -751,7 +749,7 @@ void MainComponent::duplicateScene(int sceneN)
     
     // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
     // sceneN.
-    for (auto track: tracks){
+    for (auto track: tracks->objects){
         auto clip = track->getClipAt(sceneN);
         track->insertClipAt(sceneN, clip->clone());
     }
@@ -778,8 +776,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         jassert(message.size() >= 2);
         int trackNum = message[0].getInt32();
         int clipNum = message[1].getInt32();
-        if (trackNum < tracks.size()){
-            auto track = tracks[trackNum];
+        if (trackNum < tracks->objects.size()){
+            auto track = tracks->objects[trackNum];
             if (clipNum < track->getNumberOfClips()){
                 auto clip = track->getClipAt(clipNum);
                 if (address == OSC_ADDRESS_CLIP_PLAY){
@@ -822,8 +820,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_TRACK)) {
         jassert(message.size() >= 1);
         int trackNum = message[0].getInt32();
-        if (trackNum >= tracks.size()) return;
-        auto track = tracks[trackNum];
+        if (trackNum >= tracks->objects.size()) return;
+        auto track = tracks->objects[trackNum];
         if (address == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
             jassert(message.size() == 2);
             bool trueFalse = message[1].getInt32() == 1;
@@ -887,14 +885,14 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             } else{
                 // If it is not playing, check if there are record-armed clips and, if so, do count-in before playing
                 bool recordCuedClipsFound = false;
-                for (auto track: tracks){
+                for (auto track: tracks->objects){
                     if (track->hasClipsCuedToRecord()){
                         recordCuedClipsFound = true;
                         break;
                     }
                 }
                 if (recordCuedClipsFound){
-                    doingCountIn.setValue(true, nullptr);
+                    doingCountIn = true;
                 } else {
                     shouldToggleIsPlaying = true;
                 }
@@ -959,13 +957,13 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
 
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
             jassert(message.size() == 1);
-            fixedVelocity.setValue(message[0].getInt32(), nullptr);
+            fixedVelocity = message[0].getInt32();
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
             jassert(message.size() == 1);
-            fixedLengthRecordingBars.setValue(message[0].getInt32(), nullptr);
+            fixedLengthRecordingBars = message[0].getInt32();
         } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
             jassert(message.size() == 0);
-            recordAutomationEnabled.setValue(!recordAutomationEnabled, nullptr);
+            recordAutomationEnabled = !recordAutomationEnabled;
         }
         
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
@@ -974,8 +972,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("tracks");
-            stateAsStringParts.add((juce::String)tracks.size());
-            for (auto track: tracks){
+            stateAsStringParts.add((juce::String)tracks->objects.size());
+            for (auto track: tracks->objects){
                 stateAsStringParts.add("t");
                 stateAsStringParts.add((juce::String)track->getNumberOfClips());
                 stateAsStringParts.add(track->inputMonitoringEnabled() ? "1":"0");
@@ -1010,8 +1008,8 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             }
             stateAsStringParts.add(musicalContext.get()->metronomeIsOn() ? "p":"s");
             juce::StringArray clipsPlayheadStateParts = {};
-            for (int track_num=0; track_num<tracks.size(); track_num++){
-                auto track = tracks[track_num];
+            for (int track_num=0; track_num<tracks->objects.size(); track_num++){
+                auto track = tracks->objects[track_num];
                 for (int clip_num=0; clip_num<track->getNumberOfClips(); clip_num++){
                     double clipPlayheadPosition = track->getClipAt(clip_num)->getPlayheadPosition();
                     if (clipPlayheadPosition > 0.0){

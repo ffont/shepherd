@@ -7,6 +7,8 @@
       <FILE id="FkBujr" name="defines.h" compile="0" resource="0" file="Source/defines.h"/>
       <FILE id="w1nHsg" name="helpers.h" compile="0" resource="0" file="Source/helpers.h"/>
       <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="hEcX4G" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
+            file="Source/drow_ValueTreeObjectList.h"/>
       <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
             file="Source/SynthAudioSource.h"/>
       <FILE id="pJ65YQ" name="DevelopmentUIComponent.h" compile="0" resource="0"

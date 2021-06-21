@@ -42,7 +42,7 @@ double MusicalContext::getNextQuantizedBarPosition()
 void MusicalContext::setMeter(int newMeter)
 {
     jassert(newMeter > 0);
-    meter.setValue(newMeter, nullptr);
+    meter = newMeter;
 }
 
 int MusicalContext::getMeter()
@@ -53,7 +53,7 @@ int MusicalContext::getMeter()
 void MusicalContext::setBpm(double newBpm)
 {
     jassert(newBpm > 0.0);
-    bpm.setValue(newBpm, nullptr);
+    bpm = newBpm;
 }
 
 double MusicalContext::getBpm()
@@ -63,12 +63,12 @@ double MusicalContext::getBpm()
 
 void MusicalContext::setMetronome(bool onOff)
 {
-    metronomeOn.setValue(onOff, nullptr);
+    metronomeOn = onOff;
 }
 
 void MusicalContext::toggleMetronome()
 {
-    metronomeOn.setValue(!metronomeOn, nullptr);
+    metronomeOn = !metronomeOn;
 }
 
 bool MusicalContext::metronomeIsOn()
@@ -87,7 +87,7 @@ void MusicalContext::updateBarsCounter(juce::Range<double> currentSliceRange)
     if (currentSliceRange.getStart() > 0){
         if (flooredRangeEnd > flooredRangeStart){
             if ((double)flooredRangeEnd - lastBarCountedPlayheadPosition >= (double)meter){
-                barCount.setValue(barCount + 1, nullptr);
+                barCount = barCount + 1;
                 lastBarCountedPlayheadPosition = flooredRangeEnd;
             }
         }
@@ -96,7 +96,7 @@ void MusicalContext::updateBarsCounter(juce::Range<double> currentSliceRange)
 
 void MusicalContext::resetCounters()
 {
-    barCount.setValue(0, nullptr);
+    barCount = 0;
     lastBarCountedPlayheadPosition = 0.0;
 }
 

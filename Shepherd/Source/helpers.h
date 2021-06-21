@@ -12,6 +12,7 @@
 
 #include <JuceHeader.h>
 #include "defines.h"
+#include "drow_ValueTreeObjectList.h"
 
 namespace Helpers
 {
@@ -41,14 +42,16 @@ namespace Helpers
         session.setProperty (IDs::barCount, Defaults::barCount, nullptr);
         session.setProperty (IDs::metronomeOn, Defaults::metronomeOn, nullptr);
         
-        /*
         for (int tn = 0; tn < 8; ++tn)
         {
             juce::ValueTree t (IDs::TRACK);
             const juce::String trackName ("Track " + juce::String (tn + 1));
             t.setProperty (IDs::name, trackName, nullptr);
+            t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
+            t.setProperty (IDs::nClips, Defaults::nClips, nullptr);
             Helpers::createUuidProperty (t);
 
+            /*
             for (int cn = 0; cn < 8; ++cn)
             {
                 juce::ValueTree c (IDs::CLIP);
@@ -56,10 +59,10 @@ namespace Helpers
                 c.setProperty (IDs::name, trackName + ", Clip " + juce::String (cn + 1), nullptr);
                 c.setProperty (IDs::length, 0.0, nullptr);
                 t.addChild (c, -1, nullptr);
-            }
+            }*/
 
             session.addChild (t, -1, nullptr);
-        }*/
+        }
 
         return session;
     }

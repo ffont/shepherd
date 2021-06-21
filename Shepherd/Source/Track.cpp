@@ -10,17 +10,27 @@
 
 #include "Track.h"
 
-Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
+Track::Track(const juce::ValueTree& _state,
+             std::function<juce::Range<double>()> playheadParentSliceGetter,
              std::function<GlobalSettingsStruct()> globalSettingsGetter,
              std::function<MusicalContext*()> musicalContextGetter,
              std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
-             )
+             ): state(_state)
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
     getGlobalSettings = globalSettingsGetter;
     getMusicalContext = musicalContextGetter;
     getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
+    bindState();
     nClips = getGlobalSettings().nScenes;
+    std::cout << "Creaetd track with name: " << name << std::endl;
+}
+
+void Track::bindState()
+{
+    name.referTo(state, IDs::name, nullptr, Defaults::name);
+    inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
+    nClips.referTo(state, IDs::nClips, nullptr, Defaults::nClips);
 }
 
 void Track::setHardwareDevice(HardwareDevice* _device)

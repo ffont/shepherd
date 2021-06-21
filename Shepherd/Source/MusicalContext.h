@@ -42,7 +42,7 @@ public:
     void renderMidiStopInSlice(juce::MidiBuffer& bufferToFill);
     
 private:
-    juce::ValueTree& state;
+    juce::ValueTree state;
     
     juce::CachedValue<double> bpm;
     juce::CachedValue<int> meter;
@@ -59,4 +59,6 @@ private:
     bool metronomePendingNoteOffIsHigh = false;
     
     std::function<GlobalSettingsStruct()> getGlobalSettings;
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MusicalContext)
 };
