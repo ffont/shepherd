@@ -492,18 +492,18 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
  4) If clip is playing (or was just triggered to start playing), trigger any notes of the clip's MIDI sequence that should be triggerd in this slice. This step takes into consideration clip's
  start and stop cue times to make sure no notes are added to "bufferToFill" which should not be added.
  
- 5) Make some checks about start/stop recording cue times and store them in variables that will be useful later for making comparissons.
+ 5) If clip is playing, make some checks about start/stop recording cue times and store them in variables that will be useful later for making comparissons.
  
  6) If clip is playing, trigger clip "start recording" if it should start recording in this slice. When doing that, automatically add to "recordedMidiSequence" the MIDI notes that were played
  in the last 1/4 beat (which are in "lastMidiNoteOnMessages") as these were most probably intended to be recorded in the clip.
  
- 7) If clip is recording (or was just triggered to start recording), add any incoming note to the clip's MIDI sequence that should be recorded during this slice. This step takes into consideration clip's
- start recording and stop recording cue times to make sure no notes are added to "recordedMidiSequence" which should not be added.
+ 7) If clip is playing and recording (or was just triggered to start recording), add any incoming note to the clip's MIDI sequence that should be recorded during this slice. This step takes
+ into consideration clip's start recording and stop recording cue times to make sure no notes are added to "recordedMidiSequence" which should not be added.
  
- 8) Trigger clip stop recording if clip is cued to stop recording in this slice.
+ 8) If clip is playing and recording, and is cued to stop recording in this slice, trigger stop recording.
  
- 9) Loop clip's playhead position if the clip's playhead position has reached the end of the clip. If clip is recording, also add currently recorded notes to the clip's MIDI sequence so these
- get already played when the clip loops.
+ 9) If clip is playing and should loop in this slice, loop clip's playhead position. If clip is recording, also add currently recorded notes to the clip's MIDI sequence so these get already
+ played in the loop repetition.
  
  10) Trigger clip stop if clip is cued to stop in this slice.
  
@@ -572,38 +572,52 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     
     // 3) -------------------------------------------------------------------------------------------------
     
-    // Check if Clip's player is cued to play and call playNow if needed. Set playhead position so that clip start is not
-    // quantized to the start time of the processing block but it starts right where it is cued
     if (isCuedToPlayInThisSlice){
+        // When calling playNow we set the playhead position so that clip start is not quantized to the start time of the
+        // current slice but at the exact block sample corresponding to the start time cue
         playhead.playNow(playhead.getPlayAtCueBeats() - parentSliceInBeats.getStart());
     }
     
-    // 4) -------------------------------------------------------------------------------------------------
-    // If the clip is playing, check if any notes should be added to the current slice
-    // Note that if the clip starts in the middle of this slice, playhead.isPlaying() will already be
-    // true because start playing CUE has already been updated. In this case, we take care of not triggering
-    // notes that should happen before the start time CUE
-    // If the clip is CUEd to stop in this slice playhead.isPlaying() will also be true, but we make sure
-    // that we don't add notes that would happen after stop time CUE
+    
     if (playhead.isPlaying()){
+        
+        // ----------------------------------------------------------------------------------------------------
+        // Acquire current playhead's slice, check if clip will loop in this slice (useful later to do some checks)
+        
         playhead.captureSlice();
         const auto sliceInBeats = playhead.getCurrentSlice();
         
-        // Check if clip is looping during this slice. This is later useful to do some other note time checks
         bool loopingInThisSlice = false;
         if (clipLengthInBeats > 0.0 && sliceInBeats.contains(clipLengthInBeats)){
             loopingInThisSlice = true;
         }
         
-        // Iterate the recorded sequence and trigger notes if needed
-        // Note that we never read from the original sequence but from the preProcessedSequence that includes edits like
-        // quantization (if any), length adjustment, matched note on/offs, etc.
+        // 4) -------------------------------------------------------------------------------------------------
+        // If the clip is playing, check if any notes should be added to the current slice
+        // Note that if the clip starts in the middle of this slice, playhead.isPlaying() will already be
+        // true because start playing cue has already been updated. In this case, we take care of not triggering
+        // notes that should happen before the start time cue. Similarly, if the clip is cued to stop in this slice,
+        // playhead.isPlaying() will also be true but we make sure that we don't add notes that would happen after
+        // stop time cue. Note that we never read from the original sequence but from the preProcessedSequence that
+        // has some things pre-computed like note quantization (if any), clip length adjustment, matched note on/offs, etc.
+        
         for (int i=0; i < preProcessedMidiSequence.getNumEvents(); i++){
             juce::MidiMessage msg = preProcessedMidiSequence.getEventPointer(i)->message;
             double eventPositionInBeats = msg.getTimeStamp();
             if (loopingInThisSlice && eventPositionInBeats < sliceInBeats.getStart()){
                 // If we're looping and the event position is before the start of the slice, make checks using looped version
                 // of the event position to account for the case in which event would fall inside the looped slice
+                // See example:
+                // Clip notes:      [x---------------][x------ ...
+                // Playhead slices: |s0  |s1  |s2  |s3  |s4  |...
+                // The clip example above has only one note at the very start of it. In slice 0 (s0), the note will be correctly
+                // triggered because it's starting time will be coantined in slice 0. However, the looping of the clip falls
+                // in slice 3 (s3), and in that case the slice will start have a range that goes beyond the clip length time
+                // (e.g. if clip has length 16.0, this could be 14.0-18.0). Therefore to correctly trigger the note at the start
+                // of the clip repetition, we need to check if it is inside the slice by adding the clip length to it (checking
+                // for the "looped" version).
+                // Note that to make the above example easier we use slice sizes which are much bigger than what they'll really
+                // be in the real app
                 eventPositionInBeats += clipLengthInBeats;
             }
 
@@ -649,12 +663,13 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         }
         
         // 5) -------------------------------------------------------------------------------------------------
+        
         double willStartRecordingAtClipPlayheadBeats = willStartRecordingAt;
         double willStopRecordingAtClipPlayheadBeats = willStopRecordingAt;
         if (loopingInThisSlice){
             // If clip is looping in this slice, the sliceInBeats range can have the end value happen after the clip's
             // length and therefore "sliceInBeats.contains()" checks can fail if we are not careful and "wrap" the
-            // time we're checking.
+            // time we're checking. See the example given in step 4, this is the same case but with recording cue times.
             if (willStartRecordingAtClipPlayheadBeats < sliceInBeats.getStart()){
                 willStartRecordingAtClipPlayheadBeats += clipLengthInBeats;
             }
@@ -670,6 +685,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         // If we're starting to record, we also check if there are recent notes that were played right before the
         // start recording time and we quantize them to the start recording time as these notes were most probably
         // meant to be recorded and we don't want to skip them.
+        
         if (isCuedToStartRecordingInThisSlice){
             startRecordingNow();
             
@@ -690,9 +706,10 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         }
     
         // 7) -------------------------------------------------------------------------------------------------
-        // If clip is recording (or has started recorded during that slice), iterate over the incomming notes and add them to the record buffer
-        // If the clip only started recording in that slice, make sure we don't add notes that happen before the CUEd recording start time
-        // Also, if the clip should stop recording in that slice, make sure we don't add notes that happen after the CUEd recording stop time
+        // If clip is recording (or has started recorded during that slice), iterate over the incomming notes and add them to the record buffer.
+        // If the clip only started recording in that slice, make sure we don't add notes that happen before the recording start time cue.
+        // Also, if the clip should stop recording in that slice, make sure we don't add notes that happen after the recording stop time cue.
+        
         if (recording){
             for (const auto metadata : incommingBuffer)
             {
@@ -719,6 +736,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         }
         
         // 8) -------------------------------------------------------------------------------------------------
+        
         if (isCuedToStopRecordingInThisSlice){
             stopRecordingNow();
         }
@@ -729,20 +747,24 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         // loop point falls before the end of the current slice and we need to compensate for that.
         // Also consider edge case in which clipLength was changed during playback and set to something lower
         // than the current playhead position.
+        
         if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats) || clipLengthInBeats < sliceInBeats.getStart())){
             addRecordedSequenceToSequence();
             playhead.resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
         }
         
-        // -------------------------------------------------------------------------------------------------
-        // Release slice as we finished processing it
+        // ----------------------------------------------------------------------------------------------------
+        // Release playeahd slice as we finished processing it
         // Note that releaseSlice sets the end of the playhead slice to be the same as the start. This won't have
-        // any negative effect if we've restarted playhead because clip is looping, but it will me meaningless.
+        // any negative effect if we've manually set the playhead (e.g. because clip is looping), but it will me
+        // "meaningless" as manually setting the playhead aready makes start and end time of the slice to be the same.
+        
         playhead.releaseSlice();
         
     }
     
     // 10) -------------------------------------------------------------------------------------------------
+    
     if (isCuedToStopInThisSlice){
         stopNow();
     }
@@ -750,31 +772,31 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     // 11) -------------------------------------------------------------------------------------------------
     // If clip has just stopped (because of a cue or because playead.stopNow() has been called externally
     // for some other reason, make sure we send note offs for pending notes
+    
     if (playhead.hasJustStopped()){
         renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }
     
     // 12) -------------------------------------------------------------------------------------------------
-    // Post-process recorded sequence if it stopped recording in this slice
-    // This should be called the last because recording action could be stopped if
-    // - stop recording was cued in this slice
-    // - clip was stopped for some other reason in this slice
-    // To account for the second case we need to have checked whether the clip was stopped before checking if recording has stopped
+    // If the clip just stopped recording, add recorded notes to the sequence and update clip length (if needed). This step needs
+    // to happen after checking if the clip was cued to stop because stopping the clip might set the hasJustStoppedRecording flag
+    
     if (hasJustStoppedRecording()){
         if (recordedMidiSequence.getNumEvents() > 0){
-            // If it has just stopped recording and there are notes to add to the sequence, do it now and set new length
+            // If it has just stopped recording and there are notes to add to the sequence, add them to the sequence and
+            // set new length if clip had no length. Quantize new length to the next integer beat.
             double previousLength = clipLengthInBeats;
             if (clipLengthInBeats == 0.0){
-                // If clip had no length, set it to the current time quantized to the next beat integer
                 clipLengthInBeats = std::ceil(playhead.getCurrentSlice().getEnd());
             }
             addRecordedSequenceToSequence();
             if (previousLength == 0.0 && clipLengthInBeats > 0.0 && clipLengthInBeats > playhead.getCurrentSlice().getEnd()){
-                // If the clip had no length and after stopping recording now it has a length, check if the clip should loop in this slice
+                // If a new length has just been set, check if the clip should loop in this slice
                 playhead.resetSlice(clipLengthInBeats - playhead.getCurrentSlice().getEnd());
             }
         } else {
-            // If stopping to record, the clip is new and no new notes have been added, trigger clear clip to stop playing, etc.
+            // If stopping to record, the clip is new and no new notes have been added, trigger clear clip to make it stop
+            // and clear any remaining cues.
             if (isEmpty()){
                 clearClipHelper();
             }
