@@ -61,7 +61,7 @@ private:
     juce::CachedValue<bool> inputMonitoring;
     juce::CachedValue<int> nClips;
     
-    HardwareDevice* device;
+    HardwareDevice* device = nullptr;
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
