@@ -14,7 +14,7 @@
 Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
            std::function<GlobalSettingsStruct()> globalSettingsGetter,
            std::function<TrackSettingsStruct()> trackSettingsGetter,
-           std::function<MusicalContext()> musicalContextGetter)
+           std::function<MusicalContext*()> musicalContextGetter)
 : playhead(playheadParentSliceGetter)
 {
     getGlobalSettings = globalSettingsGetter;
@@ -96,7 +96,7 @@ void Clip::stopAt(double positionInGlobalPlayhead)
 void Clip::togglePlayStop()
 {
     
-    double positionInGlobalPlayhead = getMusicalContext().getNextQuantizedBarPosition();
+    double positionInGlobalPlayhead = getMusicalContext()->getNextQuantizedBarPosition();
     
     if (isPlaying()){
         if (!isCuedToStop()){
@@ -140,7 +140,7 @@ void Clip::startRecordingNow()
     hasJustStoppedRecordingFlag = false;
     if (isEmpty() && getGlobalSettings().fixedLengthRecordingBars > 0){
         // If clip is empty and fixed length is set in main componenet, pre-set the length of the clip
-        clipLengthInBeats = (double)getGlobalSettings().fixedLengthRecordingBars * (double)getMusicalContext().getMeter();
+        clipLengthInBeats = (double)getGlobalSettings().fixedLengthRecordingBars * (double)getMusicalContext()->getMeter();
     }
     willStopRecordingAt = -1.0;
 }
@@ -634,7 +634,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                     // Normal case in which notes should be triggered
 
                     // Calculate note position for the MIDI buffer (in samples)
-                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getMusicalContext().getBpm());
+                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getMusicalContext()->getBpm());
                     jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, getGlobalSettings().samplesPerSlice));
                     
                     // Re-write MIDI channel to use track's configured device, and add note to the buffer

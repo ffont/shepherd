@@ -12,7 +12,7 @@
 
 Track::Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
              std::function<GlobalSettingsStruct()> globalSettingsGetter,
-             std::function<MusicalContext()> musicalContextGetter,
+             std::function<MusicalContext*()> musicalContextGetter,
              std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
              )
 {

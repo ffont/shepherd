@@ -3,7 +3,6 @@
 
 //==============================================================================
 MainComponent::MainComponent()
-: musicalContext([this]{return getGlobalSettings();})
 {
     #if !RPI_BUILD
     addAndMakeVisible(devUiComponent);
@@ -28,7 +27,7 @@ MainComponent::MainComponent()
         setAudioChannels (2, 2);
     }
     
-    // Set ssome defaults
+    // Set some defaults
     if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
         sendMidiClockMidiDeviceNames = {DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME};
     }
@@ -47,9 +46,6 @@ MainComponent::MainComponent()
     // Init OSC
     initializeOSC();
     
-    // Create tracks
-    initializeTracks();
-    
     // Init sine synth with 16 voices (used for testig purposes only)
     #if !RPI_BUILD
     for (auto i = 0; i < nSynthVoices; ++i)
@@ -57,10 +53,21 @@ MainComponent::MainComponent()
     sineSynth.addSound (new SineWaveSound());
     #endif
     
-    // Send OSC message to frontend indiating that Shepherd is ready
+    // Load empty session to state
+    state = Helpers::createDefaultSession();
+    
+    // Add state change listener and bind cached properties to state properties
+    bindState();
+    
+    // Initialize musical context
+    musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
+    
+    // Create tracks
+    initializeTracks();
+    
+    // Send OSC message to frontend indiating that Shepherd is ready to rock
     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
     sendOscMessage(message);
-    
     mainComponentInitialized = true;
 }
 
@@ -69,18 +76,34 @@ MainComponent::~MainComponent()
     shutdownAudio();
 }
 
+void MainComponent::bindState()
+{
+    state.addListener(this);
+    
+    playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    isPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
+    doingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
+    countInplayheadPositionInBeats.referTo(state, IDs::countInplayheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    fixedLengthRecordingBars.referTo(state, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
+    recordAutomationEnabled.referTo(state, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
+    fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
+    
+    if (musicalContext != nullptr){
+        musicalContext.get()->bindState();
+    }
+}
+
 void MainComponent::initializeOSC()
 {
-    std::cout << "Initializing OSC server" << std::endl;
-    
     // Setup OSC server
+    // Note that OSC sender is not set up here because it is done lazily when trying to send a message
+    std::cout << "Initializing OSC server" << std::endl;
     if (! connect (oscReceivePort)){
         std::cout << "- ERROR starting OSC server" << std::endl;
     } else {
         std::cout << "- Started OSC server, listening at 0.0.0.0:" << oscReceivePort << std::endl;
         addListener (this);
     }
-    // OSC sender is not set up here because it is done lazily when trying to send a message
 }
 
 void MainComponent::initializeMIDIInputs()
@@ -350,12 +373,14 @@ void MainComponent::initializeTracks()
     for (int i=0; i<juce::jmin(hardwareDevices.size(), 8); i++){
         tracks.add(
           new Track(
-               [this]{ return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerSlice / (60.0 * sampleRate / musicalContext.getBpm())}; },
+               [this]{
+                   return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerSlice / (60.0 * sampleRate / musicalContext.get()->getBpm())};
+               },
                [this]{
                    return getGlobalSettings();
                },
                [this]{
-                   return musicalContext;
+                   return musicalContext.get();
                },
                [this](juce::String deviceName){
             return getMidiOutputDeviceBuffer(deviceName);
@@ -400,24 +425,24 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Check if tempo/meter should be updated
     if (nextBpm > 0.0){
-        musicalContext.setBpm(nextBpm);
+        musicalContext.get()->setBpm(nextBpm);
         shouldStartSendingPushMidiClockBurst = true;
         nextBpm = 0.0;
     }
     if (nextMeter > 0){
-        musicalContext.setMeter(nextMeter);
+        musicalContext.get()->setMeter(nextMeter);
         nextMeter = 0;
     }
-    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / musicalContext.getBpm());
+    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / musicalContext.get()->getBpm());
     
     // Check if count-in finished and global playhead should be toggled
     if (!isPlaying && doingCountIn){
-        if (musicalContext.getMeter() >= countInplayheadPositionInBeats && musicalContext.getMeter() < countInplayheadPositionInBeats + bufferLengthInBeats){
+        if (musicalContext.get()->getMeter() >= countInplayheadPositionInBeats && musicalContext.get()->getMeter() < countInplayheadPositionInBeats + bufferLengthInBeats){
             // Count in finishes in the current getNextAudioBlock execution
-            playheadPositionInBeats = -(musicalContext.getMeter() - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            playheadPositionInBeats.setValue(-(musicalContext.get()->getMeter() - countInplayheadPositionInBeats), nullptr); // Align global playhead position with coutin buffer offset so that it starts at correct offset
             shouldToggleIsPlaying = true;
-            doingCountIn = false;
-            countInplayheadPositionInBeats = 0.0;
+            doingCountIn.setValue(false, nullptr);
+            countInplayheadPositionInBeats.setValue(0.0, nullptr);
         }
     }
     
@@ -443,7 +468,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             // Store message in the list of last note on messages and set its timestamp to the global playhead position
             juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
             if (doingCountIn){
-                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext.getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext.get()->getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
             } else {
                 msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
             }
@@ -481,7 +506,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                         // Store message in the list of last note on messages and set its timestamp to the global playhead position
                         juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
                         if (doingCountIn){
-                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext.getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext.get()->getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
                         } else {
                             msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
                         }
@@ -540,16 +565,16 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                 track->clipsRenderRemainingNoteOffsIntoMidiBuffer();
                 track->stopAllPlayingClips(true, true, true);
             }
-            isPlaying = false;
+            isPlaying.setValue(false, nullptr);
             playheadPositionInBeats = 0.0;
-            musicalContext.resetCounters();
-            musicalContext.renderMidiStopInSlice(midiClockMessages);
+            musicalContext.get()->resetCounters();
+            musicalContext.get()->renderMidiStopInSlice(midiClockMessages);
         } else {
             for (auto track: tracks){
                 track->clipsResetPlayheadPosition();
             }
-            isPlaying = true;
-            musicalContext.renderMidiStartInSlice(midiClockMessages);
+            isPlaying.setValue(true, nullptr);
+            musicalContext.get()->renderMidiStartInSlice(midiClockMessages);
         }
         shouldToggleIsPlaying = false;
     }
@@ -570,26 +595,26 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Update musical context bar counter
     // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
-    musicalContext.updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
+    musicalContext.get()->updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
     
     // Render metronome in generated midi
-    musicalContext.renderMetronomeInSlice(midiMetronomeMessages);
+    musicalContext.get()->renderMetronomeInSlice(midiMetronomeMessages);
     if (sendMidiClock){
-        musicalContext.renderMidiClockInSlice(midiClockMessages);
+        musicalContext.get()->renderMidiClockInSlice(midiClockMessages);
     }
     
     // Render clock in push midi buffer if required (and playing)
     if ((shouldStartSendingPushMidiClockBurst) && (isPlaying)){
         lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
         shouldStartSendingPushMidiClockBurst = false;
-        musicalContext.renderMidiStartInSlice(pushMidiClockMessages);
+        musicalContext.get()->renderMidiStartInSlice(pushMidiClockMessages);
     }
     if (lastTimePushMidiClockBurstStarted > -1.0){
         double timeNow = juce::Time::getCurrentTime().toMilliseconds();
         if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
             pushMidiClockMessages.addEvents(midiClockMessages, 0, bufferToFill.numSamples, 0);
         } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
-            musicalContext.renderMidiStopInSlice(pushMidiClockMessages);
+            musicalContext.get()->renderMidiStopInSlice(pushMidiClockMessages);
             lastTimePushMidiClockBurstStarted = -1.0;
         }
     }
@@ -636,10 +661,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // Update playhead positions
     if (isPlaying){
-        playheadPositionInBeats += bufferLengthInBeats;
+        playheadPositionInBeats.setValue(playheadPositionInBeats + bufferLengthInBeats, nullptr);
     } else {
         if (doingCountIn) {
-            countInplayheadPositionInBeats += bufferLengthInBeats;
+            countInplayheadPositionInBeats.setValue(countInplayheadPositionInBeats + bufferLengthInBeats, nullptr);
         }
     }
 }
@@ -684,9 +709,8 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 void MainComponent::timerCallback()
 {
     
+    std::cout << state.toXmlString() << std::endl;
     // If prepareToPlay has been called, we can now initializeTracks
-    
-    //std::cout << musicalContext.getBarCount() << ":" << musicalContext.getBeatsInBarCount() << std::endl;
     
     // Things that need periodic checks
     if (!midiInIsConnected || !midiInPushIsConnected ){
@@ -870,7 +894,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     }
                 }
                 if (recordCuedClipsFound){
-                    doingCountIn = true;
+                    doingCountIn.setValue(true, nullptr);
                 } else {
                     shouldToggleIsPlaying = true;
                 }
@@ -893,13 +917,13 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_METRONOME)) {
         if (address == OSC_ADDRESS_METRONOME_ON){
             jassert(message.size() == 0);
-            musicalContext.setMetronome(true);
+            musicalContext.get()->setMetronome(true);
         } else if (address == OSC_ADDRESS_METRONOME_OFF){
             jassert(message.size() == 0);
-            musicalContext.setMetronome(false);
+            musicalContext.get()->setMetronome(false);
         } else if (address == OSC_ADDRESS_METRONOME_ON_OFF){
             jassert(message.size() == 0);
-            musicalContext.toggleMetronome();
+            musicalContext.get()->toggleMetronome();
         }
         
     } else if (address.startsWith(OSC_ADDRESS_SETTINGS)) {
@@ -935,13 +959,13 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
 
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
             jassert(message.size() == 1);
-            fixedVelocity = message[0].getInt32();
+            fixedVelocity.setValue(message[0].getInt32(), nullptr);
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
             jassert(message.size() == 1);
-            fixedLengthRecordingBars = message[0].getInt32();
+            fixedLengthRecordingBars.setValue(message[0].getInt32(), nullptr);
         } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
             jassert(message.size() == 0);
-            recordAutomationEnabled = !recordAutomationEnabled;
+            recordAutomationEnabled.setValue(!recordAutomationEnabled, nullptr);
         }
         
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
@@ -978,13 +1002,13 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("transport");
             stateAsStringParts.add(isPlaying ? "p":"s");
-            stateAsStringParts.add(juce::String(musicalContext.getBpm(), 2));
+            stateAsStringParts.add(juce::String(musicalContext.get()->getBpm(), 2));
             if (doingCountIn){
-                stateAsStringParts.add(juce::String(-1 * (musicalContext.getMeter() - countInplayheadPositionInBeats), 3));
+                stateAsStringParts.add(juce::String(-1 * (musicalContext.get()->getMeter() - countInplayheadPositionInBeats), 3));
             } else {
                 stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
             }
-            stateAsStringParts.add(musicalContext.metronomeIsOn() ? "p":"s");
+            stateAsStringParts.add(musicalContext.get()->metronomeIsOn() ? "p":"s");
             juce::StringArray clipsPlayheadStateParts = {};
             for (int track_num=0; track_num<tracks.size(); track_num++){
                 auto track = tracks[track_num];
@@ -999,7 +1023,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             }
             stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
             stateAsStringParts.add(juce::String(fixedLengthRecordingBars));
-            stateAsStringParts.add(juce::String(musicalContext.getMeter()));
+            stateAsStringParts.add(juce::String(musicalContext.get()->getMeter()));
             stateAsStringParts.add(juce::String(recordAutomationEnabled ? "1":"0"));
             stateAsStringParts.add(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
             
@@ -1026,4 +1050,26 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         devUiComponent.reloadBrowser();
         #endif
     }
+}
+
+//==============================================================================
+
+void MainComponent::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
+{
+}
+
+void MainComponent::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
+{
+}
+
+void MainComponent::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
+{
+}
+
+void MainComponent::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)
+{
+}
+
+void MainComponent::valueTreeParentChanged (juce::ValueTree& treeWhoseParentHasChanged)
+{
 }

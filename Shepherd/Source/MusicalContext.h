@@ -11,13 +11,15 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "defines.h"
+#include "helpers.h"
 
 
 class MusicalContext
 {
 public:
-    MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter);
+    MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, juce::ValueTree& _state);
+    void bindState();
+    
     double getNextQuantizedBarPosition();
     
     void setMeter(int newMeter);
@@ -40,13 +42,14 @@ public:
     void renderMidiStopInSlice(juce::MidiBuffer& bufferToFill);
     
 private:
-    double bpm = 120.0;
-    int meter = 4;
+    juce::ValueTree& state;
     
-    int barCount = 0;
+    juce::CachedValue<double> bpm;
+    juce::CachedValue<int> meter;
+    juce::CachedValue<int> barCount;
+    juce::CachedValue<bool> metronomeOn;
+    
     double lastBarCountedPlayheadPosition = 0.0;
-
-    bool metronomeOn = true;
     int metronomeMidiChannel = 16;
     int metronomeLowMidiNote = 67;
     int metronomeHighMidiNote = 80;

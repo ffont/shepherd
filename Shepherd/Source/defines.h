@@ -110,6 +110,49 @@
 #endif
 
 
+namespace Defaults
+{
+    inline double playheadPosition = 0.0;
+    inline bool isPlaying = false;
+    inline bool doingCountIn = false;
+    inline int fixedLengthRecordingBars = 0;
+    inline bool recordAutomationEnabled = true;
+    inline int fixedVelocity = -1;
+    inline double bpm = 120.0;
+    inline int meter = 4;
+    inline int barCount = 0;
+    inline bool metronomeOn = true;
+}
+
+namespace IDs
+{
+    #define DECLARE_ID(name) const juce::Identifier name (#name);
+
+    DECLARE_ID (SESSION)
+    DECLARE_ID (DEVICE)
+    DECLARE_ID (TRACK)
+    DECLARE_ID (CLIP)
+    
+    DECLARE_ID (name)
+    DECLARE_ID (uuid)
+    DECLARE_ID (length)
+    DECLARE_ID (playheadPositionInBeats)
+    DECLARE_ID (isPlaying)
+    DECLARE_ID (shouldToggleIsPlaying)
+    DECLARE_ID (doingCountIn)
+    DECLARE_ID (countInplayheadPositionInBeats)
+    DECLARE_ID (fixedLengthRecordingBars)
+    DECLARE_ID (recordAutomationEnabled)
+    DECLARE_ID (fixedVelocity)
+    DECLARE_ID (bpm)
+    DECLARE_ID (meter)
+    DECLARE_ID (barCount)
+    DECLARE_ID (metronomeOn)
+
+    #undef DECLARE_ID
+}
+
+
 struct MidiOutputDeviceData {
     juce::String identifier;
     juce::String name;

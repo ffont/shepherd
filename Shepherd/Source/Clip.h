@@ -29,7 +29,7 @@ public:
     Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
          std::function<GlobalSettingsStruct()> globalSettingsGetter,
          std::function<TrackSettingsStruct()> trackSettingsGetter,
-         std::function<MusicalContext()> musicalContextGetter
+         std::function<MusicalContext*()> musicalContextGetter
          );
     Clip* clone() const;
     
@@ -102,7 +102,7 @@ private:
     bool sustainPedalBeingPressed = false;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<TrackSettingsStruct()> getTrackSettings;
-    std::function<MusicalContext()> getMusicalContext;
+    std::function<MusicalContext*()> getMusicalContext;
     
     void stopClipNowAndClearAllCues();
     bool shouldReplaceSequence = false;

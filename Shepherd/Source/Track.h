@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "defines.h"
+#include "helpers.h"
 #include "Clip.h"
 #include "MusicalContext.h"
 #include "HardwareDevice.h"
@@ -21,7 +21,7 @@ class Track
 public:
     Track(std::function<juce::Range<double>()> playheadParentSliceGetter,
           std::function<GlobalSettingsStruct()> globalSettingsGetter,
-          std::function<MusicalContext()> musicalContextGetter,
+          std::function<MusicalContext*()> musicalContextGetter,
           std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
           );
     
@@ -57,7 +57,7 @@ private:
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
-    std::function<MusicalContext()> getMusicalContext;
+    std::function<MusicalContext*()> getMusicalContext;
     std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
     juce::MidiBuffer* getMidiOutputDeviceBufferIfDevice();
     

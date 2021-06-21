@@ -2,7 +2,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "defines.h"
+#include "helpers.h"
 #include "MusicalContext.h"
 #include "Playhead.h"
 #include "Clip.h"
@@ -20,7 +20,8 @@
 class MainComponent  : public juce::AudioAppComponent,
                        private juce::Timer,
                        private juce::OSCReceiver,
-                       private juce::OSCReceiver::Listener<juce::OSCReceiver::MessageLoopCallback>
+                       private juce::OSCReceiver::Listener<juce::OSCReceiver::MessageLoopCallback>,
+                       protected juce::ValueTree::Listener
                        
 {
 public:
@@ -36,6 +37,16 @@ public:
     //==============================================================================
     void paint (juce::Graphics& g) override;
     void resized() override;
+
+protected:
+    juce::ValueTree state;
+    void bindState();
+    
+    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override;
+    void valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree&) override;
+    void valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree&, int) override;
+    void valueTreeChildOrderChanged (juce::ValueTree& parentTree, int, int) override;
+    void valueTreeParentChanged (juce::ValueTree&) override;
 
 private:
     //==============================================================================
@@ -78,7 +89,6 @@ private:
     
     std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
-    int fixedVelocity = -1;
     std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
     int lastMidiNoteOnMessagesToStore = 20;
     juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
@@ -88,19 +98,20 @@ private:
     void initializeHardwareDevices();
     HardwareDevice* getHardwareDeviceByName(juce::String name);
     
-    // Transport and basic audio settings
+    // Transport and basic settings
     double sampleRate = 0.0;
     int samplesPerSlice = 0;
-    double playheadPositionInBeats = 0.0;
-    bool isPlaying = false;
     bool shouldToggleIsPlaying = false;
-    bool doingCountIn = false;
-    double countInplayheadPositionInBeats = 0.0;
-    int fixedLengthRecordingBars = 0;
-    bool recordAutomationEnabled = true;
+    juce::CachedValue<double> playheadPositionInBeats;
+    juce::CachedValue<bool> isPlaying;
+    juce::CachedValue<bool> doingCountIn;
+    juce::CachedValue<double> countInplayheadPositionInBeats;
+    juce::CachedValue<int> fixedLengthRecordingBars;
+    juce::CachedValue<bool> recordAutomationEnabled;
+    juce::CachedValue<int> fixedVelocity;
     
     // Musical context
-    MusicalContext musicalContext;
+    std::unique_ptr<MusicalContext> musicalContext;
     double nextBpm = 0.0;
     int nextMeter = 0;
     bool sendMidiClock = true;

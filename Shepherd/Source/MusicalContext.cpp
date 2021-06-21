@@ -10,11 +10,20 @@
 
 #include "MusicalContext.h"
 
-MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter)
+MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, juce::ValueTree& _state): state(_state)
 {
     getGlobalSettings = globalSettingsGetter;
+    bindState();
 }
 
+void MusicalContext::bindState()
+{
+    // Bind cached values to state
+    bpm.referTo(state, IDs::bpm, nullptr, Defaults::bpm);
+    meter.referTo(state, IDs::meter, nullptr, Defaults::meter);
+    barCount.referTo(state, IDs::barCount, nullptr, Defaults::barCount);
+    metronomeOn.referTo(state, IDs::metronomeOn, nullptr, Defaults::metronomeOn);
+}
 
 //==============================================================================
 
@@ -33,7 +42,7 @@ double MusicalContext::getNextQuantizedBarPosition()
 void MusicalContext::setMeter(int newMeter)
 {
     jassert(newMeter > 0);
-    meter = newMeter;
+    meter.setValue(newMeter, nullptr);
 }
 
 int MusicalContext::getMeter()
@@ -44,7 +53,7 @@ int MusicalContext::getMeter()
 void MusicalContext::setBpm(double newBpm)
 {
     jassert(newBpm > 0.0);
-    bpm = newBpm;
+    bpm.setValue(newBpm, nullptr);
 }
 
 double MusicalContext::getBpm()
@@ -54,12 +63,12 @@ double MusicalContext::getBpm()
 
 void MusicalContext::setMetronome(bool onOff)
 {
-    metronomeOn = onOff;
+    metronomeOn.setValue(onOff, nullptr);
 }
 
 void MusicalContext::toggleMetronome()
 {
-    metronomeOn = !metronomeOn;
+    metronomeOn.setValue(!metronomeOn, nullptr);
 }
 
 bool MusicalContext::metronomeIsOn()
@@ -78,7 +87,7 @@ void MusicalContext::updateBarsCounter(juce::Range<double> currentSliceRange)
     if (currentSliceRange.getStart() > 0){
         if (flooredRangeEnd > flooredRangeStart){
             if ((double)flooredRangeEnd - lastBarCountedPlayheadPosition >= (double)meter){
-                barCount += 1;
+                barCount.setValue(barCount + 1, nullptr);
                 lastBarCountedPlayheadPosition = flooredRangeEnd;
             }
         }
@@ -87,7 +96,7 @@ void MusicalContext::updateBarsCounter(juce::Range<double> currentSliceRange)
 
 void MusicalContext::resetCounters()
 {
-    barCount = 0;
+    barCount.setValue(0, nullptr);
     lastBarCountedPlayheadPosition = 0.0;
 }
 
