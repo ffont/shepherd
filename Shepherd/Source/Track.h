@@ -24,11 +24,13 @@ public:
           std::function<juce::Range<double>()> playheadParentSliceGetter,
           std::function<GlobalSettingsStruct()> globalSettingsGetter,
           std::function<MusicalContext*()> musicalContextGetter,
+          std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
           std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
           );
     void bindState();
     juce::ValueTree state;
     
+    void setHardwareDeviceByName(juce::String deviceName);
     void setHardwareDevice(HardwareDevice* device);
     HardwareDevice* getHardwareDevice();
     
@@ -58,6 +60,7 @@ public:
 private:
     
     juce::CachedValue<juce::String> name;
+    juce::CachedValue<juce::String> hardwareDeviceName;
     juce::CachedValue<bool> inputMonitoring;
     juce::CachedValue<int> nClips;
     
@@ -66,10 +69,11 @@ private:
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext*()> getMusicalContext;
+    std::function<HardwareDevice*(juce::String deviceName)> getHardwareDeviceByName;
     std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
     juce::MidiBuffer* getMidiOutputDeviceBufferIfDevice();
     
-    juce::OwnedArray<Clip> midiClips;
+    std::unique_ptr<ClipList> clips;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Track)
 };
@@ -80,12 +84,14 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
                std::function<juce::Range<double>()> playheadParentSliceGetter,
                std::function<GlobalSettingsStruct()> globalSettingsGetter,
                std::function<MusicalContext*()> musicalContextGetter,
+               std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
                std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
     : drow::ValueTreeObjectList<Track> (v)
     {
         getPlayheadParentSlice = playheadParentSliceGetter;
         getGlobalSettings = globalSettingsGetter;
         getMusicalContext = musicalContextGetter;
+        getHardwareDeviceByName = hardwareDeviceGetter;
         getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
         rebuildObjects();
     }
@@ -106,6 +112,7 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
                           getPlayheadParentSlice,
                           getGlobalSettings,
                           getMusicalContext,
+                          getHardwareDeviceByName,
                           getMidiOutputDeviceBuffer);
     }
 
@@ -121,5 +128,6 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext*()> getMusicalContext;
+    std::function<HardwareDevice*(juce::String deviceName)> getHardwareDeviceByName;
     std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
 };

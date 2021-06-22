@@ -14,16 +14,22 @@ Track::Track(const juce::ValueTree& _state,
              std::function<juce::Range<double>()> playheadParentSliceGetter,
              std::function<GlobalSettingsStruct()> globalSettingsGetter,
              std::function<MusicalContext*()> musicalContextGetter,
+             std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
              std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
              ): state(_state)
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
     getGlobalSettings = globalSettingsGetter;
     getMusicalContext = musicalContextGetter;
+    getHardwareDeviceByName = hardwareDeviceGetter;
     getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     bindState();
+    
     nClips = getGlobalSettings().nScenes;
-    std::cout << "Creaetd track with name: " << name << std::endl;
+    if (hardwareDeviceName != ""){
+        setHardwareDeviceByName(hardwareDeviceName);
+    }
+    prepareClips();
 }
 
 void Track::bindState()
@@ -31,6 +37,12 @@ void Track::bindState()
     name.referTo(state, IDs::name, nullptr, Defaults::name);
     inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
     nClips.referTo(state, IDs::nClips, nullptr, Defaults::nClips);
+    hardwareDeviceName.referTo(state, IDs::hardwareDeviceName, nullptr, Defaults::name);
+}
+
+void Track::setHardwareDeviceByName(juce::String deviceName)
+{
+    setHardwareDevice(getHardwareDeviceByName(deviceName));
 }
 
 void Track::setHardwareDevice(HardwareDevice* _device)
@@ -80,25 +92,21 @@ int Track::getMidiOutputChannel()
 
 void Track::prepareClips()
 {
-    for (int i=0; i<nClips; i++){
-        midiClips.add(
-          new Clip(
-                getPlayheadParentSlice,
-                getGlobalSettings,
-                [this]{
-                    TrackSettingsStruct settings;
-                    settings.midiOutChannel = getMidiOutputChannel();
-                    settings.device = getHardwareDevice();
-                    return settings;
-                },
-                getMusicalContext
-        ));
-    }
+    clips = std::make_unique<ClipList>(state,
+                                       getPlayheadParentSlice,
+                                       getGlobalSettings,
+                                       [this]{
+                                           TrackSettingsStruct settings;
+                                           settings.midiOutChannel = getMidiOutputChannel();
+                                           settings.device = getHardwareDevice();
+                                           return settings;
+                                       },
+                                       getMusicalContext);
 }
 
 int Track::getNumberOfClips()
 {
-    return midiClips.size();
+    return clips->objects.size();
 }
 
 void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
@@ -128,7 +136,7 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
 void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
-    for (auto clip: midiClips){
+    for (auto clip: clips->objects){
         clip->processSlice(incommingBuffer, bufferToFill, lastMidiNoteOnMessages);
     }
 }
@@ -136,22 +144,22 @@ void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juc
 void Track::clipsRenderRemainingNoteOffsIntoMidiBuffer()
 {
     juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
-    for (auto clip: midiClips){
+    for (auto clip: clips->objects){
         clip->renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
     }
 }
 
 void Track::clipsResetPlayheadPosition()
 {
-    for (auto clip: midiClips){
+    for (auto clip: clips->objects){
         clip->resetPlayheadPosition();
     }
 }
 
 Clip* Track::getClipAt(int clipN)
 {
-    jassert(clipN < midiClips.size());
-    return midiClips[clipN];
+    jassert(clipN < clips->objects.size());
+    return clips->objects[clipN];
 }
 
 /** Stop all track clips that are currently playing
@@ -173,10 +181,10 @@ void Track::stopAllPlayingClips(bool now, bool deCue, bool reCue)
 */
 void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue)
 {
-    jassert(clipN < midiClips.size());
-    for (int i=0; i<midiClips.size(); i++){
+    jassert(clipN < clips->objects.size());
+    for (int i=0; i<clips->objects.size(); i++){
         if (i != clipN){
-            auto clip = midiClips[i];
+            auto clip = clips->objects[i];
             bool wasPlaying = false;
             if (clip->isPlaying()){
                 wasPlaying = true;
@@ -207,8 +215,8 @@ void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool r
 std::vector<int> Track::getCurrentlyPlayingClipsIndex()
 {
     std::vector<int> currentlyPlayingClips = {};
-    for (int i=0; i<midiClips.size(); i++){
-        auto clip = midiClips[i];
+    for (int i=0; i<clips->objects.size(); i++){
+        auto clip = clips->objects[i];
         if (clip->isPlaying()){
             currentlyPlayingClips.push_back(i);
         }
@@ -222,15 +230,15 @@ std::vector<int> Track::getCurrentlyPlayingClipsIndex()
 */
 void Track::insertClipAt(int clipN, Clip* clip)
 {
-    int currentMidiClipsLength = midiClips.size();
-    midiClips.insert(clipN, clip);
-    midiClips.removeLast();
-    jassert(midiClips.size() == currentMidiClipsLength);
+    int currentMidiClipsLength = clips->objects.size();
+    clips->objects.insert(clipN, clip);
+    clips->objects.removeLast();
+    jassert(clips->objects.size() == currentMidiClipsLength);
 }
 
 bool Track::hasClipsCuedToRecord()
 {
-    for (auto clip: midiClips){
+    for (auto clip: clips->objects){
         if (clip->isCuedToStartRecording()){
             return true;
         }

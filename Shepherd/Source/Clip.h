@@ -26,12 +26,15 @@ struct TrackSettingsStruct {
 class Clip
 {
 public:
-    Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
+    Clip(const juce::ValueTree& state,
+         std::function<juce::Range<double>()> playheadParentSliceGetter,
          std::function<GlobalSettingsStruct()> globalSettingsGetter,
          std::function<TrackSettingsStruct()> trackSettingsGetter,
          std::function<MusicalContext*()> musicalContextGetter
          );
     Clip* clone() const;
+    void bindState();
+    juce::ValueTree state;
     
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
@@ -77,9 +80,11 @@ public:
     
 private:
     
+    juce::CachedValue<juce::String> name;
+    juce::CachedValue<double> clipLengthInBeats;
+    
     Playhead playhead;
     
-    double clipLengthInBeats = 0.0;
     double nextClipLength = -1.0;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence preProcessedMidiSequence = {};
@@ -126,3 +131,54 @@ private:
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };
+
+struct ClipList: public drow::ValueTreeObjectList<Clip>
+{
+    ClipList (const juce::ValueTree& v,
+              std::function<juce::Range<double>()> playheadParentSliceGetter,
+              std::function<GlobalSettingsStruct()> globalSettingsGetter,
+              std::function<TrackSettingsStruct()> trackSettingsGetter,
+              std::function<MusicalContext*()> musicalContextGetter)
+    : drow::ValueTreeObjectList<Clip> (v)
+    {
+        getPlayheadParentSlice = playheadParentSliceGetter;
+        getGlobalSettings = globalSettingsGetter;
+        getTrackSettings = trackSettingsGetter;
+        getMusicalContext = musicalContextGetter;
+        rebuildObjects();
+    }
+
+    ~ClipList()
+    {
+        freeObjects();
+    }
+
+    bool isSuitableType (const juce::ValueTree& v) const override
+    {
+        return v.hasType (IDs::CLIP);
+    }
+
+    Clip* createNewObject (const juce::ValueTree& v) override
+    {
+        return new Clip (v,
+                         getPlayheadParentSlice,
+                         getGlobalSettings,
+                         getTrackSettings,
+                         getMusicalContext);
+    }
+
+    void deleteObject (Clip* c) override
+    {
+        delete c;
+    }
+
+    void newObjectAdded (Clip*) override    {}
+    void objectRemoved (Clip*) override     {}
+    void objectOrderChanged() override       {}
+    
+    std::function<juce::Range<double>()> getPlayheadParentSlice;
+    std::function<GlobalSettingsStruct()> getGlobalSettings;
+    std::function<TrackSettingsStruct()> getTrackSettings;
+    std::function<MusicalContext*()> getMusicalContext;
+};
+

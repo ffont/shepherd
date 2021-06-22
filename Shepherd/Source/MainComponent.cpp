@@ -54,7 +54,7 @@ MainComponent::MainComponent()
     #endif
     
     // Load empty session to state
-    state = Helpers::createDefaultSession();
+    state = Helpers::createDefaultSession(availableHardwareDeviceNames);
     
     // Add state change listener and bind cached properties to state properties
     bindState();
@@ -329,6 +329,7 @@ void MainComponent::initializeHardwareDevices()
                                                                 );
                     device->configureMidiOutput(midiDeviceName, midiChannel);
                     hardwareDevices.add(device);
+                    availableHardwareDeviceNames.add(shortName);
                     std::cout << "- " << name << std::endl;
                 }
             }
@@ -380,15 +381,11 @@ void MainComponent::initializeTracks()
                                              return musicalContext.get();
                                          },
                                          [this](juce::String deviceName){
+                                             return getHardwareDeviceByName(deviceName);
+                                         },
+                                         [this](juce::String deviceName){
                                              return getMidiOutputDeviceBuffer(deviceName);
                                          });
-    
-    // Set hardware devices and create clips for the tracks themselves
-    for (int i=0; i<tracks->objects.size(); i++){
-        auto track = tracks->objects[i];
-        track->setHardwareDevice(hardwareDevices[i]);
-        track->prepareClips();
-    }
 }
 
 //==============================================================================
@@ -707,7 +704,7 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 //==============================================================================
 void MainComponent::timerCallback()
 {
-    std::cout << state.toXmlString() << std::endl;
+    //std::cout << state.toXmlString() << std::endl;
     // If prepareToPlay has been called, we can now initializeTracks
     
     // Things that need periodic checks

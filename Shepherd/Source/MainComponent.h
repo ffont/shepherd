@@ -97,6 +97,7 @@ private:
     juce::OwnedArray<HardwareDevice> hardwareDevices;
     void initializeHardwareDevices();
     HardwareDevice* getHardwareDeviceByName(juce::String name);
+    juce::StringArray availableHardwareDeviceNames = {};
     
     // Transport and basic settings
     double sampleRate = 0.0;

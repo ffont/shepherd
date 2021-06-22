@@ -25,7 +25,7 @@ namespace Helpers
         return v;
     }
 
-    inline juce::ValueTree createDefaultSession()
+    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames)
     {
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
@@ -46,21 +46,23 @@ namespace Helpers
         {
             juce::ValueTree t (IDs::TRACK);
             const juce::String trackName ("Track " + juce::String (tn + 1));
+            Helpers::createUuidProperty (t);
             t.setProperty (IDs::name, trackName, nullptr);
             t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
             t.setProperty (IDs::nClips, Defaults::nClips, nullptr);
-            Helpers::createUuidProperty (t);
-
-            /*
+            if (tn < availableHardwareDeviceNames.size()){
+                t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
+            } else {
+                t.setProperty (IDs::hardwareDeviceName, Defaults::name, nullptr);
+            }
             for (int cn = 0; cn < 8; ++cn)
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
                 c.setProperty (IDs::name, trackName + ", Clip " + juce::String (cn + 1), nullptr);
-                c.setProperty (IDs::length, 0.0, nullptr);
+                c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 t.addChild (c, -1, nullptr);
-            }*/
-
+            }
             session.addChild (t, -1, nullptr);
         }
 

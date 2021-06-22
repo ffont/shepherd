@@ -125,6 +125,7 @@ namespace Defaults
     inline bool metronomeOn = true;
     inline bool inputMonitoring = false;
     inline int nClips = 0;
+    inline double clipLengthInBeats = 0.0;
 }
 
 namespace IDs
@@ -153,6 +154,8 @@ namespace IDs
     DECLARE_ID (metronomeOn)
     DECLARE_ID (inputMonitoring)
     DECLARE_ID (nClips)
+    DECLARE_ID (hardwareDeviceName)
+    DECLARE_ID (clipLengthInBeats)
 
     #undef DECLARE_ID
 }

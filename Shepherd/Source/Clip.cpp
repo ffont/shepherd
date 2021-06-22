@@ -11,15 +11,18 @@
 #include "Clip.h"
 
 
-Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
+Clip::Clip(const juce::ValueTree& _state,
+           std::function<juce::Range<double>()> playheadParentSliceGetter,
            std::function<GlobalSettingsStruct()> globalSettingsGetter,
            std::function<TrackSettingsStruct()> trackSettingsGetter,
            std::function<MusicalContext*()> musicalContextGetter)
-: playhead(playheadParentSliceGetter)
+: playhead(playheadParentSliceGetter), state(_state)
 {
     getGlobalSettings = globalSettingsGetter;
     getTrackSettings = trackSettingsGetter;
     getMusicalContext = musicalContextGetter;
+    
+    bindState();
     
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
@@ -53,6 +56,7 @@ Clip::Clip(std::function<juce::Range<double>()> playheadParentSliceGetter,
 Clip* Clip::clone() const
 {
     auto newClip = new Clip(
+        this->state,
         this->playhead.getParentSlice,
         this->getGlobalSettings,
         this->getTrackSettings,
@@ -63,6 +67,11 @@ Clip* Clip::clone() const
     return newClip;
 }
 
+void Clip::bindState()
+{
+    name.referTo(state, IDs::name, nullptr, Defaults::name);
+    clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
+}
 
 void Clip::playNow()
 {
