@@ -22,6 +22,67 @@ struct TrackSettingsStruct {
     HardwareDevice* device;
 };
 
+class SequenceEvent
+{
+public:
+    SequenceEvent(const juce::ValueTree& _state) : state(_state)
+    {
+        bindState();
+    }
+    
+    void bindState()
+    {
+        name.referTo(state, IDs::name, nullptr, Defaults::name);
+        type.referTo(state, IDs::type, nullptr, Defaults::eventType);
+        eventMidiBytes.referTo(state, IDs::eventMidiBytes, nullptr, Defaults::eventMidiBytes);
+        timestamp.referTo(state, IDs::timestamp, nullptr, Defaults::timestamp);
+    }
+    juce::ValueTree state;
+
+private:
+    juce::CachedValue<juce::String> name;
+    juce::CachedValue<juce::String> type;
+    juce::CachedValue<juce::String> eventMidiBytes;
+    juce::CachedValue<double> timestamp;
+
+};
+
+struct SequenceEventList: public drow::ValueTreeObjectList<SequenceEvent>
+{
+    SequenceEventList (const juce::ValueTree& v)
+    : drow::ValueTreeObjectList<SequenceEvent> (v)
+    {
+        rebuildObjects();
+    }
+
+    ~SequenceEventList()
+    {
+        freeObjects();
+    }
+
+    bool isSuitableType (const juce::ValueTree& v) const override
+    {
+        return v.hasType (IDs::SEQUENCE_EVENT);
+    }
+
+    SequenceEvent* createNewObject (const juce::ValueTree& v) override
+    {
+        hasUnappliedChanges = true;
+        return new SequenceEvent (v);
+    }
+
+    void deleteObject (SequenceEvent* c) override
+    {
+        delete c;
+    }
+
+    void newObjectAdded (SequenceEvent*) override    { hasUnappliedChanges = true; }
+    void objectRemoved (SequenceEvent*) override     { hasUnappliedChanges = true; }
+    void objectOrderChanged() override               { hasUnappliedChanges = true; }
+    
+    bool hasUnappliedChanges = true;
+};
+
 
 class Clip
 {
@@ -35,6 +96,7 @@ public:
     Clip* clone() const;
     void bindState();
     juce::ValueTree state;
+    void recreateMidiSequenceFromState();
     
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
@@ -81,18 +143,19 @@ public:
 private:
     
     juce::CachedValue<juce::String> name;
+    
+    std::unique_ptr<Playhead> playhead;
+    
     juce::CachedValue<double> clipLengthInBeats;
-    
-    Playhead playhead;
-    
     double nextClipLength = -1.0;
+    std::unique_ptr<SequenceEventList> sequenceEvents;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence preProcessedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
     juce::MidiMessageSequence nextMidiSequence = {};
-    bool recording = false;
-    double willStartRecordingAt = -1.0;
-    double willStopRecordingAt = -1.0;
+    juce::CachedValue<bool> recording;
+    juce::CachedValue<double> willStartRecordingAt;
+    juce::CachedValue<double> willStopRecordingAt;
     double hasJustStoppedRecordingFlag = false;
     double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
     void addRecordedSequenceToSequence();
@@ -125,7 +188,7 @@ private:
     void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
     void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
     
-    double currentQuantizationStep = 0.0;
+    juce::CachedValue<double> currentQuantizationStep;
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
     void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
     
@@ -174,7 +237,7 @@ struct ClipList: public drow::ValueTreeObjectList<Clip>
 
     void newObjectAdded (Clip*) override    {}
     void objectRemoved (Clip*) override     {}
-    void objectOrderChanged() override       {}
+    void objectOrderChanged() override      {}
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;

@@ -62,7 +62,6 @@ private:
     juce::CachedValue<juce::String> name;
     juce::CachedValue<juce::String> hardwareDeviceName;
     juce::CachedValue<bool> inputMonitoring;
-    juce::CachedValue<int> nClips;
     
     HardwareDevice* device = nullptr;
     

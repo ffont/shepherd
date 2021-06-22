@@ -25,7 +25,6 @@ Track::Track(const juce::ValueTree& _state,
     getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     bindState();
     
-    nClips = getGlobalSettings().nScenes;
     if (hardwareDeviceName != ""){
         setHardwareDeviceByName(hardwareDeviceName);
     }
@@ -36,7 +35,6 @@ void Track::bindState()
 {
     name.referTo(state, IDs::name, nullptr, Defaults::name);
     inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
-    nClips.referTo(state, IDs::nClips, nullptr, Defaults::nClips);
     hardwareDeviceName.referTo(state, IDs::hardwareDeviceName, nullptr, Defaults::name);
 }
 

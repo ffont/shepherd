@@ -10,9 +10,18 @@
 
 #include "Playhead.h"
 
-Playhead::Playhead(std::function<juce::Range<double>()> parentSliceGetter)
+Playhead::Playhead(const juce::ValueTree& _state, std::function<juce::Range<double>()> parentSliceGetter): state(_state)
 {
     getParentSlice = parentSliceGetter;
+    bindState();
+}
+
+void Playhead::bindState()
+{
+    playing.referTo(state, IDs::playing, nullptr, Defaults::playing);
+    willPlayAt.referTo(state, IDs::willPlayAt, nullptr, Defaults::willPlayAt);
+    willStopAt.referTo(state, IDs::willStopAt, nullptr, Defaults::willStopAt);
+    playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
 }
 
 void Playhead::playNow()
@@ -104,6 +113,7 @@ void Playhead::captureSlice()
 void Playhead::releaseSlice()
 {
     currentSlice.setStart(currentSlice.getEnd());
+    playheadPositionInBeats = currentSlice.getStart();
 }
 
 juce::Range<double> Playhead::getCurrentSlice() const noexcept
@@ -114,9 +124,11 @@ juce::Range<double> Playhead::getCurrentSlice() const noexcept
 void Playhead::resetSlice()
 {
     currentSlice = {0.0, 0.0};
+    playheadPositionInBeats = currentSlice.getStart();
 }
 
 void Playhead::resetSlice(double sliceOffset)
 {
     currentSlice = {-sliceOffset, -sliceOffset};
+    playheadPositionInBeats = currentSlice.getStart();
 }

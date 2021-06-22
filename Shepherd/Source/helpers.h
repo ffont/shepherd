@@ -21,7 +21,6 @@ namespace Helpers
     {
         if (! v.hasProperty (IDs::uuid))
             v.setProperty (IDs::uuid, juce::Uuid().toString(), nullptr);
-
         return v;
     }
 
@@ -30,17 +29,6 @@ namespace Helpers
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
         session.setProperty (IDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
-        session.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
-        session.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
-        session.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
-        session.setProperty (IDs::countInplayheadPositionInBeats, Defaults::playheadPosition, nullptr);
-        session.setProperty (IDs::fixedLengthRecordingBars, Defaults::fixedLengthRecordingBars, nullptr);
-        session.setProperty (IDs::recordAutomationEnabled, Defaults::recordAutomationEnabled, nullptr);
-        session.setProperty (IDs::fixedVelocity, Defaults::fixedVelocity, nullptr);
-        session.setProperty (IDs::bpm, Defaults::bpm, nullptr);
-        session.setProperty (IDs::meter, Defaults::meter, nullptr);
-        session.setProperty (IDs::barCount, Defaults::barCount, nullptr);
-        session.setProperty (IDs::metronomeOn, Defaults::metronomeOn, nullptr);
         
         for (int tn = 0; tn < 8; ++tn)
         {
@@ -48,8 +36,6 @@ namespace Helpers
             const juce::String trackName ("Track " + juce::String (tn + 1));
             Helpers::createUuidProperty (t);
             t.setProperty (IDs::name, trackName, nullptr);
-            t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
-            t.setProperty (IDs::nClips, Defaults::nClips, nullptr);
             if (tn < availableHardwareDeviceNames.size()){
                 t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
             } else {
@@ -60,13 +46,40 @@ namespace Helpers
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
                 c.setProperty (IDs::name, trackName + ", Clip " + juce::String (cn + 1), nullptr);
-                c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 t.addChild (c, -1, nullptr);
             }
             session.addChild (t, -1, nullptr);
         }
 
         return session;
+    }
+
+    inline juce::ValueTree midiMessageToSequenceEventValueTree(juce::MidiMessage msg)
+    {
+        juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
+        Helpers::createUuidProperty (sequenceEvent);
+        sequenceEvent.setProperty(IDs::type, "midi", nullptr);
+        sequenceEvent.setProperty(IDs::timestamp, msg.getTimeStamp(), nullptr);
+        juce::StringArray bytes = {};
+        // Only support 3-byte MIDI messages so far
+        jassert(msg.getRawDataSize() == 3);
+        for (int i=0; i<msg.getRawDataSize(); i++){
+            bytes.add(juce::String(msg.getRawData()[i]));
+        }
+        sequenceEvent.setProperty(IDs::eventMidiBytes, bytes.joinIntoString(","), nullptr);
+        return sequenceEvent;
+    }
+
+    inline juce::MidiMessage eventValueTreeToMidiMessage(juce::ValueTree& sequenceEvent)
+    {
+        juce::String bytesString = sequenceEvent.getProperty(IDs::eventMidiBytes, Defaults::eventMidiBytes);
+        juce::StringArray bytes;
+        bytes.addTokens(bytesString, ",", "");
+        // Only support 3-byte MIDI messages so far
+        jassert(bytes.size() == 3);
+        juce::MidiMessage msg = juce::MidiMessage(bytes[0].getIntValue(), bytes[1].getIntValue(), bytes[2].getIntValue());
+        msg.setTimeStamp(sequenceEvent.getProperty(IDs::timestamp, Defaults::timestamp));
+        return msg;
     }
 
 }

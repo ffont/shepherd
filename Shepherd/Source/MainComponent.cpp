@@ -704,7 +704,7 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 //==============================================================================
 void MainComponent::timerCallback()
 {
-    //std::cout << state.toXmlString() << std::endl;
+    std::cout << state.toXmlString() << std::endl;
     // If prepareToPlay has been called, we can now initializeTracks
     
     // Things that need periodic checks
@@ -1022,7 +1022,6 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             stateAsStringParts.add(juce::String(recordAutomationEnabled ? "1":"0"));
             stateAsStringParts.add(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
             
-            
             juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_STATE_FROM_SHEPHERD);
             returnMessage.addString(stateAsStringParts.joinIntoString(","));
             sendOscMessage(returnMessage);
@@ -1051,6 +1050,9 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
 
 void MainComponent::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
+    // We should not update state variables from the realtime thread because this will trigger calls to this function which might not be RT safe...
+    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+    //std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
 }
 
 void MainComponent::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)

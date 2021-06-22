@@ -11,12 +11,14 @@
 #pragma once
 
 #include <JuceHeader.h>
-
+#include "helpers.h"
 
 class Playhead
 {
 public:
-    Playhead(std::function<juce::Range<double>()> parentSliceGetter);
+    Playhead(const juce::ValueTree& state, std::function<juce::Range<double>()> parentSliceGetter);
+    void bindState();
+    juce::ValueTree state;
 
     void playNow();
     void playNow(double sliceOffset);
@@ -44,8 +46,9 @@ public:
 
 private:
     juce::Range<double> currentSlice { 0.0, 0.0 };
-    bool playing = false;
+    juce::CachedValue<double> playheadPositionInBeats;  // Used only so that current position is somehow stored in the state
+    juce::CachedValue<bool> playing;
+    juce::CachedValue<double> willPlayAt;
+    juce::CachedValue<double> willStopAt;
     bool hasJustStoppedFlag = false;
-    double willPlayAt = -1.0;
-    double willStopAt = -1.0;
 };
