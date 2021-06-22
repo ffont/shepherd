@@ -27,6 +27,7 @@ Clip::Clip(const juce::ValueTree& _state,
     playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
     sequenceEvents = std::make_unique<SequenceEventList>(state);
     
+    /*
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
     // This makes testing quicker
@@ -49,6 +50,7 @@ Clip::Clip(const juce::ValueTree& _state,
         }
     }
     #endif
+     */
     
     recreateMidiSequenceFromState();
 }
@@ -87,7 +89,6 @@ void Clip::recreateMidiSequenceFromState()
     if (sequenceEvents->hasUnappliedChanges){
         midiSequence.clear();
         for (auto event: sequenceEvents->objects){
-            std::cout << event->state.toXmlString() << " " << Helpers::eventValueTreeToMidiMessage(event->state).getDescription() << std::endl;
             midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(event->state));
         }
         sequenceEvents->hasUnappliedChanges = false;

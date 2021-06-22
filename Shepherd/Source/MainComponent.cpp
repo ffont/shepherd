@@ -65,6 +65,8 @@ MainComponent::MainComponent()
     // Create tracks
     initializeTracks();
     
+    // loadSessionFromFile("20210622 unnamed");
+    
     // Send OSC message to frontend indiating that Shepherd is ready to rock
     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
     sendOscMessage(message);
@@ -92,6 +94,26 @@ void MainComponent::bindState()
     if (musicalContext != nullptr){
         musicalContext->bindState();
     }
+}
+
+void MainComponent::saveCurrentSession()
+{
+    juce::File saveOutputFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + state.getProperty(IDs::name).toString()).withFileExtension("xml");
+    if (auto xml = std::unique_ptr<juce::XmlElement> (state.createXml()))
+        xml->writeTo(saveOutputFile);
+}
+
+void MainComponent::loadSessionFromFile(juce::String sessionName)
+{
+    // TODO: This should be run when the RT thread is not trying to access state or objects, we should use some sort of flag
+    juce::File filePath = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + sessionName).withFileExtension("xml");
+    if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (filePath))){
+        juce::ValueTree loadedState = juce::ValueTree::fromXml (*xml);
+        // TODO: remove things like playhead positions, play/recording state and other things which are "voaltile"
+        state = loadedState;
+        bindState();
+    }
+    initializeTracks();
 }
 
 void MainComponent::initializeOSC()
@@ -704,7 +726,7 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 //==============================================================================
 void MainComponent::timerCallback()
 {
-    std::cout << state.toXmlString() << std::endl;
+    //std::cout << state.toXmlString() << std::endl;
     // If prepareToPlay has been called, we can now initializeTracks
     
     // Things that need periodic checks

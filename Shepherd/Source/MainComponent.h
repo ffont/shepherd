@@ -55,6 +55,10 @@ private:
     
     bool mainComponentInitialized = false;
     
+    // Save/load
+    void saveCurrentSession();
+    void loadSessionFromFile(juce::String fileName);
+    
     // OSC
     void initializeOSC();
     void oscMessageReceived (const juce::OSCMessage& message) override;
