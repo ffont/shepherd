@@ -56,6 +56,10 @@ public:
     bool inputMonitoringEnabled();
     
     void setInputMonitoring(bool enabled);
+    
+    void clearLastSliceMidiBuffer();
+    juce::MidiBuffer* getLastSliceMidiBuffer();
+    void writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
 
 private:
     
@@ -64,6 +68,8 @@ private:
     juce::CachedValue<bool> inputMonitoring;
     
     HardwareDevice* device = nullptr;
+    
+    juce::MidiBuffer lastSliceMidiBuffer;
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;

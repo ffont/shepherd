@@ -110,16 +110,11 @@ int Track::getNumberOfClips()
 void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
 {
     if (inputMonitoringEnabled()){
-        juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
-        if (bufferToFill == nullptr){
-            // If no buffer to fill could be found, no need to further process this track for input monitoring
-            return;
-        }
         for (const auto metadata : incommingBuffer)
         {
             auto msg = metadata.getMessage();
             msg.setChannel(getMidiOutputChannel());
-            bufferToFill->addEvent(msg, metadata.samplePosition);
+            lastSliceMidiBuffer.addEvent(msg, metadata.samplePosition);
             
             // If message is of type controller, also update the internal stored state of the controller
             if (msg.isController()){
@@ -133,17 +128,15 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
 
 void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
-    juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
     for (auto clip: clips->objects){
-        clip->processSlice(incommingBuffer, bufferToFill, lastMidiNoteOnMessages);
+        clip->processSlice(incommingBuffer, &lastSliceMidiBuffer, lastMidiNoteOnMessages);
     }
 }
 
 void Track::clipsRenderRemainingNoteOffsIntoMidiBuffer()
 {
-    juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBufferIfDevice();
     for (auto clip: clips->objects){
-        clip->renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
+        clip->renderRemainingNoteOffsIntoMidiBuffer(&lastSliceMidiBuffer);
     }
 }
 
@@ -252,4 +245,22 @@ bool Track::inputMonitoringEnabled()
 void Track::setInputMonitoring(bool enabled)
 {
     inputMonitoring = enabled;
+}
+
+void Track::clearLastSliceMidiBuffer()
+{
+    lastSliceMidiBuffer.clear();
+}
+
+juce::MidiBuffer* Track::getLastSliceMidiBuffer()
+{
+    return &lastSliceMidiBuffer;
+}
+
+void Track::writeLastSliceMidiBufferToHardwareDeviceMidiBuffer()
+{
+    juce::MidiBuffer* hardwareDeviceMidiBuffer = getMidiOutputDeviceBufferIfDevice();
+    if (hardwareDeviceMidiBuffer != nullptr){
+        hardwareDeviceMidiBuffer->addEvents(lastSliceMidiBuffer, 0, getGlobalSettings().samplesPerSlice, 0);
+    }
 }

@@ -27,7 +27,6 @@ Clip::Clip(const juce::ValueTree& _state,
     playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
     sequenceEvents = std::make_unique<SequenceEventList>(state);
     
-    /*
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
     // This makes testing quicker
@@ -50,7 +49,6 @@ Clip::Clip(const juce::ValueTree& _state,
         }
     }
     #endif
-     */
     
     recreateMidiSequenceFromState();
 }

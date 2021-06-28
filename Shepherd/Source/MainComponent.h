@@ -56,7 +56,7 @@ private:
     bool mainComponentInitialized = false;
     
     // Save/load
-    void saveCurrentSession();
+    void saveCurrentSessionToFile();
     void loadSessionFromFile(juce::String fileName);
     
     // OSC
@@ -87,6 +87,7 @@ private:
     juce::MidiOutput* getMidiOutputDevice(juce::String deviceName);
     juce::MidiBuffer* getMidiOutputDeviceBuffer(juce::String deviceName);
     void clearMidiDeviceOutputBuffers();
+    void clearMidiTrackBuffers();
     void sendMidiDeviceOutputBuffers();
     void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames);
     std::unique_ptr<juce::MidiOutput> notesMonitoringMidiOutput;
@@ -96,6 +97,15 @@ private:
     std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
     int lastMidiNoteOnMessagesToStore = 20;
     juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
+    
+    // Aux MIDI buffers
+    juce::MidiBuffer midiClockMessages;
+    juce::MidiBuffer midiMetronomeMessages;
+    juce::MidiBuffer pushMidiClockMessages;
+    juce::MidiBuffer incomingMidi;
+    juce::MidiBuffer incomingMidiKeys;
+    juce::MidiBuffer incomingMidiPush;
+    juce::MidiBuffer monitoringNotesMidiBuffer;
     
     // Hardware devices
     juce::OwnedArray<HardwareDevice> hardwareDevices;
@@ -130,7 +140,6 @@ private:
     void initializeTracks();
     std::unique_ptr<TrackList> tracks;
     int activeUiNotesMonitoringTrack = -1;
-    juce::MidiBuffer monitoringNotesMidiBuffer;
     
     // Scenes
     void playScene(int sceneN);

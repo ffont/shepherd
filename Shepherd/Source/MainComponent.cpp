@@ -65,8 +65,6 @@ MainComponent::MainComponent()
     // Create tracks
     initializeTracks();
     
-    // loadSessionFromFile("20210622 unnamed");
-    
     // Send OSC message to frontend indiating that Shepherd is ready to rock
     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
     sendOscMessage(message);
@@ -96,7 +94,7 @@ void MainComponent::bindState()
     }
 }
 
-void MainComponent::saveCurrentSession()
+void MainComponent::saveCurrentSessionToFile()
 {
     juce::File saveOutputFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + state.getProperty(IDs::name).toString()).withFileExtension("xml");
     if (auto xml = std::unique_ptr<juce::XmlElement> (state.createXml()))
@@ -105,7 +103,7 @@ void MainComponent::saveCurrentSession()
 
 void MainComponent::loadSessionFromFile(juce::String sessionName)
 {
-    // TODO: This should be run when the RT thread is not trying to access state or objects, we should use some sort of flag
+    // TODO: This should be run when the RT thread is not trying to access state or objects, we should use some sort of flag to prevent that
     juce::File filePath = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + sessionName).withFileExtension("xml");
     if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (filePath))){
         juce::ValueTree loadedState = juce::ValueTree::fromXml (*xml);
@@ -295,6 +293,13 @@ void MainComponent::clearMidiDeviceOutputBuffers()
     }
 }
 
+void MainComponent::clearMidiTrackBuffers()
+{
+    for (auto track: tracks->objects){
+        track->clearLastSliceMidiBuffer();
+    }
+}
+
 void MainComponent::sendMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
@@ -307,7 +312,9 @@ void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::
     for (auto deviceName: midiOutDeviceNames){
         auto bufferToWrite = getMidiOutputDeviceBuffer(deviceName);
         if (bufferToWrite != nullptr){
-            bufferToWrite->addEvents(buffer, 0, samplesPerSlice, 0);
+            if (buffer.getNumEvents() > 0){
+                bufferToWrite->addEvents(buffer, 0, samplesPerSlice, 0);
+            }
         }
     }
 }
@@ -423,23 +430,47 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
     sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
 }
 
+/** Process each audio block (in our case, we call it "slice" and only process MIDI data), ask each track to provide notes to be triggered during that slice, handle MIDI input and global playhead transport.
+    @param bufferToFill                  JUCE's AudioSourceChannelInfo reference of audio buffer to fill (we don't use that as we don't genrate audio)
+ 
+ The implementation of this method is
+ struecutred as follows:
+ 
+ 1) 
+ 
+ See comments in the implementation for more details about each step.
+ 
+*/
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
 {
-    // Clear audio buffers
+    // 1) -------------------------------------------------------------------------------------------------
+    
     bufferToFill.clearActiveBufferRegion();
+    int sliceNumSamples = bufferToFill.numSamples;
+    
+    // 2) -------------------------------------------------------------------------------------------------
     
     if (!mainComponentInitialized){
-        // If main component is not yet fully initialized, don't process further
+        // If main component is not yet fully initialized, don't process further as below we might be
+        // referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
         return;
     }
     
-    // Clear midi output buffers
-    clearMidiDeviceOutputBuffers();
+    // 3) -------------------------------------------------------------------------------------------------
     
-    // Prepare some buffers to add messages to them
-    juce::MidiBuffer midiClockMessages;
-    juce::MidiBuffer midiMetronomeMessages;
-    juce::MidiBuffer pushMidiClockMessages;
+    // TODO: is it RT safe to create the buffers here?
+    // Is there a way to pre-allocate some size for the buffers so writing to them is RT safe?
+    clearMidiDeviceOutputBuffers();
+    clearMidiTrackBuffers();
+    midiClockMessages.clear();
+    midiMetronomeMessages.clear();
+    pushMidiClockMessages.clear();
+    incomingMidi.clear();
+    incomingMidiKeys.clear();
+    incomingMidiPush.clear();
+    monitoringNotesMidiBuffer.clear();
+    
+    // 4) -------------------------------------------------------------------------------------------------
     
     // Check if tempo/meter should be updated
     if (nextBpm > 0.0){
@@ -451,11 +482,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         musicalContext->setMeter(nextMeter);
         nextMeter = 0;
     }
-    double bufferLengthInBeats = bufferToFill.numSamples / (60.0 * sampleRate / musicalContext->getBpm());
+    double sliceLengthInBeats = sliceNumSamples / (60.0 * sampleRate / musicalContext->getBpm());
     
-    // Check if count-in finished and global playhead should be toggled
+    // Check if count-in finished and global's playhead "is playing" state should be toggled
     if (!isPlaying && doingCountIn){
-        if (musicalContext->getMeter() >= countInplayheadPositionInBeats && musicalContext->getMeter() < countInplayheadPositionInBeats + bufferLengthInBeats){
+        if (musicalContext->getMeter() >= countInplayheadPositionInBeats && musicalContext->getMeter() < countInplayheadPositionInBeats + sliceLengthInBeats){
             // Count in finishes in the current getNextAudioBlock execution
             playheadPositionInBeats = -(musicalContext->getMeter() - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
             shouldToggleIsPlaying = true;
@@ -464,14 +495,17 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         }
     }
     
+    // 5) -------------------------------------------------------------------------------------------------
+    
+    // Update musical context bar counter
+    // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
+    musicalContext->updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + sliceLengthInBeats});
+    
+    // 6) -------------------------------------------------------------------------------------------------
+    
     // Collect messages from MIDI input (keys and push)
-    juce::MidiBuffer incomingMidi;
-
-    juce::MidiBuffer incomingMidiKeys;
-    midiInCollector.removeNextBlockOfMessages (incomingMidiKeys, bufferToFill.numSamples);
-
-    juce::MidiBuffer incomingMidiPush;
-    pushMidiInCollector.removeNextBlockOfMessages (incomingMidiPush, bufferToFill.numSamples);
+    midiInCollector.removeNextBlockOfMessages (incomingMidiKeys, sliceNumSamples);
+    pushMidiInCollector.removeNextBlockOfMessages (incomingMidiPush, sliceNumSamples);
 
     // Process keys MIDI input and add it to combined incomming buffer
     for (const auto metadata : incomingMidiKeys)
@@ -483,22 +517,21 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         incomingMidi.addEvent(msg, metadata.samplePosition);
         
         if (msg.isNoteOn()){
-            // Store message in the list of last note on messages and set its timestamp to the global playhead position
+            // Store message in the "list of last played notes" and set its timestamp to the global playhead position
             juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
             if (doingCountIn){
-                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext->getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
             } else {
-                msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
             }
             lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
         }
     }
 
-    // Process push MIDI input and add it to combined incomming buffer
+    // Process push MIDI input and add it to combined incomming buffer transforming input message using MIDI message mappings if required
     for (const auto metadata : incomingMidiPush)
     {
         auto msg = metadata.getMessage();
-        
         if (msg.isController() && msg.getControllerNumber() == MIDI_SUSTAIN_PEDAL_CC){
             // If sustain pedal, we always pass it to the output as is
             incomingMidi.addEvent(msg, metadata.samplePosition);
@@ -511,7 +544,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         } else if (msg.isNoteOnOrOff() || msg.isAftertouch() || msg.isChannelPressure()){
             if (msg.getNoteNumber() >= 36 && msg.getNoteNumber() <= 99){
                 // If midi message is a note on/off, aftertouch or channel pressure from one of the 64 pads, check if there's any mapping active
-                // and use it (or discard the message).
+                // and use it (or discard the message). This is because push always sends the same MIDI note numbers for the pads, but we want
+                // to interpret these as different notes depending on Shepherd settings like current octave, MIDi root note or even note layout.
                 int mappedNote = pushPadsNoteMapping[msg.getNoteNumber()-36];
                 if (mappedNote > -1){
                     msg.setNoteNumber(mappedNote);
@@ -519,14 +553,13 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                         msg.setVelocity((float)fixedVelocity/127.0f);
                     }
                     incomingMidi.addEvent(msg, metadata.samplePosition);
-                    
                     if (msg.isNoteOn()){
                         // Store message in the list of last note on messages and set its timestamp to the global playhead position
                         juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
                         if (doingCountIn){
-                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext->getMeter() + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
                         } else {
-                            msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/bufferToFill.numSamples * bufferLengthInBeats);
+                            msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
                         }
                         lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
                     }
@@ -535,8 +568,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             
         } else if (msg.isController()){
             if (msg.getControllerNumber() >= 71 && msg.getControllerNumber() <= 78){
-                // If midi message is a control change from one of the 8 encoders above the display, check if there's any mapping active
-                // and use it (or discard the message).
+                // If MIDI message is a control change from one of the 8 encoders above the display, check if there's any mapping active
+                // and use it (or discard the message). This is because push always sends the same MIDI CC numbers for the encoders above
+                // the display, but we might want to interpret them as different CCs depending on Shepherd settings like current selected
+                // page of MIDI parameters.
                 if (pushEncodersCCMappingHardwareDeviceShortName != ""){
                     auto device = getHardwareDeviceByName(pushEncodersCCMappingHardwareDeviceShortName);
                     if (device != nullptr){
@@ -560,7 +595,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                             newMsg.setTimeStamp (msg.getTimeStamp());
                             incomingMidi.addEvent(newMsg, metadata.samplePosition);
                             
-                            // Store value and notify the controller about the cc change so it can show updated value information
+                            // Store value and notify the controller about the CC change so it can show updated value information
                             device->setMidiCCParameterValue(mappedCCNumber, newValue, true);
                         }
                     }
@@ -569,16 +604,24 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         }
     }
     
-    // Remove old messages from lastMidiNoteOnMessages if capacity is exceeded
+    // Remove old messages from lastMidiNoteOnMessages if the capacity of the buffer is exceeded
     if (lastMidiNoteOnMessages.size() > lastMidiNoteOnMessagesToStore){
         for (int i=0; i<lastMidiNoteOnMessagesToStore-lastMidiNoteOnMessages.size(); i++){
             lastMidiNoteOnMessages.pop_back();
         }
     }
     
+    // Send incoming MIDI buffer to each track so notes are forwarded to corresponding devices if input monitoring is enabled
+    for (auto track: tracks->objects){
+        track->processInputMonitoring(incomingMidi);
+    }
+    
+    // 7) -------------------------------------------------------------------------------------------------
+    
     // Check if global playhead should be start/stopped
     if (shouldToggleIsPlaying){
         if (isPlaying){
+            // If global playhead is playing but it should be toggled, stop all tracks/clips and reset playhead and musical context
             for (auto track: tracks->objects){
                 track->clipsRenderRemainingNoteOffsIntoMidiBuffer();
                 track->stopAllPlayingClips(true, true, true);
@@ -588,6 +631,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             musicalContext->resetCounters();
             musicalContext->renderMidiStopInSlice(midiClockMessages);
         } else {
+            // If global playhead is stopped but it should be toggled, set all tracks/clips to the start position and toggle to play
+            // Also send MIDI start message for devices syncing to MIDI clock
             for (auto track: tracks->objects){
                 track->clipsResetPlayheadPosition();
             }
@@ -597,31 +642,33 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         shouldToggleIsPlaying = false;
     }
     
-    // Copy incoming midi to generated midi buffer for tracks that have input monitoring enabled
-    for (auto track: tracks->objects){
-        track->processInputMonitoring(incomingMidi);
-    }
+    // 8) -------------------------------------------------------------------------------------------------
     
-    // Generate notes and/or record notes
+    // Process the current slice in each track: trigger playing clip's notes and record incomming MIDI if recording
     if (isPlaying){
         for (auto track: tracks->objects){
             track->clipsProcessSlice(incomingMidi, lastMidiNoteOnMessages);
         }
     }
     
-    // TODO: do MIDI FX processing of the generatedMidi buffer per track/clip
+    // 9) -------------------------------------------------------------------------------------------------
     
-    // Update musical context bar counter
-    // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
-    musicalContext->updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + bufferLengthInBeats});
+    // Add generated MIDI buffers per track to the correspodning hardware device output
+    for (auto track: tracks->objects){
+        track->writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
+    }
     
-    // Render metronome in generated midi
+    // 10) -------------------------------------------------------------------------------------------------
+    
+    // Render metronome and clock MIDI messages in MIDI clock and metronome buffers
     musicalContext->renderMetronomeInSlice(midiMetronomeMessages);
     if (sendMidiClock){
         musicalContext->renderMidiClockInSlice(midiClockMessages);
     }
     
-    // Render clock in push midi buffer if required (and playing)
+    // Render MIDI clock messages in Push's MIDI buffer
+    // To sync Shepherd tempo with Push's button/pad animation tempo, a number of MIDI clock messages wrapped by a start and a stop
+    // message should be sent.
     if ((shouldStartSendingPushMidiClockBurst) && (isPlaying)){
         lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
         shouldStartSendingPushMidiClockBurst = false;
@@ -630,30 +677,33 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     if (lastTimePushMidiClockBurstStarted > -1.0){
         double timeNow = juce::Time::getCurrentTime().toMilliseconds();
         if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
-            pushMidiClockMessages.addEvents(midiClockMessages, 0, bufferToFill.numSamples, 0);
+            pushMidiClockMessages.addEvents(midiClockMessages, 0, sliceNumSamples, 0);
         } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
             musicalContext->renderMidiStopInSlice(pushMidiClockMessages);
             lastTimePushMidiClockBurstStarted = -1.0;
         }
     }
     
-    // Add metronome and midi clock messages to the corresponding buffers (also push midi clock messages)
+    // Add metronome and MIDI clock messages to the corresponding hardware device buffers according to settings
+    // Also send MIDI clock message to push
     writeMidiToDevicesMidiBuffer(midiClockMessages, sendMidiClockMidiDeviceNames);
     writeMidiToDevicesMidiBuffer(midiMetronomeMessages, sendMetronomeMidiDeviceNames);
-    if (pushMidiClockMessages.getNumEvents() > 0){
-        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
-    }
-
-    // Send the generated MIDI buffers to the outputs
+    writeMidiToDevicesMidiBuffer(pushMidiClockMessages, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
+    
+    // 11) -------------------------------------------------------------------------------------------------
+    
+    // Send the actual messages added to each hardware device's MIDI buffer
     sendMidiDeviceOutputBuffers();
     
+    // 12) -------------------------------------------------------------------------------------------------
+    
     // Send monitred track notes to the notes output (if any selected)
+    // This is used by the Shepherd Controller to show feedback about notes being currently played
     if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack >= 0) && (activeUiNotesMonitoringTrack < tracks->objects.size())){
-        monitoringNotesMidiBuffer.clear();
         auto track = tracks->objects[activeUiNotesMonitoringTrack];
-        auto buffer = getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
-        // TODO: send only current track buffer, not all contents of the device...
-        // Maybe always store last buffer computer for a track in the track object
+        auto buffer = track->getLastSliceMidiBuffer();//  getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
+        // TODO: send only the events generated by the selected track, not all the events in the buffer of the hardware device of the track
+        // To do that, we should always store the computed MIDI buffers at the track level
         if (buffer != nullptr){
             for (auto event: *buffer){
                 auto msg = event.getMessage();
@@ -665,24 +715,28 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         }
     }
     
+    // 13) -------------------------------------------------------------------------------------------------
+    
     #if !RPI_BUILD
     if (renderWithInternalSynth){
-        // Render the generated MIDI buffers with the sine synth for quick testing
-        // First all buffers are combined into a single buffer which is then sent to the synth
+        // Render the generated MIDI buffers with the sine synth for debugging purposes
+        // All buffers are combined into a single buffer which is then sent to the synth
         juce::MidiBuffer combinedBuffer;
         for (auto deviceData: midiOutDevices){
-            combinedBuffer.addEvents(deviceData->buffer, 0, bufferToFill.numSamples, 0);
+            combinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
         }
-        sineSynth.renderNextBlock (*bufferToFill.buffer, combinedBuffer, bufferToFill.startSample, bufferToFill.numSamples);
+        sineSynth.renderNextBlock (*bufferToFill.buffer, combinedBuffer, bufferToFill.startSample, sliceNumSamples);
     }
     #endif
     
-    // Update playhead positions
+    // 14) -------------------------------------------------------------------------------------------------
+    
+    // Update playhead position if global playhead is playing
     if (isPlaying){
-        playheadPositionInBeats = playheadPositionInBeats + bufferLengthInBeats;
+        playheadPositionInBeats = playheadPositionInBeats + sliceLengthInBeats;
     } else {
         if (doingCountIn) {
-            countInplayheadPositionInBeats = countInplayheadPositionInBeats + bufferLengthInBeats;
+            countInplayheadPositionInBeats = countInplayheadPositionInBeats + sliceLengthInBeats;
         }
     }
 }
@@ -727,9 +781,9 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 void MainComponent::timerCallback()
 {
     //std::cout << state.toXmlString() << std::endl;
-    // If prepareToPlay has been called, we can now initializeTracks
     
-    // Things that need periodic checks
+    // Carry out actions that should be done periodically
+    
     if (!midiInIsConnected || !midiInPushIsConnected ){
         if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInputInitializationAttempted > 2000){
             // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
@@ -1072,23 +1126,31 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
 
 void MainComponent::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
-    // We should not update state variables from the realtime thread because this will trigger calls to this function which might not be RT safe...
+    // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     //std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
 }
 
 void MainComponent::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
 {
+    // We should never call this function from the realtime thread because editing VT might not be RT safe...
+    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
 void MainComponent::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
 {
+    // We should never call this function from the realtime thread because editing VT might not be RT safe...
+    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
 void MainComponent::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)
 {
+    // We should never call this function from the realtime thread because editing VT might not be RT safe...
+    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
 void MainComponent::valueTreeParentChanged (juce::ValueTree& treeWhoseParentHasChanged)
 {
+    // We should never call this function from the realtime thread because editing VT might not be RT safe...
+    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
