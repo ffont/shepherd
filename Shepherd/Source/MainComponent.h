@@ -118,10 +118,6 @@ private:
     int samplesPerSlice = 0;
     bool shouldToggleIsPlaying = false;
     juce::CachedValue<juce::String> name;
-    juce::CachedValue<double> playheadPositionInBeats;
-    juce::CachedValue<bool> isPlaying;
-    juce::CachedValue<bool> doingCountIn;
-    juce::CachedValue<double> countInplayheadPositionInBeats;
     juce::CachedValue<int> fixedLengthRecordingBars;
     juce::CachedValue<bool> recordAutomationEnabled;
     juce::CachedValue<int> fixedVelocity;

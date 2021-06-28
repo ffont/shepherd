@@ -19,6 +19,10 @@ MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSetti
 void MusicalContext::bindState()
 {
     // Bind cached values to state
+    playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    isPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
+    doingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
+    countInPlayheadPositionInBeats.referTo(state, IDs::countInPlayheadPositionInBeats, nullptr, Defaults::playheadPosition);
     bpm.referTo(state, IDs::bpm, nullptr, Defaults::bpm);
     meter.referTo(state, IDs::meter, nullptr, Defaults::meter);
     barCount.referTo(state, IDs::barCount, nullptr, Defaults::barCount);
@@ -29,7 +33,7 @@ void MusicalContext::bindState()
 
 double MusicalContext::getNextQuantizedBarPosition()
 {
-    if (getGlobalSettings().playheadPositionInBeats == 0.0){
+    if (playheadPositionInBeats == 0.0){
          // Edge case in which global playhead is stopped
         return 0.0;
     } else {
@@ -37,7 +41,53 @@ double MusicalContext::getNextQuantizedBarPosition()
     }
 }
 
+double MusicalContext::getSliceLengthInBeats()
+{
+    return (double)getGlobalSettings().samplesPerSlice / (60.0 * getGlobalSettings().sampleRate / bpm);
+}
+
+
 //==============================================================================
+
+double MusicalContext::getPlayheadPositionInBeats()
+{
+    return playheadPositionInBeats;
+}
+
+void MusicalContext::setPlayheadPosition(double newPosition)
+{
+    playheadPositionInBeats = newPosition;
+}
+
+bool MusicalContext::playheadIsPlaying()
+{
+    return isPlaying;
+}
+
+void MusicalContext::setPlayheadIsPlaying(bool onOff)
+{
+    isPlaying = onOff;
+}
+
+bool MusicalContext::playheadIsDoingCountIn()
+{
+    return doingCountIn;
+}
+
+void MusicalContext::setPlayheadIsDoingCountIn(bool onOff)
+{
+    doingCountIn = onOff;
+}
+
+double MusicalContext::getCountInPlayheadPositionInBeats()
+{
+    return countInPlayheadPositionInBeats;
+}
+
+void MusicalContext::setCountInPlayheadPosition(double newPosition)
+{
+    countInPlayheadPositionInBeats = newPosition;
+}
 
 void MusicalContext::setMeter(int newMeter)
 {
@@ -108,7 +158,7 @@ int MusicalContext::getBarCount()
 double MusicalContext::getBeatsInBarCount()
 {
     // Don't use this for any serious check as there might be some innacuracies in this count
-    return getGlobalSettings().playheadPositionInBeats - lastBarCountedPlayheadPosition;
+    return playheadPositionInBeats - lastBarCountedPlayheadPosition;
 }
 
 
@@ -127,9 +177,9 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill)
         #endif
         metronomePendingNoteOffSamplePosition = -1;
     }
-    if ((metronomeOn && getGlobalSettings().isPlaying) || getGlobalSettings().doingCountIn) {
+    if ((metronomeOn && isPlaying) || doingCountIn) {
         
-        double previousBeat = getGlobalSettings().isPlaying ? getGlobalSettings().playheadPositionInBeats : getGlobalSettings().countInplayheadPositionInBeats;
+        double previousBeat = isPlaying ? playheadPositionInBeats : countInPlayheadPositionInBeats;
         double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
         for (int i=0; i<getGlobalSettings().samplesPerSlice; i++){
             
@@ -172,8 +222,8 @@ void MusicalContext::renderMetronomeInSlice(juce::MidiBuffer& bufferToFill)
 void MusicalContext::renderMidiClockInSlice(juce::MidiBuffer& bufferToFill)
 {
     // Addd 24 ticks per beat
-    if (getGlobalSettings().isPlaying){
-        double previousBeat = getGlobalSettings().playheadPositionInBeats;
+    if (isPlaying){
+        double previousBeat = playheadPositionInBeats;
         double beatsPerSample = 1.0 / (60.0 * getGlobalSettings().sampleRate / getBpm());
         for (int i=0; i<getGlobalSettings().samplesPerSlice; i++){
             double nextBeat = previousBeat + beatsPerSample;

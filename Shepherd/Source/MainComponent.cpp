@@ -31,7 +31,7 @@ MainComponent::MainComponent()
     if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
         sendMidiClockMidiDeviceNames = {DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME};
     }
-    if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
+    if (juce::String(DEFAULT_MIDI_OUT_DEVICE_NAME).length() > 0){
         sendMetronomeMidiDeviceNames = {DEFAULT_MIDI_OUT_DEVICE_NAME};
     }
     
@@ -81,10 +81,6 @@ void MainComponent::bindState()
     state.addListener(this);
     
     name.referTo(state, IDs::name, nullptr, Defaults::name);
-    playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
-    isPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
-    doingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
-    countInplayheadPositionInBeats.referTo(state, IDs::countInplayheadPositionInBeats, nullptr, Defaults::playheadPosition);
     fixedLengthRecordingBars.referTo(state, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
     recordAutomationEnabled.referTo(state, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
@@ -401,7 +397,7 @@ void MainComponent::initializeTracks()
     // Create some tracks according to state
     tracks = std::make_unique<TrackList>(state,
                                          [this]{
-                                             return juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + (double)samplesPerSlice / (60.0 * sampleRate / musicalContext->getBpm())};
+                                             return juce::Range<double>{musicalContext->getPlayheadPositionInBeats(), musicalContext->getPlayheadPositionInBeats() + musicalContext->getSliceLengthInBeats()};
                                          },
                                          [this]{
                                              return getGlobalSettings();
@@ -505,24 +501,24 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         musicalContext->setMeter(nextMeter);
         nextMeter = 0;
     }
-    double sliceLengthInBeats = sliceNumSamples / (60.0 * sampleRate / musicalContext->getBpm());
+    double sliceLengthInBeats = musicalContext->getSliceLengthInBeats();
     
     // Check if count-in finished and global's playhead "is playing" state should be toggled
-    if (!isPlaying && doingCountIn){
-        if (musicalContext->getMeter() >= countInplayheadPositionInBeats && musicalContext->getMeter() < countInplayheadPositionInBeats + sliceLengthInBeats){
+    if (!musicalContext->playheadIsPlaying() && musicalContext->playheadIsDoingCountIn()){
+        if (musicalContext->getMeter() >= musicalContext->getCountInPlayheadPositionInBeats() && musicalContext->getMeter() < musicalContext->getCountInPlayheadPositionInBeats() + sliceLengthInBeats){
             // Count in finishes in the current slice (getNextAudioBlock)
             // Align global playhead position with coutin buffer offset so that it starts at correct offset
-            playheadPositionInBeats = -(musicalContext->getMeter() - countInplayheadPositionInBeats);
+            musicalContext->setPlayheadPosition(-(musicalContext->getMeter() - musicalContext->getCountInPlayheadPositionInBeats()));
             shouldToggleIsPlaying = true;
-            doingCountIn = false;
-            countInplayheadPositionInBeats = 0.0;
+            musicalContext->setPlayheadIsDoingCountIn(false);
+            musicalContext->setCountInPlayheadPosition(0.0);
         }
     }
     
     // 5) -------------------------------------------------------------------------------------------------
     
     // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome "high tone" is played when bar changes
-    musicalContext->updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + sliceLengthInBeats});
+    musicalContext->updateBarsCounter(juce::Range<double>{musicalContext->getPlayheadPositionInBeats(), musicalContext->getPlayheadPositionInBeats() + sliceLengthInBeats});
     
     // 6) -------------------------------------------------------------------------------------------------
     
@@ -542,10 +538,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         if (msg.isNoteOn()){
             // Store message in the "list of last played notes" and set its timestamp to the global playhead position
             juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
-            if (doingCountIn){
-                msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
+            if (musicalContext->playheadIsDoingCountIn()){
+                msgToStoreInQueue.setTimeStamp(musicalContext->getCountInPlayheadPositionInBeats() - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
             } else {
-                msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
+                msgToStoreInQueue.setTimeStamp(musicalContext->getPlayheadPositionInBeats() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
             }
             lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
         }
@@ -579,10 +575,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
                     if (msg.isNoteOn()){
                         // Store message in the list of last note on messages and set its timestamp to the global playhead position
                         juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
-                        if (doingCountIn){
-                            msgToStoreInQueue.setTimeStamp(countInplayheadPositionInBeats - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
+                        if (musicalContext->playheadIsDoingCountIn()){
+                            msgToStoreInQueue.setTimeStamp(musicalContext->getCountInPlayheadPositionInBeats() - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
                         } else {
-                            msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
+                            msgToStoreInQueue.setTimeStamp(musicalContext->getPlayheadPositionInBeats() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
                         }
                         lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
                     }
@@ -642,14 +638,14 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // 7) -------------------------------------------------------------------------------------------------
     
     if (shouldToggleIsPlaying){
-        if (isPlaying){
+        if (musicalContext->playheadIsPlaying()){
             // If global playhead is playing but it should be toggled, stop all tracks/clips and reset playhead and musical context
             for (auto track: tracks->objects){
                 track->clipsRenderRemainingNoteOffsIntoMidiBuffer();
                 track->stopAllPlayingClips(true, true, true);
             }
-            isPlaying = false;
-            playheadPositionInBeats = 0.0;
+            musicalContext->setPlayheadIsPlaying(false);
+            musicalContext->setPlayheadPosition(0.0);
             musicalContext->resetCounters();
             musicalContext->renderMidiStopInSlice(midiClockMessages);
         } else {
@@ -658,7 +654,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
             for (auto track: tracks->objects){
                 track->clipsResetPlayheadPosition();
             }
-            isPlaying = true;
+            musicalContext->setPlayheadIsPlaying(true);
             musicalContext->renderMidiStartInSlice(midiClockMessages);
         }
         shouldToggleIsPlaying = false;
@@ -666,7 +662,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 8) -------------------------------------------------------------------------------------------------
     
-    if (isPlaying){
+    if (musicalContext->playheadIsPlaying()){
         for (auto track: tracks->objects){
             track->clipsProcessSlice(incomingMidi, lastMidiNoteOnMessages);
         }
@@ -687,7 +683,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // To sync Shepherd tempo with Push's button/pad animation tempo, a number of MIDI clock messages wrapped by a start and a stop
     // message should be sent to Push.
-    if ((shouldStartSendingPushMidiClockBurst) && (isPlaying)){
+    if ((shouldStartSendingPushMidiClockBurst) && (musicalContext->playheadIsPlaying())){
         lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
         shouldStartSendingPushMidiClockBurst = false;
         musicalContext->renderMidiStartInSlice(pushMidiClockMessages);
@@ -743,11 +739,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 14) -------------------------------------------------------------------------------------------------
     
-    if (isPlaying){
-        playheadPositionInBeats = playheadPositionInBeats + sliceLengthInBeats;
+    if (musicalContext->playheadIsPlaying()){
+        musicalContext->setPlayheadPosition(musicalContext->getPlayheadPositionInBeats() + sliceLengthInBeats);
     } else {
-        if (doingCountIn) {
-            countInplayheadPositionInBeats = countInplayheadPositionInBeats + sliceLengthInBeats;
+        if (musicalContext->playheadIsDoingCountIn()) {
+            musicalContext->setCountInPlayheadPosition(musicalContext->getCountInPlayheadPositionInBeats() + sliceLengthInBeats);
         }
     }
 }
@@ -780,10 +776,6 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
     settings.nScenes = nScenes;
     settings.sampleRate = sampleRate;
     settings.samplesPerSlice = samplesPerSlice;
-    settings.isPlaying = isPlaying;
-    settings.playheadPositionInBeats = playheadPositionInBeats;
-    settings.countInplayheadPositionInBeats = countInplayheadPositionInBeats;
-    settings.doingCountIn = doingCountIn;
     settings.recordAutomationEnabled = recordAutomationEnabled;
     return settings;
 }
@@ -963,7 +955,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
     } else if (address.startsWith(OSC_ADDRESS_TRANSPORT)) {
         if (address == OSC_ADDRESS_TRANSPORT_PLAY_STOP){
             jassert(message.size() == 0);
-            if (isPlaying){
+            if (musicalContext->playheadIsPlaying()){
                 // If it is playing, stop it
                 shouldToggleIsPlaying = true;
             } else{
@@ -976,7 +968,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
                     }
                 }
                 if (recordCuedClipsFound){
-                    doingCountIn = true;
+                    musicalContext->setPlayheadIsDoingCountIn(true);
                 } else {
                     shouldToggleIsPlaying = true;
                 }
@@ -990,7 +982,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         } else if (address == OSC_ADDRESS_TRANSPORT_SET_METER){
             jassert(message.size() == 1);
             int newMeter = message[0].getInt32();
-            if (newMeter > 0 && !doingCountIn){
+            if (newMeter > 0 && !musicalContext->playheadIsDoingCountIn()){
                 // Don't allow chaning meter while doing count in, this could lead to severe disaster
                 nextMeter = newMeter;
             }
@@ -1083,12 +1075,12 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             
             juce::StringArray stateAsStringParts = {};
             stateAsStringParts.add("transport");
-            stateAsStringParts.add(isPlaying ? "p":"s");
+            stateAsStringParts.add(musicalContext->playheadIsPlaying() ? "p":"s");
             stateAsStringParts.add(juce::String(musicalContext->getBpm(), 2));
-            if (doingCountIn){
-                stateAsStringParts.add(juce::String(-1 * (musicalContext->getMeter() - countInplayheadPositionInBeats), 3));
+            if (musicalContext->playheadIsDoingCountIn()){
+                stateAsStringParts.add(juce::String(-1 * (musicalContext->getMeter() - musicalContext->getCountInPlayheadPositionInBeats()), 3));
             } else {
-                stateAsStringParts.add(juce::String(playheadPositionInBeats, 3));
+                stateAsStringParts.add(juce::String(musicalContext->getPlayheadPositionInBeats(), 3));
             }
             stateAsStringParts.add(musicalContext->metronomeIsOn() ? "p":"s");
             juce::StringArray clipsPlayheadStateParts = {};

@@ -155,7 +155,7 @@ DECLARE_ID (playheadPositionInBeats)
 DECLARE_ID (isPlaying)
 DECLARE_ID (shouldToggleIsPlaying)
 DECLARE_ID (doingCountIn)
-DECLARE_ID (countInplayheadPositionInBeats)
+DECLARE_ID (countInPlayheadPositionInBeats)
 DECLARE_ID (fixedLengthRecordingBars)
 DECLARE_ID (recordAutomationEnabled)
 DECLARE_ID (fixedVelocity)
@@ -193,7 +193,7 @@ struct GlobalSettingsStruct {
     int nScenes;
     int fixedLengthRecordingBars;
     double playheadPositionInBeats;
-    double countInplayheadPositionInBeats;
+    double countInPlayheadPositionInBeats;
     bool isPlaying;
     bool doingCountIn;
     bool recordAutomationEnabled;

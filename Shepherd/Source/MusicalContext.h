@@ -21,6 +21,19 @@ public:
     void bindState();
     
     double getNextQuantizedBarPosition();
+    double getSliceLengthInBeats();
+    
+    double getPlayheadPositionInBeats();
+    void setPlayheadPosition(double newPosition);
+    
+    bool playheadIsPlaying();
+    void setPlayheadIsPlaying(bool onOff);
+    
+    bool playheadIsDoingCountIn();
+    void setPlayheadIsDoingCountIn(bool onOff);
+    
+    double getCountInPlayheadPositionInBeats();
+    void setCountInPlayheadPosition(double newPosition);
     
     void setMeter(int newMeter);
     int getMeter();
@@ -43,6 +56,11 @@ public:
     
 private:
     juce::ValueTree state;
+    
+    juce::CachedValue<double> playheadPositionInBeats;
+    juce::CachedValue<bool> isPlaying;
+    juce::CachedValue<bool> doingCountIn;
+    juce::CachedValue<double> countInPlayheadPositionInBeats;
     
     juce::CachedValue<double> bpm;
     juce::CachedValue<int> meter;
