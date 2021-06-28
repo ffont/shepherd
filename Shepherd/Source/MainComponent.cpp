@@ -436,7 +436,34 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
  The implementation of this method is
  struecutred as follows:
  
- 1) 
+ 1) Clear audio buffers (out app does not deal with audio...) but get buffer length (which should be same as stored samplesPerSlice)
+     
+ 2) Check if main component has been fully initialized, if not do not proceed with getNextAudioBlock as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
+    
+ 3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buggers and other auxiliary buffers.
+     
+ 4) Check if tempo or meter should be updated and, in case we're doing a count in, if count in finishes in this slice
+     
+ 5) Update musical context bar counter
+    
+ 6) Get MIDI messages from MIDI inputs (external MIDI controller and Push's pads/encoders) and merge them into a single stream. Send that stream to the different tracks for input monitoring. Also, keep track of the last N played notes as this will be used to quantize events at the start of a recording.
+
+ 7) Check if global playhead should be start/stopped and act accordingly
+
+ 8) Process the current slice in each track: trigger playing clips' notes and, if needed, record incoming MIDI in clip(s)
+    
+ 9) Add generated MIDI buffers per track to the corresponding hardware device MIDI output buffer. Note that several tracks might be using the same hardware device (albeit using different MIDI channels) so at this point MIDI from several tracks might be merged in the hardware device MIDI buffers.
+          
+ 10) Render metronome and clock MIDI messages into MIDI clock and metronome auxiliary buffers. Also render MIDI clock messages in Push's MIDI buffer, used to synchronize Push colour animations with Shepherd session tempo. Copy metronome and clock messages to the corresponding hardware device buffers according to Shepherd settings.
+     
+ 11) Send the actual messages added to each hardware device's MIDI buffer
+     
+ 12) Send monitored track notes to the notes MIDI output (if any selected). This is used by the Shepherd Controller to show feedback about notes being currently played.
+
+ 13) Render the generated MIDI buffers with the sine synth for debugging purposes
+
+ 14) Update playhead position if global playhead is playing
+ 
  
  See comments in the implementation for more details about each step.
  
@@ -451,15 +478,11 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // 2) -------------------------------------------------------------------------------------------------
     
     if (!mainComponentInitialized){
-        // If main component is not yet fully initialized, don't process further as below we might be
-        // referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
         return;
     }
     
     // 3) -------------------------------------------------------------------------------------------------
     
-    // TODO: is it RT safe to create the buffers here?
-    // Is there a way to pre-allocate some size for the buffers so writing to them is RT safe?
     clearMidiDeviceOutputBuffers();
     clearMidiTrackBuffers();
     midiClockMessages.clear();
@@ -487,8 +510,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     // Check if count-in finished and global's playhead "is playing" state should be toggled
     if (!isPlaying && doingCountIn){
         if (musicalContext->getMeter() >= countInplayheadPositionInBeats && musicalContext->getMeter() < countInplayheadPositionInBeats + sliceLengthInBeats){
-            // Count in finishes in the current getNextAudioBlock execution
-            playheadPositionInBeats = -(musicalContext->getMeter() - countInplayheadPositionInBeats); // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            // Count in finishes in the current slice (getNextAudioBlock)
+            // Align global playhead position with coutin buffer offset so that it starts at correct offset
+            playheadPositionInBeats = -(musicalContext->getMeter() - countInplayheadPositionInBeats);
             shouldToggleIsPlaying = true;
             doingCountIn = false;
             countInplayheadPositionInBeats = 0.0;
@@ -497,8 +521,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 5) -------------------------------------------------------------------------------------------------
     
-    // Update musical context bar counter
-    // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome high tone is played when bar changes
+    // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome "high tone" is played when bar changes
     musicalContext->updateBarsCounter(juce::Range<double>{playheadPositionInBeats, playheadPositionInBeats + sliceLengthInBeats});
     
     // 6) -------------------------------------------------------------------------------------------------
@@ -618,7 +641,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 7) -------------------------------------------------------------------------------------------------
     
-    // Check if global playhead should be start/stopped
     if (shouldToggleIsPlaying){
         if (isPlaying){
             // If global playhead is playing but it should be toggled, stop all tracks/clips and reset playhead and musical context
@@ -644,7 +666,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 8) -------------------------------------------------------------------------------------------------
     
-    // Process the current slice in each track: trigger playing clip's notes and record incomming MIDI if recording
     if (isPlaying){
         for (auto track: tracks->objects){
             track->clipsProcessSlice(incomingMidi, lastMidiNoteOnMessages);
@@ -653,22 +674,19 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 9) -------------------------------------------------------------------------------------------------
     
-    // Add generated MIDI buffers per track to the correspodning hardware device output
     for (auto track: tracks->objects){
         track->writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
     }
     
     // 10) -------------------------------------------------------------------------------------------------
     
-    // Render metronome and clock MIDI messages in MIDI clock and metronome buffers
     musicalContext->renderMetronomeInSlice(midiMetronomeMessages);
     if (sendMidiClock){
         musicalContext->renderMidiClockInSlice(midiClockMessages);
     }
     
-    // Render MIDI clock messages in Push's MIDI buffer
     // To sync Shepherd tempo with Push's button/pad animation tempo, a number of MIDI clock messages wrapped by a start and a stop
-    // message should be sent.
+    // message should be sent to Push.
     if ((shouldStartSendingPushMidiClockBurst) && (isPlaying)){
         lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
         shouldStartSendingPushMidiClockBurst = false;
@@ -685,25 +703,20 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     }
     
     // Add metronome and MIDI clock messages to the corresponding hardware device buffers according to settings
-    // Also send MIDI clock message to push
+    // Also send MIDI clock message to Push
     writeMidiToDevicesMidiBuffer(midiClockMessages, sendMidiClockMidiDeviceNames);
     writeMidiToDevicesMidiBuffer(midiMetronomeMessages, sendMetronomeMidiDeviceNames);
     writeMidiToDevicesMidiBuffer(pushMidiClockMessages, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
     
     // 11) -------------------------------------------------------------------------------------------------
     
-    // Send the actual messages added to each hardware device's MIDI buffer
     sendMidiDeviceOutputBuffers();
     
     // 12) -------------------------------------------------------------------------------------------------
     
-    // Send monitred track notes to the notes output (if any selected)
-    // This is used by the Shepherd Controller to show feedback about notes being currently played
     if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack >= 0) && (activeUiNotesMonitoringTrack < tracks->objects.size())){
         auto track = tracks->objects[activeUiNotesMonitoringTrack];
-        auto buffer = track->getLastSliceMidiBuffer();//  getMidiOutputDeviceBuffer(track->getMidiOutputDeviceName());
-        // TODO: send only the events generated by the selected track, not all the events in the buffer of the hardware device of the track
-        // To do that, we should always store the computed MIDI buffers at the track level
+        auto buffer = track->getLastSliceMidiBuffer();
         if (buffer != nullptr){
             for (auto event: *buffer){
                 auto msg = event.getMessage();
@@ -719,7 +732,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     #if !RPI_BUILD
     if (renderWithInternalSynth){
-        // Render the generated MIDI buffers with the sine synth for debugging purposes
         // All buffers are combined into a single buffer which is then sent to the synth
         juce::MidiBuffer combinedBuffer;
         for (auto deviceData: midiOutDevices){
@@ -731,7 +743,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 14) -------------------------------------------------------------------------------------------------
     
-    // Update playhead position if global playhead is playing
     if (isPlaying){
         playheadPositionInBeats = playheadPositionInBeats + sliceLengthInBeats;
     } else {
