@@ -113,7 +113,7 @@ private:
     juce::TextButton toggleStateVisualizer;
     juce::TextEditor stateVisualizer;
     
-    bool showState = false;
+    bool showState = true;
     bool finishedInitialization = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DevelopmentUIComponent)
