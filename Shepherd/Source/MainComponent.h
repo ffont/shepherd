@@ -136,15 +136,12 @@ private:
     void initializeTracks();
     std::unique_ptr<TrackList> tracks;
     int activeUiNotesMonitoringTrack = -1;
+    int maxTracks = MAX_NUM_TRACKS;
     
     // Scenes
     void playScene(int sceneN);
     void duplicateScene(int sceneN);
-    #if RPI_BUILD
-    int nScenes = 8;
-    #else
-    int nScenes = 8;  // Note that 4 of the scences are hidden in the test app JUCE UI
-    #endif
+    int maxScenes = MAX_NUM_SCENES;
     
     #if !RPI_BUILD
     // Desktop app UI

@@ -54,7 +54,7 @@ MainComponent::MainComponent()
     #endif
     
     // Load empty session to state
-    state = Helpers::createDefaultSession(availableHardwareDeviceNames);
+    state = Helpers::createDefaultSession(availableHardwareDeviceNames, maxTracks, maxScenes);
     
     // Add state change listener and bind cached properties to state properties
     bindState();
@@ -773,7 +773,8 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 {
     GlobalSettingsStruct settings;
     settings.fixedLengthRecordingBars = fixedLengthRecordingBars;
-    settings.nScenes = nScenes;
+    settings.maxScenes = maxScenes;
+    settings.maxTracks = maxTracks;
     settings.sampleRate = sampleRate;
     settings.samplesPerSlice = samplesPerSlice;
     settings.recordAutomationEnabled = recordAutomationEnabled;
@@ -807,7 +808,7 @@ void MainComponent::timerCallback()
 //==============================================================================
 void MainComponent::playScene(int sceneN)
 {
-    jassert(sceneN < nScenes);
+    jassert(sceneN < maxScenes);
     for (auto track: tracks->objects){
         auto clip = track->getClipAt(sceneN);
         track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
@@ -821,7 +822,7 @@ void MainComponent::playScene(int sceneN)
 void MainComponent::duplicateScene(int sceneN)
 {
     // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
-    jassert(sceneN < nScenes - 1);
+    jassert(sceneN < maxScenes - 1);
     
     // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
     // sceneN.

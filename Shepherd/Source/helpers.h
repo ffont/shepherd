@@ -24,13 +24,13 @@ namespace Helpers
         return v;
     }
 
-    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames)
+    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
     {
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
         session.setProperty (IDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
         
-        for (int tn = 0; tn < 8; ++tn)
+        for (int tn = 0; tn < numTracks; ++tn)
         {
             juce::ValueTree t (IDs::TRACK);
             const juce::String trackName ("Track " + juce::String (tn + 1));
@@ -41,7 +41,7 @@ namespace Helpers
             } else {
                 t.setProperty (IDs::hardwareDeviceName, Defaults::name, nullptr);
             }
-            for (int cn = 0; cn < 8; ++cn)
+            for (int cn = 0; cn < numScenes; ++cn)
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
