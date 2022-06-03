@@ -70,6 +70,8 @@ private:
     bool oscSenderIsConnected = false;
     
     // Midi devices and other midi stuff
+    bool midiDeviceAlreadyInitialized(const juce::String& deviceName);
+    
     void initializeMIDIInputs();
     juce::int64 lastTimeMidiInputInitializationAttempted = 0;
     std::unique_ptr<juce::MidiInput> midiIn;

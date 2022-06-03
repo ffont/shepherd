@@ -54,6 +54,7 @@ MainComponent::MainComponent()
     #endif
     
     // Load empty session to state
+    DBG("Creating default session state");
     state = Helpers::createDefaultSession(availableHardwareDeviceNames, maxTracks, maxScenes);
     
     // Add state change listener and bind cached properties to state properties
@@ -121,6 +122,18 @@ void MainComponent::initializeOSC()
         std::cout << "- Started OSC server, listening at 0.0.0.0:" << oscReceivePort << std::endl;
         addListener (this);
     }
+}
+
+
+bool MainComponent::midiDeviceAlreadyInitialized(const juce::String& deviceName)
+{
+    for (auto deviceData: midiOutDevices){
+        if (deviceData->name == deviceName){
+            // If device already initialized, early return
+            return true;
+        }
+    }
+    return false;
 }
 
 void MainComponent::initializeMIDIInputs()
@@ -191,24 +204,44 @@ void MainComponent::initializeMIDIOutputs()
     
     // Initialize all MIDI devices required by available hardware devices
     for (auto hwDevice: hardwareDevices){
-        auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
-        if (midiDevice == nullptr) someFailedInitialization = true;
+        if (!midiDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
+            auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
+            if (midiDevice == nullptr) {
+                DBG("Failed to initialize midi device for hardware device: " << hwDevice->getMidiOutputDeviceName());
+                someFailedInitialization = true;
+            }
+        }
     }
     
     // Initialize midi output devices used for clock and metronome
     for (auto midiDeviceName: sendMidiClockMidiDeviceNames){
-        auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
-        if (midiDevice == nullptr) someFailedInitialization = true;
+        if (!midiDeviceAlreadyInitialized(midiDeviceName)){
+            auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
+            if (midiDevice == nullptr) {
+                DBG("Failed to initialize midi device for clock: " << midiDeviceName);
+                someFailedInitialization = true;
+            }
+        }
     }
     for (auto midiDeviceName: sendMetronomeMidiDeviceNames){
-        auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
-        if (midiDevice == nullptr) someFailedInitialization = true;
+        if (!midiDeviceAlreadyInitialized(midiDeviceName)){
+            auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
+            if (midiDevice == nullptr) {
+                DBG("Failed to initialize midi device for metronome: " << midiDeviceName);
+                someFailedInitialization = true;
+            }
+        }
     }
     
     // Initialize midi output to Push MIDI input (used for sending clock messages to push and sync animations with Shepherd tempo)
     if (juce::String(PUSH_MIDI_OUT_DEVICE_NAME).length() > 0){
-        auto pushMidiDevice = initializeMidiOutputDevice(PUSH_MIDI_OUT_DEVICE_NAME);
-        if (pushMidiDevice == nullptr) someFailedInitialization = true;
+        if (!midiDeviceAlreadyInitialized(PUSH_MIDI_OUT_DEVICE_NAME)){
+            auto pushMidiDevice = initializeMidiOutputDevice(PUSH_MIDI_OUT_DEVICE_NAME);
+            if (pushMidiDevice == nullptr) {
+                DBG("Failed to initialize push midi device: " << PUSH_MIDI_OUT_DEVICE_NAME);
+                someFailedInitialization = true;
+            }
+        }
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
@@ -217,13 +250,6 @@ void MainComponent::initializeMIDIOutputs()
 MidiOutputDeviceData* MainComponent::initializeMidiOutputDevice(juce::String deviceName)
 {
     JUCE_ASSERT_MESSAGE_THREAD
-        
-    for (auto deviceData: midiOutDevices){
-        if (deviceData->name == deviceName){
-            // If device already initialized, early return
-            return nullptr;
-        }
-    }
     
     auto midiOutputs = juce::MidiOutput::getAvailableDevices();
     juce::String outDeviceIdentifier = "";
@@ -369,13 +395,15 @@ void MainComponent::initializeHardwareDevices()
         const juce::String synthsMidiOut = DEFAULT_MIDI_OUT_DEVICE_NAME;
         for (int i=0; i<8; i++){
             juce::String name = "Synth " + juce::String(i + 1);
+            juce::String shortName = "S" + juce::String(i + 1);
             HardwareDevice* device = new HardwareDevice(name,
-                                                        "S" + juce::String(i + 1),
+                                                        shortName,
                                                         [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
                                                         [this](const juce::OSCMessage &message){sendOscMessage(message);}
                                                         );
             device->configureMidiOutput(synthsMidiOut, i + 1);
             hardwareDevices.add(device);
+            availableHardwareDeviceNames.add(shortName);
             std::cout << "- " << name << std::endl;
         }
     }

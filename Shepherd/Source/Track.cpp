@@ -112,14 +112,18 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
     if (inputMonitoringEnabled()){
         for (const auto metadata : incommingBuffer)
         {
-            auto msg = metadata.getMessage();
-            msg.setChannel(getMidiOutputChannel());
-            lastSliceMidiBuffer.addEvent(msg, metadata.samplePosition);
-            
-            // If message is of type controller, also update the internal stored state of the controller
-            if (msg.isController()){
-                if (device != nullptr){
-                    device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+            int midiOutputChannel = getMidiOutputChannel();
+            if (midiOutputChannel > -1){
+                // If channel is -1, it means that device has not been initialized
+                auto msg = metadata.getMessage();
+                msg.setChannel(getMidiOutputChannel());
+                lastSliceMidiBuffer.addEvent(msg, metadata.samplePosition);
+                
+                // If message is of type controller, also update the internal stored state of the controller
+                if (msg.isController()){
+                    if (device != nullptr){
+                        device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+                    }
                 }
             }
         }
