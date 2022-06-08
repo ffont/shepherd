@@ -147,7 +147,24 @@ private:
     // Desktop app UI
     DevelopmentUIComponent devUiComponent;
     void debugState() {
+        
+        
+        // As a sort of test, this function also removes some notes from the clips VT
+        for (auto track: tracks->objects){
+            for (int i=0; i<MAX_NUM_SCENES; i++){
+                auto clip = track->getClipAt(i);
+                for (int j=0; j<clip->state.getNumChildren(); j++){
+                    auto child = clip->state.getChild(j);
+                    if (child.hasType (IDs::SEQUENCE_EVENT)){
+                        clip->state.removeChild(child, nullptr);
+                    }
+                }
+                
+            }
+        }
+        
         DBG(state.toXmlString());
+
     }
     #endif
 
