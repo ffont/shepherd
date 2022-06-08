@@ -146,6 +146,9 @@ private:
     #if !RPI_BUILD
     // Desktop app UI
     DevelopmentUIComponent devUiComponent;
+    void debugState() {
+        DBG(state.toXmlString());
+    }
     #endif
 
     // Recurring tasks

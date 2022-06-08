@@ -2,7 +2,7 @@
 
 
 //==============================================================================
-MainComponent::MainComponent()
+MainComponent::MainComponent(): devUiComponent([this]{debugState();})
 {
     #if !RPI_BUILD
     addAndMakeVisible(devUiComponent);

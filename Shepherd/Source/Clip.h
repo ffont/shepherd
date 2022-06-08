@@ -15,6 +15,8 @@
 #include "Playhead.h"
 #include "MusicalContext.h"
 #include "HardwareDevice.h"
+#include "Fifo.h"
+#include "ReleasePool.h"
 
 
 struct TrackSettingsStruct {
@@ -24,7 +26,18 @@ struct TrackSettingsStruct {
 };
 
 
-class Clip
+struct ClipSequence : juce::ReferenceCountedObject
+{
+    using Ptr = juce::ReferenceCountedObjectPtr<ClipSequence>;
+    juce::MidiMessageSequence midiSequence = {};
+    juce::MidiMessageSequence sequenceAsMidi() {
+        // Using helper function here as in the future we might want to store sequences with another format other than MIDI
+        return midiSequence;
+    }
+};
+
+
+class Clip: protected juce::ValueTree::Listener
 {
 public:
     Clip(const juce::ValueTree& state,
@@ -85,6 +98,14 @@ public:
     bool isEmpty();
     juce::String getStatus();
     
+protected:
+    
+    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override;
+    void valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree&) override;
+    void valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree&, int) override;
+    void valueTreeChildOrderChanged (juce::ValueTree& parentTree, int, int) override;
+    void valueTreeParentChanged (juce::ValueTree&) override;
+    
 private:
     
     juce::CachedValue<bool> enabled;
@@ -137,6 +158,28 @@ private:
     juce::CachedValue<double> currentQuantizationStep;
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
     void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
+    
+    // RT sharing stuff
+    void recreateSequenceAndAddToFifo() {
+        
+        DBG("Recreating MIDI sequence and adding to FIFO");
+        
+        juce::MidiMessageSequence midiSequence;
+        for (int i=0; i<state.getNumChildren(); i++){
+            auto child = state.getChild(i);
+            if (child.hasType (IDs::SEQUENCE_EVENT)){
+                midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(child));
+            }
+        }
+        ClipSequence::Ptr clipSequenceObject = new ClipSequence();
+        clipSequenceObject->midiSequence = midiSequence;
+
+        clipSequenceObjectsReleasePool.add(clipSequenceObject);  // Add object to release pool so it is never deleted in the audio thread
+        clipSequenceObjectsFifo.push(clipSequenceObject);  // Add object to the fifo si it can be pulled from the audio thread (when MIDI messages are added to buffers)
+    }
+    Fifo<ClipSequence::Ptr, 50> clipSequenceObjectsFifo;
+    ReleasePool<ClipSequence> clipSequenceObjectsReleasePool; // ReleasePool<ClipSequence::Ptr> ?
+    ClipSequence::Ptr clipSequenceForRTThread = new ClipSequence();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };

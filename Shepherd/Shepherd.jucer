@@ -3,16 +3,10 @@
 <JUCERPROJECT id="Dgct1A" name="Shepherd" projectType="guiapp" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" projectLineFeed="&#10;">
   <MAINGROUP id="zLUL6I" name="Shepherd">
-    <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Source">
+    <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Main">
       <FILE id="FkBujr" name="defines.h" compile="0" resource="0" file="Source/defines.h"/>
       <FILE id="w1nHsg" name="helpers.h" compile="0" resource="0" file="Source/helpers.h"/>
       <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
-      <FILE id="hEcX4G" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
-            file="Source/drow_ValueTreeObjectList.h"/>
-      <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
-            file="Source/SynthAudioSource.h"/>
-      <FILE id="pJ65YQ" name="DevelopmentUIComponent.h" compile="0" resource="0"
-            file="Source/DevelopmentUIComponent.h"/>
       <FILE id="yJw2cK" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="Oxy1mT" name="MainComponent.cpp" compile="1" resource="0"
             file="Source/MainComponent.cpp"/>
@@ -30,6 +24,16 @@
       <FILE id="n5QTpx" name="Clip.cpp" compile="1" resource="0" file="Source/Clip.cpp"/>
       <FILE id="qdmhPB" name="Playhead.h" compile="0" resource="0" file="Source/Playhead.h"/>
       <FILE id="kwO2YT" name="Playhead.cpp" compile="1" resource="0" file="Source/Playhead.cpp"/>
+    </GROUP>
+    <GROUP id="{0C21C24E-748E-BBD6-0619-F3B611386F41}" name="Support">
+      <FILE id="pJ65YQ" name="DevelopmentUIComponent.h" compile="0" resource="0"
+            file="Source/DevelopmentUIComponent.h"/>
+      <FILE id="hEcX4G" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
+            file="Source/drow_ValueTreeObjectList.h"/>
+      <FILE id="UK1WQx" name="Fifo.h" compile="0" resource="0" file="Source/Fifo.h"/>
+      <FILE id="A2KC9D" name="ReleasePool.h" compile="0" resource="0" file="Source/ReleasePool.h"/>
+      <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
+            file="Source/SynthAudioSource.h"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>

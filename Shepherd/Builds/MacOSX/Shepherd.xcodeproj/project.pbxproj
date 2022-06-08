@@ -81,6 +81,7 @@
 		ACFEEB068DE2956CA772A600 /* include_juce_audio_devices.mm */ /* include_juce_audio_devices.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_audio_devices.mm; path = ../../JuceLibraryCode/include_juce_audio_devices.mm; sourceTree = SOURCE_ROOT; };
 		AE84BCA83B06020E6A8C2A7A /* CoreMIDI.framework */ /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = System/Library/Frameworks/CoreMIDI.framework; sourceTree = SDKROOT; };
 		B05E1DF74A57DBA57AC83DB8 /* Track.h */ /* Track.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Track.h; path = ../../Source/Track.h; sourceTree = SOURCE_ROOT; };
+		B1540799E6D04A454F4692CA /* Fifo.h */ /* Fifo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Fifo.h; path = ../../Source/Fifo.h; sourceTree = SOURCE_ROOT; };
 		B243C41E9E97A60B33E4C0EF /* juce_audio_basics */ /* juce_audio_basics */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_basics; path = ../../3rdParty/JUCE/modules/juce_audio_basics; sourceTree = SOURCE_ROOT; };
 		B27EE9CD1F88E525910B12D0 /* Accelerate.framework */ /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		B55B4136B4867869FBF39898 /* juce_audio_formats */ /* juce_audio_formats */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_formats; path = ../../3rdParty/JUCE/modules/juce_audio_formats; sourceTree = SOURCE_ROOT; };
@@ -99,6 +100,7 @@
 		F12CAA4810840C3006F52E0C /* MainComponent.cpp */ /* MainComponent.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = MainComponent.cpp; path = ../../Source/MainComponent.cpp; sourceTree = SOURCE_ROOT; };
 		F32D398184165E062A04518F /* include_juce_osc.cpp */ /* include_juce_osc.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = include_juce_osc.cpp; path = ../../JuceLibraryCode/include_juce_osc.cpp; sourceTree = SOURCE_ROOT; };
 		F6521B2621C8B17B4A90E029 /* include_juce_graphics.mm */ /* include_juce_graphics.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_graphics.mm; path = ../../JuceLibraryCode/include_juce_graphics.mm; sourceTree = SOURCE_ROOT; };
+		F6F4E3BCBEDFE1017346F4DF /* ReleasePool.h */ /* ReleasePool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ReleasePool.h; path = ../../Source/ReleasePool.h; sourceTree = SOURCE_ROOT; };
 		FD0C388EA33F976CD321632B /* Playhead.h */ /* Playhead.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Playhead.h; path = ../../Source/Playhead.h; sourceTree = SOURCE_ROOT; };
 		FF790A76521F553757785A56 /* QuartzCore.framework */ /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -176,10 +178,23 @@
 			name = "JUCE Library Code";
 			sourceTree = "<group>";
 		};
+		677C67BEA641C21615549C81 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				5E43A549B77C5624A5CE0DBC,
+				1A65617FD5CE7F0E6F9D8299,
+				B1540799E6D04A454F4692CA,
+				F6F4E3BCBEDFE1017346F4DF,
+				B846BD05D97B63F98ABC68A2,
+			);
+			name = Support;
+			sourceTree = "<group>";
+		};
 		C6D487D98CF9A270759D9DE6 /* Shepherd */ = {
 			isa = PBXGroup;
 			children = (
 				F220529C75B9D659A292A07F,
+				677C67BEA641C21615549C81,
 			);
 			name = Shepherd;
 			sourceTree = "<group>";
@@ -222,15 +237,12 @@
 			name = "JUCE Modules";
 			sourceTree = "<group>";
 		};
-		F220529C75B9D659A292A07F /* Source */ = {
+		F220529C75B9D659A292A07F /* Main */ = {
 			isa = PBXGroup;
 			children = (
 				DBC84B163AD356A9BA6CAC06,
 				88047A17ACDCB94896047705,
 				511F075D71A0AE8CCBABDFDD,
-				1A65617FD5CE7F0E6F9D8299,
-				B846BD05D97B63F98ABC68A2,
-				5E43A549B77C5624A5CE0DBC,
 				79F8C866EEDCFAEFF254BA0C,
 				F12CAA4810840C3006F52E0C,
 				987267E20591A1C35113C0E2,
@@ -244,7 +256,7 @@
 				FD0C388EA33F976CD321632B,
 				2AE33E40AC8487429A60201C,
 			);
-			name = Source;
+			name = Main;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

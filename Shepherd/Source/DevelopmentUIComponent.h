@@ -16,11 +16,13 @@
 //==============================================================================
 /*
 */
-class DevelopmentUIComponent  : public juce::Component
+class DevelopmentUIComponent : public juce::Component
 {
 public:
-    DevelopmentUIComponent()
+    DevelopmentUIComponent(std::function<void()> _printStateFunction)
     {
+        printStateFunction = _printStateFunction;
+        
         reloadBrowserButton.onClick = [this] {
             reloadBrowser();
         };
@@ -33,6 +35,12 @@ public:
         };
         toggleStateVisualizer.setButtonText("Toggle view state");
         addAndMakeVisible (toggleStateVisualizer);
+        
+        debugStateButton.onClick = [this] {
+            printStateFunction();
+        };
+        debugStateButton.setButtonText("Debug state");
+        addAndMakeVisible (debugStateButton);
         
         addAndMakeVisible(browser);
         browser.goToURL(DEV_UI_SIMULATOR_URL);
@@ -83,6 +91,7 @@ public:
     {
         reloadBrowserButton.setBounds(5, 5, 70, 20);
         toggleStateVisualizer.setBounds(80, 5, 120, 20);
+        debugStateButton.setBounds(205, 5, 80, 20);
         browser.setBounds(0, 30, browserWidth, browserHeight);
         if (showState){
             stateVisualizer.setBounds(0, 30 + browserHeight, browserWidth, stateVisualizerHeight);
@@ -109,9 +118,12 @@ private:
     juce::String stateTracks = "";
     
     juce::WebBrowserComponent browser;
+    juce::TextButton debugStateButton;
     juce::TextButton reloadBrowserButton;
     juce::TextButton toggleStateVisualizer;
     juce::TextEditor stateVisualizer;
+    
+    std::function<void()> printStateFunction;
     
     bool showState = true;
     bool finishedInitialization = false;
