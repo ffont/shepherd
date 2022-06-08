@@ -25,12 +25,12 @@ Clip::Clip(const juce::ValueTree& _state,
     bindState();
     
     playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
-    sequenceEvents = std::make_unique<SequenceEventList>(state);
     
     #if !RPI_BUILD
     // Certain chance to initialize midiSequence with some notes
     // This makes testing quicker
-    if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
+    if ((getTrackSettings().enabled) && (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5)){
+        state.setProperty(IDs::enabled, true, nullptr);
         clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
         std::vector<std::pair<int, float>> noteOnTimes = {};
         for (int i=0; i<clipLengthInBeats; i++){
@@ -74,7 +74,10 @@ Clip* Clip::clone() const
 
 void Clip::bindState()
 {
-    name.referTo(state, IDs::name, nullptr, Defaults::name);
+    enabled.referTo(state, IDs::enabled, nullptr, true);
+    uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
+    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
+    
     clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
     currentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, Defaults::currentQuantizationStep);
     willStartRecordingAt.referTo(state, IDs::willStartRecordingAt, nullptr, Defaults::willStartRecordingAt);
@@ -84,14 +87,14 @@ void Clip::bindState()
 
 void Clip::recreateMidiSequenceFromState()
 {
-    if (sequenceEvents->hasUnappliedChanges){
-        midiSequence.clear();
-        for (auto event: sequenceEvents->objects){
-            midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(event->state));
+    midiSequence.clear();
+    for (int i=0; i<state.getNumChildren(); i++){
+        auto child = state.getChild(i);
+        if (child.hasType (IDs::SEQUENCE_EVENT)){
+            midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(child));
         }
-        sequenceEvents->hasUnappliedChanges = false;
-        shouldUpdatePreProcessedSequence = true;
     }
+    shouldUpdatePreProcessedSequence = true;
 }
 
 void Clip::playNow()

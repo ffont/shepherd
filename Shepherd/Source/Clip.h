@@ -18,69 +18,9 @@
 
 
 struct TrackSettingsStruct {
+    bool enabled;
     int midiOutChannel;
     HardwareDevice* device;
-};
-
-class SequenceEvent
-{
-public:
-    SequenceEvent(const juce::ValueTree& _state) : state(_state)
-    {
-        bindState();
-    }
-    
-    void bindState()
-    {
-        name.referTo(state, IDs::name, nullptr, Defaults::name);
-        type.referTo(state, IDs::type, nullptr, Defaults::eventType);
-        eventMidiBytes.referTo(state, IDs::eventMidiBytes, nullptr, Defaults::eventMidiBytes);
-        timestamp.referTo(state, IDs::timestamp, nullptr, Defaults::timestamp);
-    }
-    juce::ValueTree state;
-
-private:
-    juce::CachedValue<juce::String> name;
-    juce::CachedValue<juce::String> type;
-    juce::CachedValue<juce::String> eventMidiBytes;
-    juce::CachedValue<double> timestamp;
-
-};
-
-struct SequenceEventList: public drow::ValueTreeObjectList<SequenceEvent>
-{
-    SequenceEventList (const juce::ValueTree& v)
-    : drow::ValueTreeObjectList<SequenceEvent> (v)
-    {
-        rebuildObjects();
-    }
-
-    ~SequenceEventList()
-    {
-        freeObjects();
-    }
-
-    bool isSuitableType (const juce::ValueTree& v) const override
-    {
-        return v.hasType (IDs::SEQUENCE_EVENT);
-    }
-
-    SequenceEvent* createNewObject (const juce::ValueTree& v) override
-    {
-        hasUnappliedChanges = true;
-        return new SequenceEvent (v);
-    }
-
-    void deleteObject (SequenceEvent* c) override
-    {
-        delete c;
-    }
-
-    void newObjectAdded (SequenceEvent*) override    { hasUnappliedChanges = true; }
-    void objectRemoved (SequenceEvent*) override     { hasUnappliedChanges = true; }
-    void objectOrderChanged() override               { hasUnappliedChanges = true; }
-    
-    bool hasUnappliedChanges = true;
 };
 
 
@@ -96,6 +36,11 @@ public:
     Clip* clone() const;
     void bindState();
     juce::ValueTree state;
+    
+    bool isEnabled() { return enabled.get(); };
+    juce::String getUUID() { return uuid.get(); };
+    juce::String getName() { return name.get(); };
+    
     void recreateMidiSequenceFromState();
     
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
@@ -142,13 +87,14 @@ public:
     
 private:
     
+    juce::CachedValue<bool> enabled;
+    juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
     
     std::unique_ptr<Playhead> playhead;
     
     juce::CachedValue<double> clipLengthInBeats;
     double nextClipLength = -1.0;
-    std::unique_ptr<SequenceEventList> sequenceEvents;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence preProcessedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};

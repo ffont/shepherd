@@ -24,30 +24,40 @@ namespace Helpers
         return v;
     }
 
-    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
+    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numEnabledTracks)
     {
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
         session.setProperty (IDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
         
-        for (int tn = 0; tn < numTracks; ++tn)
+        for (int tn = 0; tn < MAX_NUM_TRACKS; ++tn)
         {
+            // Create track
             juce::ValueTree t (IDs::TRACK);
-            const juce::String trackName ("Track " + juce::String (tn + 1));
             Helpers::createUuidProperty (t);
-            t.setProperty (IDs::name, trackName, nullptr);
-            if (tn < availableHardwareDeviceNames.size()){
-                t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
-            } else {
-                t.setProperty (IDs::hardwareDeviceName, Defaults::name, nullptr);
+            t.setProperty (IDs::enabled, tn < numEnabledTracks, nullptr);
+            t.setProperty (IDs::order, tn, nullptr);
+            if (tn < numEnabledTracks){
+                // Track is enabled (not deleted), add name and hardware device to it
+                const juce::String trackName ("Track " + juce::String (tn + 1));
+                t.setProperty (IDs::name, trackName, nullptr);
+                if (tn < availableHardwareDeviceNames.size()){
+                    t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
+                } else {
+                    t.setProperty (IDs::hardwareDeviceName, Defaults::emptyString, nullptr);
+                }
             }
-            for (int cn = 0; cn < numScenes; ++cn)
+            
+            // Now add clips to track (for now clips are still empty and disabled)
+            for (int cn = 0; cn < MAX_NUM_SCENES; ++cn)
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
-                c.setProperty (IDs::name, trackName + ", Clip " + juce::String (cn + 1), nullptr);
+                c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
+                c.setProperty (IDs::enabled, false, nullptr);
                 t.addChild (c, -1, nullptr);
             }
+            
             session.addChild (t, -1, nullptr);
         }
 

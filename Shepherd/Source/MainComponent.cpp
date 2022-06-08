@@ -55,7 +55,12 @@ MainComponent::MainComponent()
     
     // Load empty session to state
     DBG("Creating default session state");
-    state = Helpers::createDefaultSession(availableHardwareDeviceNames, maxTracks, maxScenes);
+    #if !RPI_BUILD
+    int numEnabledTracks = juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, MAX_NUM_TRACKS - 1));
+    #else
+    int numEnabledTracks = 0;
+    #endif
+    state = Helpers::createDefaultSession(availableHardwareDeviceNames, numEnabledTracks);
     
     // Add state change listener and bind cached properties to state properties
     bindState();
@@ -81,7 +86,7 @@ void MainComponent::bindState()
 {
     state.addListener(this);
     
-    name.referTo(state, IDs::name, nullptr, Defaults::name);
+    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
     fixedLengthRecordingBars.referTo(state, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
     recordAutomationEnabled.referTo(state, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
@@ -801,8 +806,8 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 {
     GlobalSettingsStruct settings;
     settings.fixedLengthRecordingBars = fixedLengthRecordingBars;
-    settings.maxScenes = maxScenes;
-    settings.maxTracks = maxTracks;
+    settings.maxScenes = MAX_NUM_SCENES;
+    settings.maxTracks = MAX_NUM_TRACKS;
     settings.sampleRate = sampleRate;
     settings.samplesPerSlice = samplesPerSlice;
     settings.recordAutomationEnabled = recordAutomationEnabled;
@@ -836,7 +841,7 @@ void MainComponent::timerCallback()
 //==============================================================================
 void MainComponent::playScene(int sceneN)
 {
-    jassert(sceneN < maxScenes);
+    jassert(sceneN < MAX_NUM_SCENES);
     for (auto track: tracks->objects){
         auto clip = track->getClipAt(sceneN);
         track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
@@ -850,7 +855,7 @@ void MainComponent::playScene(int sceneN)
 void MainComponent::duplicateScene(int sceneN)
 {
     // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
-    jassert(sceneN < maxScenes - 1);
+    jassert(sceneN < MAX_NUM_SCENES - 1);
     
     // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
     // sceneN.
@@ -1081,6 +1086,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             for (auto track: tracks->objects){
                 stateAsStringParts.add("t");
                 stateAsStringParts.add((juce::String)track->getNumberOfClips());
+                stateAsStringParts.add(track->isEnabled() ? "1":"0");
                 stateAsStringParts.add(track->inputMonitoringEnabled() ? "1":"0");
                 if (track->getHardwareDevice() != nullptr){
                     stateAsStringParts.add(track->getHardwareDevice()->getShortName());

@@ -138,12 +138,10 @@ private:
     void initializeTracks();
     std::unique_ptr<TrackList> tracks;
     int activeUiNotesMonitoringTrack = -1;
-    int maxTracks = MAX_NUM_TRACKS;
     
     // Scenes
     void playScene(int sceneN);
     void duplicateScene(int sceneN);
-    int maxScenes = MAX_NUM_SCENES;
     
     #if !RPI_BUILD
     // Desktop app UI

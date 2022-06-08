@@ -33,9 +33,13 @@ Track::Track(const juce::ValueTree& _state,
 
 void Track::bindState()
 {
-    name.referTo(state, IDs::name, nullptr, Defaults::name);
+    enabled.referTo(state, IDs::enabled, nullptr, true);
+    uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
+    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
+    order.referTo(state, IDs::order, nullptr, Defaults::order);
+    
     inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
-    hardwareDeviceName.referTo(state, IDs::hardwareDeviceName, nullptr, Defaults::name);
+    hardwareDeviceName.referTo(state, IDs::hardwareDeviceName, nullptr, Defaults::emptyString);
 }
 
 void Track::setHardwareDeviceByName(juce::String deviceName)
@@ -95,6 +99,7 @@ void Track::prepareClips()
                                        getGlobalSettings,
                                        [this]{
                                            TrackSettingsStruct settings;
+                                           settings.enabled = isEnabled();
                                            settings.midiOutChannel = getMidiOutputChannel();
                                            settings.device = getHardwareDevice();
                                            return settings;

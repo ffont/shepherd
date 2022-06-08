@@ -169,9 +169,10 @@ class ShepherdInterface(object):
                         if current_track_clips_state:
                             tracks_state.append({
                                     'numClips': int(current_track_clips_state[0]),
-                                    'inputMonitoring': current_track_clips_state[1] == "1",
-                                    'deviceShortName': current_track_clips_state[2],
-                                    'clips': current_track_clips_state[3:]
+                                    'enabled': current_track_clips_state[1] == "1",
+                                    'inputMonitoring': current_track_clips_state[2] == "1",
+                                    'deviceShortName': current_track_clips_state[3],
+                                    'clips': current_track_clips_state[4:]
                                 }) 
                         current_track_clips_state = []
                     else:
@@ -180,9 +181,10 @@ class ShepherdInterface(object):
                 if current_track_clips_state:
                     tracks_state.append({
                         'numClips': int(current_track_clips_state[0]),
-                        'inputMonitoring': current_track_clips_state[1] == "1",
-                        'deviceShortName': current_track_clips_state[2],
-                        'clips': current_track_clips_state[3:]
+                        'enabled': current_track_clips_state[1] == "1",
+                        'inputMonitoring': current_track_clips_state[2] == "1",
+                        'deviceShortName': current_track_clips_state[3],
+                        'clips': current_track_clips_state[4:]
                     })  # Add last one
 
                 self.parsed_state['tracks'] = tracks_state
@@ -316,6 +318,16 @@ class ShepherdInterface(object):
                 return 0
         else:
             return 0
+
+    def is_track_enabled(self, track_num):
+        if 'tracks' in self.parsed_state:
+            try:
+                return self.parsed_state['tracks'][track_num]['enabled']
+            except IndexError:
+                return False
+        else:
+            return False
+
 
     def scene_play(self, scene_number):
         self.osc_sender.send_message('/scene/play', [scene_number])
