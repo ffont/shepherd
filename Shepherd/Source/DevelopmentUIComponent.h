@@ -110,7 +110,7 @@ public:
 
 private:
     
-    int browserWidth = 900;
+    int browserWidth = 920;
     int browserHeight = 760;
     int stateVisualizerHeight = 170;
     
