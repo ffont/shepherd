@@ -161,9 +161,6 @@ private:
     
     // RT sharing stuff
     void recreateSequenceAndAddToFifo() {
-        
-        DBG("Recreating MIDI sequence and adding to FIFO");
-        
         juce::MidiMessageSequence midiSequence;
         for (int i=0; i<state.getNumChildren(); i++){
             auto child = state.getChild(i);
@@ -176,8 +173,15 @@ private:
 
         clipSequenceObjectsReleasePool.add(clipSequenceObject);  // Add object to release pool so it is never deleted in the audio thread
         clipSequenceObjectsFifo.push(clipSequenceObject);  // Add object to the fifo si it can be pulled from the audio thread (when MIDI messages are added to buffers)
+        
+        if (clipSequenceObjectsFifo.getAvailableSpace() == 0){
+            DBG("WARNING, fifo for clip " << getName() << " is full");
+        } else if (clipSequenceObjectsFifo.getAvailableSpace() < 10){
+            DBG("WARNING, fifo for clip " << getName() << " getting close to full");
+            DBG("- Available space: " << clipSequenceObjectsFifo.getAvailableSpace() << ", available for reading: " << clipSequenceObjectsFifo.getNumAvailableForReading());
+        }
     }
-    Fifo<ClipSequence::Ptr, 50> clipSequenceObjectsFifo;
+    Fifo<ClipSequence::Ptr, 100> clipSequenceObjectsFifo;
     ReleasePool<ClipSequence> clipSequenceObjectsReleasePool; // ReleasePool<ClipSequence::Ptr> ?
     ClipSequence::Ptr clipSequenceForRTThread = new ClipSequence();
     

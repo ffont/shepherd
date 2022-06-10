@@ -9,53 +9,12 @@
 */
 
 // Code adapted from https://github.com/matkatmusic/AudioFilePlayer/blob/91fdf80192135096b044c9d4070f8b3055ee1672/Source/PluginProcessor.h
+
 #pragma once
 
 #include <JuceHeader.h>
+#include "Fifo.h"
 
-template<typename T, size_t Size = 30>
-struct ReleasePoolFifo
-{
-    size_t getSize() const noexcept { return Size; }
-    
-    bool push(const T& t)
-    {
-        auto write = fifo.write(1);
-        if( write.blockSize1 > 0 )
-        {
-            size_t index = static_cast<size_t>(write.startIndex1);
-            buffer[index] = t;
-            return true;
-        }
-        
-        return false;
-    }
-    
-    bool pull(T& t)
-    {
-        auto read = fifo.read(1);
-        if( read.blockSize1 > 0 )
-        {
-            t = buffer[static_cast<size_t>(read.startIndex1)];
-            return true;
-        }
-        
-        return false;
-    }
-    
-    int getNumAvailableForReading() const
-    {
-        return fifo.getNumReady();
-    }
-    
-    int getAvailableSpace() const
-    {
-        return fifo.getFreeSpace();
-    }
-private:
-    juce::AbstractFifo fifo { Size };
-    std::array<T, Size> buffer;
-};
 
 template<typename ReferenceCountedType>
 struct ReleasePool : juce::Timer
@@ -63,7 +22,6 @@ struct ReleasePool : juce::Timer
     ReleasePool()
     {
         deletionPool.reserve(5000);
-        
         startTimer(1 * 1000);
     }
     
@@ -117,7 +75,7 @@ struct ReleasePool : juce::Timer
                            deletionPool.end());
     }
 private:
-    ReleasePoolFifo<Ptr, 512> fifo;
+    Fifo<Ptr, 512> fifo;
     std::vector<Ptr> deletionPool;
     juce::Atomic<bool> successfullyAdded { false };
     
