@@ -21,7 +21,7 @@ void Playhead::bindState()
     playing.referTo(state, IDs::playing, nullptr, Defaults::playing);
     willPlayAt.referTo(state, IDs::willPlayAt, nullptr, Defaults::willPlayAt);
     willStopAt.referTo(state, IDs::willStopAt, nullptr, Defaults::willStopAt);
-    playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
 }
 
 void Playhead::playNow()

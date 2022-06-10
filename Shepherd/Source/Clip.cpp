@@ -414,6 +414,7 @@ void Clip::doubleSequenceHelper()
 
 void Clip::saveToUndoStack()
 {
+    // TODO: re implement using VT objects
     // Add pair of <current midi sequence, current clip length> to the undo stack so they can be used later
     // If more than X elements are added to the stack, remove the older ones
     std::pair<juce::MidiMessageSequence, double> pairForStack = {midiSequence, clipLengthInBeats};
@@ -566,14 +567,15 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     }
     juce::MidiMessageSequence sequenceToRender = clipSequenceForRTThread->sequenceAsMidi();
     
-    if ((nextClipLength > -1.0) && (nextClipLength != clipLengthInBeats)){
-        if (nextClipLength < clipLengthInBeats){
+    if ((nextClipLength > -1.0) && (nextClipLength != clipSequenceForRTThread->lengthInBeats)){
+        if (nextClipLength < clipSequenceForRTThread->lengthInBeats){
             // To avoid possible hanging notes, send note off to all playing notes
             renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
         }
-        clipLengthInBeats = nextClipLength;
+        clipSequenceForRTThread->lengthInBeats = nextClipLength;
+        clipLengthInBeats = nextClipLength; // TODO: rethink this as we can't set this stuff from the audio thread...
         nextClipLength = -1.0;
-        if (clipLengthInBeats == 0.0){
+        if (clipSequenceForRTThread->lengthInBeats == 0.0){
             // If new length is set to be 0, this equivalent to celaring the clip
             shouldclearClip = true;
         }
@@ -634,7 +636,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         const auto sliceInBeats = playhead->getCurrentSlice();
         
         bool loopingInThisSlice = false;
-        if (clipLengthInBeats > 0.0 && sliceInBeats.contains(clipLengthInBeats)){
+        if (clipSequenceForRTThread->lengthInBeats > 0.0 && sliceInBeats.contains(clipSequenceForRTThread->lengthInBeats)){
             loopingInThisSlice = true;
         }
         
@@ -664,7 +666,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                 // for the "looped" version).
                 // Note that to make the above example easier we use slice sizes which are much bigger than what they'll really
                 // be in the real app
-                eventPositionInBeats += clipLengthInBeats;
+                eventPositionInBeats += clipSequenceForRTThread->lengthInBeats;
             }
 
             if (sliceInBeats.contains(eventPositionInBeats))
@@ -717,10 +719,10 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
             // length and therefore "sliceInBeats.contains()" checks can fail if we are not careful and "wrap" the
             // time we're checking. See the example given in step 4, this is the same case but with recording cue times.
             if (willStartRecordingAtClipPlayheadBeats < sliceInBeats.getStart()){
-                willStartRecordingAtClipPlayheadBeats += clipLengthInBeats;
+                willStartRecordingAtClipPlayheadBeats += clipSequenceForRTThread->lengthInBeats;
             }
             if (willStopRecordingAtClipPlayheadBeats < sliceInBeats.getStart()){
-                willStopRecordingAtClipPlayheadBeats += clipLengthInBeats;
+                willStopRecordingAtClipPlayheadBeats += clipSequenceForRTThread->lengthInBeats;
             }
         }
         bool isCuedToStartRecordingInThisSlice = isCuedToStartRecording() && sliceInBeats.contains(willStartRecordingAtClipPlayheadBeats);
@@ -794,9 +796,9 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         // Also consider edge case in which clipLength was changed during playback and set to something lower
         // than the current playhead position.
         
-        if ((clipLengthInBeats > 0.0) && (sliceInBeats.contains(clipLengthInBeats) || clipLengthInBeats < sliceInBeats.getStart())){
+        if ((clipSequenceForRTThread->lengthInBeats > 0.0) && (sliceInBeats.contains(clipSequenceForRTThread->lengthInBeats) || clipSequenceForRTThread->lengthInBeats < sliceInBeats.getStart())){
             addRecordedSequenceToSequence();
-            playhead->resetSlice(clipLengthInBeats - sliceInBeats.getEnd());
+            playhead->resetSlice(clipSequenceForRTThread->lengthInBeats - sliceInBeats.getEnd());
         }
         
         // ----------------------------------------------------------------------------------------------------
@@ -831,14 +833,15 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         if (recordedMidiSequence.getNumEvents() > 0){
             // If it has just stopped recording and there are notes to add to the sequence, add them to the sequence and
             // set new length if clip had no length. Quantize new length to the next integer beat.
-            double previousLength = clipLengthInBeats;
-            if (clipLengthInBeats == 0.0){
-                clipLengthInBeats = std::ceil(playhead->getCurrentSlice().getEnd());
+            double previousLength = clipSequenceForRTThread->lengthInBeats;
+            if (clipSequenceForRTThread->lengthInBeats == 0.0){
+                clipSequenceForRTThread->lengthInBeats = std::ceil(playhead->getCurrentSlice().getEnd());
+                clipLengthInBeats = std::ceil(playhead->getCurrentSlice().getEnd());  // TODO: rethink this as we can't set this from the audio thread
             }
             addRecordedSequenceToSequence();
-            if (previousLength == 0.0 && clipLengthInBeats > 0.0 && clipLengthInBeats > playhead->getCurrentSlice().getEnd()){
+            if (previousLength == 0.0 && clipSequenceForRTThread->lengthInBeats > 0.0 && clipSequenceForRTThread->lengthInBeats > playhead->getCurrentSlice().getEnd()){
                 // If a new length has just been set, check if the clip should loop in this slice
-                playhead->resetSlice(clipLengthInBeats - playhead->getCurrentSlice().getEnd());
+                playhead->resetSlice(clipSequenceForRTThread->lengthInBeats - playhead->getCurrentSlice().getEnd());
             }
         } else {
             // If stopping to record, the clip is new and no new notes have been added, trigger clear clip to make it stop

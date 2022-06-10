@@ -46,7 +46,8 @@ public:
 
 private:
     juce::Range<double> currentSlice { 0.0, 0.0 };
-    juce::CachedValue<double> playheadPositionInBeats;  // Used only so that current position is somehow stored in the state
+    double playheadPositionInBeats;
+    juce::CachedValue<double> statePlayheadPositionInBeats;  // Used only so that current position is somehow stored in the state
     juce::CachedValue<bool> playing;
     juce::CachedValue<double> willPlayAt;
     juce::CachedValue<double> willStopAt;

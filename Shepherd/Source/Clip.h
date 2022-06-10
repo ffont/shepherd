@@ -29,6 +29,7 @@ struct TrackSettingsStruct {
 struct ClipSequence : juce::ReferenceCountedObject
 {
     using Ptr = juce::ReferenceCountedObjectPtr<ClipSequence>;
+    double lengthInBeats = 0.0;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence sequenceAsMidi() {
         // Using helper function here as in the future we might want to store sequences with another format other than MIDI
@@ -113,18 +114,19 @@ private:
     juce::CachedValue<bool> enabled;
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
+    juce::CachedValue<double> clipLengthInBeats;
+    juce::CachedValue<bool> recording;
+    juce::CachedValue<double> willStartRecordingAt;
+    juce::CachedValue<double> willStopRecordingAt;
+    juce::CachedValue<double> currentQuantizationStep;
     
     std::unique_ptr<Playhead> playhead;
-    
-    juce::CachedValue<double> clipLengthInBeats;
     double nextClipLength = -1.0;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence preProcessedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
     juce::MidiMessageSequence nextMidiSequence = {};
-    juce::CachedValue<bool> recording;
-    juce::CachedValue<double> willStartRecordingAt;
-    juce::CachedValue<double> willStopRecordingAt;
+    
     double hasJustStoppedRecordingFlag = false;
     double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
     void addRecordedSequenceToSequence();
@@ -157,7 +159,6 @@ private:
     void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
     void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
     
-    juce::CachedValue<double> currentQuantizationStep;
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
     void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
     
@@ -173,6 +174,7 @@ private:
             }
         }
         ClipSequence::Ptr clipSequenceObject = new ClipSequence();
+        clipSequenceObject->lengthInBeats = clipLengthInBeats;
         clipSequenceObject->midiSequence = midiSequence;
 
         clipSequenceObjectsReleasePool.add(clipSequenceObject);  // Add object to release pool so it is never deleted in the audio thread
