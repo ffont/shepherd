@@ -47,6 +47,7 @@ public:
     void processInputMonitoring(juce::MidiBuffer& incommingBuffer);
     
     void clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
+    void clipsPrepareSliceSlice();
     void clipsRenderRemainingNoteOffsIntoMidiBuffer();
     void clipsResetPlayheadPosition();
     

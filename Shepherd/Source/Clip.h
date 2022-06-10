@@ -37,7 +37,8 @@ struct ClipSequence : juce::ReferenceCountedObject
 };
 
 
-class Clip: protected juce::ValueTree::Listener
+class Clip: protected juce::ValueTree::Listener,
+            private juce::Timer
 {
 public:
     Clip(const juce::ValueTree& state,
@@ -56,6 +57,7 @@ public:
     
     void recreateMidiSequenceFromState();
     
+    void prepareSlice();
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
     
@@ -159,6 +161,8 @@ private:
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
     void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
     
+    void timerCallback() override;
+    
     // RT sharing stuff
     void recreateSequenceAndAddToFifo() {
         juce::MidiMessageSequence midiSequence;
@@ -181,9 +185,10 @@ private:
             DBG("- Available space: " << clipSequenceObjectsFifo.getAvailableSpace() << ", available for reading: " << clipSequenceObjectsFifo.getNumAvailableForReading());
         }
     }
-    Fifo<ClipSequence::Ptr, 100> clipSequenceObjectsFifo;
+    Fifo<ClipSequence::Ptr, 20> clipSequenceObjectsFifo;
     ReleasePool<ClipSequence> clipSequenceObjectsReleasePool; // ReleasePool<ClipSequence::Ptr> ?
     ClipSequence::Ptr clipSequenceForRTThread = new ClipSequence();
+    bool sequenceNeedsUpdate = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };

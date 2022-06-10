@@ -459,7 +459,7 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
  
  1) Clear audio buffers (out app does not deal with audio...) but get buffer length (which should be same as stored samplesPerSlice)
      
- 2) Check if main component has been fully initialized, if not do not proceed with getNextAudioBlock as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
+ 2) Check if main component has been fully initialized, if not do not proceed with getNextMIDISlice as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
     
  3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buggers and other auxiliary buffers.
      
@@ -531,7 +531,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     // Check if count-in finished and global's playhead "is playing" state should be toggled
     if (!musicalContext->playheadIsPlaying() && musicalContext->playheadIsDoingCountIn()){
         if (musicalContext->getMeter() >= musicalContext->getCountInPlayheadPositionInBeats() && musicalContext->getMeter() < musicalContext->getCountInPlayheadPositionInBeats() + sliceLengthInBeats){
-            // Count in finishes in the current slice (getNextAudioBlock)
+            // Count in finishes in the current slice (getNextMIDISlice)
             // Align global playhead position with coutin buffer offset so that it starts at correct offset
             musicalContext->setPlayheadPosition(-(musicalContext->getMeter() - musicalContext->getCountInPlayheadPositionInBeats()));
             shouldToggleIsPlaying = true;
@@ -686,6 +686,10 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     }
     
     // 8) -------------------------------------------------------------------------------------------------
+    
+    for (auto track: tracks->objects){
+        track->clipsPrepareSliceSlice();  // Pull sequences form the clip fifo
+    }
     
     if (musicalContext->playheadIsPlaying()){
         for (auto track: tracks->objects){

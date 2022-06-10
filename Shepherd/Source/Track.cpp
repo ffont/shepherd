@@ -142,6 +142,13 @@ void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juc
     }
 }
 
+void Track::clipsPrepareSliceSlice()
+{
+    for (auto clip: clips->objects){
+        clip->prepareSlice();
+    }
+}
+
 void Track::clipsRenderRemainingNoteOffsIntoMidiBuffer()
 {
     for (auto clip: clips->objects){

@@ -27,6 +27,8 @@ Clip::Clip(const juce::ValueTree& _state,
     playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
     
     recreateMidiSequenceFromState();
+    
+    startTimer(50); // Check if sequence should be updated and do it!
 }
 
 /** Return a pointer to a "cloned" version of the current clip which has the same MIDI sequence
@@ -73,6 +75,13 @@ void Clip::recreateMidiSequenceFromState()
         }
     }
     shouldUpdatePreProcessedSequence = true;
+}
+
+void Clip::timerCallback(){
+    if (sequenceNeedsUpdate){
+        recreateSequenceAndAddToFifo();
+        sequenceNeedsUpdate = false;
+    }
 }
 
 void Clip::playNow()
@@ -493,6 +502,17 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
     }
 }
 
+/** Pulls pending ClipSequence from the fifo and assigns to pointer
+ */
+void Clip::prepareSlice()
+{
+    // Pull MIDI sequence from the FIFO
+    ClipSequence::Ptr t;
+    while( clipSequenceObjectsFifo.pull(t) ) { ; }
+    if( t != nullptr )
+          clipSequenceForRTThread = t;
+}
+
 /** Process the current slice of the global playhead to tigger notes that this clip should be playing (if any) and/or record incoming notes to the clip recording sequence (if any).
     @param incommingBuffer                  MIDI buffer with the incoming MIDI notes for that slice
     @param bufferToFill                         MIDI buffer to be filled with notes triggered by this clip
@@ -541,13 +561,9 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     
     // recreateMidiSequenceFromState();
     //juce::MidiMessageSequence sequenceToRender = preProcessedMidiSequence;
-    
-    // Pull MIDI sequence from the FIFO
-    // TODO: this is getting the plain sequence without processing, etc...
-    ClipSequence::Ptr t;
-    while( clipSequenceObjectsFifo.pull(t) ) { ; }
-    if( t != nullptr )
-          clipSequenceForRTThread = t;
+    if (clipSequenceForRTThread == nullptr){
+        return;
+    }
     juce::MidiMessageSequence sequenceToRender = clipSequenceForRTThread->sequenceAsMidi();
     
     if ((nextClipLength > -1.0) && (nextClipLength != clipLengthInBeats)){
@@ -959,35 +975,23 @@ void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
 
 void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
-    // We should never call this function from the realtime thread because editing VT might not be RT safe...
-    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
-    // std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
+    sequenceNeedsUpdate = true;
 }
 
 void Clip::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
 {
-    // We should never call this function from the realtime thread because editing VT might not be RT safe...
-    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
-    DBG("Added VT child " << childWhichHasBeenAdded.getType());
-    recreateSequenceAndAddToFifo();
+    sequenceNeedsUpdate = true;
 }
 
 void Clip::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
 {
-    // We should never call this function from the realtime thread because editing VT might not be RT safe...
-    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
-    DBG("Removed VT child " << childWhichHasBeenRemoved.getType());
-    recreateSequenceAndAddToFifo();
+    sequenceNeedsUpdate = true;
 }
 
 void Clip::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)
 {
-    // We should never call this function from the realtime thread because editing VT might not be RT safe...
-    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
 void Clip::valueTreeParentChanged (juce::ValueTree& treeWhoseParentHasChanged)
 {
-    // We should never call this function from the realtime thread because editing VT might not be RT safe...
-    // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
