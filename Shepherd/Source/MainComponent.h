@@ -2,13 +2,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "helpers.h"
-#include "MusicalContext.h"
-#include "Playhead.h"
-#include "Clip.h"
-#include "Track.h"
-#include "HardwareDevice.h"
-#include "SynthAudioSource.h"
+#include "Sequencer.h"
 #include "DevelopmentUIComponent.h"
 
 
@@ -17,164 +11,92 @@
     This component lives inside our window, and this is where you should put all
     your controls and content.
 */
-class MainComponent  : public juce::AudioAppComponent,
-                       private juce::Timer,
-                       private juce::OSCReceiver,
-                       private juce::OSCReceiver::Listener<juce::OSCReceiver::MessageLoopCallback>,
-                       protected juce::ValueTree::Listener
+class MainComponent: public juce::AudioAppComponent,
+                     private juce::ActionListener
                        
 {
 public:
-    //==============================================================================
-    MainComponent();
-    ~MainComponent() override;
-
-    //==============================================================================
-    void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
-    void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override;
-    void releaseResources() override;
-
-    //==============================================================================
-    void paint (juce::Graphics& g) override;
-    void resized() override;
-
-protected:
-    juce::ValueTree state;
-    void bindState();
-    
-    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override;
-    void valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree&) override;
-    void valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree&, int) override;
-    void valueTreeChildOrderChanged (juce::ValueTree& parentTree, int, int) override;
-    void valueTreeParentChanged (juce::ValueTree&) override;
-
-private:
-    //==============================================================================
-
-    GlobalSettingsStruct getGlobalSettings();
-    
-    bool mainComponentInitialized = false;
-    
-    // Save/load
-    void saveCurrentSessionToFile();
-    void loadSessionFromFile(juce::String fileName);
-    
-    // OSC
-    void initializeOSC();
-    void oscMessageReceived (const juce::OSCMessage& message) override;
-    void sendOscMessage (const juce::OSCMessage& message);
-    juce::OSCSender oscSender;
-    int oscReceivePort = OSC_BACKEND_RECEIVE_PORT;
-    int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
-    juce::String oscSendHost = "127.0.0.1";
-    bool oscSenderIsConnected = false;
-    
-    // Midi devices and other midi stuff
-    bool midiDeviceAlreadyInitialized(const juce::String& deviceName);
-    
-    void initializeMIDIInputs();
-    juce::int64 lastTimeMidiInputInitializationAttempted = 0;
-    std::unique_ptr<juce::MidiInput> midiIn;
-    bool midiInIsConnected = false;
-    juce::MidiMessageCollector midiInCollector;
-    std::unique_ptr<juce::MidiInput> midiInPush;
-    bool midiInPushIsConnected = false;
-    juce::MidiMessageCollector pushMidiInCollector;
-    
-    void initializeMIDIOutputs();
-    bool shouldTryInitializeMidiOutputs = false;
-    juce::int64 lastTimeMidiOutputInitializationAttempted = 0;
-    MidiOutputDeviceData* initializeMidiOutputDevice(juce::String deviceName);
-    juce::OwnedArray<MidiOutputDeviceData> midiOutDevices = {};
-    juce::MidiOutput* getMidiOutputDevice(juce::String deviceName);
-    juce::MidiBuffer* getMidiOutputDeviceBuffer(juce::String deviceName);
-    void clearMidiDeviceOutputBuffers();
-    void clearMidiTrackBuffers();
-    void sendMidiDeviceOutputBuffers();
-    void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames);
-    std::unique_ptr<juce::MidiOutput> notesMonitoringMidiOutput;
-    
-    std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
-    std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
-    std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
-    int lastMidiNoteOnMessagesToStore = 20;
-    juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
-    
-    // Aux MIDI buffers
-    juce::MidiBuffer midiClockMessages;
-    juce::MidiBuffer midiMetronomeMessages;
-    juce::MidiBuffer pushMidiClockMessages;
-    juce::MidiBuffer incomingMidi;
-    juce::MidiBuffer incomingMidiKeys;
-    juce::MidiBuffer incomingMidiPush;
-    juce::MidiBuffer monitoringNotesMidiBuffer;
-    
-    // Hardware devices
-    juce::OwnedArray<HardwareDevice> hardwareDevices;
-    void initializeHardwareDevices();
-    HardwareDevice* getHardwareDeviceByName(juce::String name);
-    juce::StringArray availableHardwareDeviceNames = {};
-    
-    // Transport and basic settings
-    double sampleRate = 0.0;
-    int samplesPerSlice = 0;
-    bool shouldToggleIsPlaying = false;
-    juce::CachedValue<juce::String> name;
-    juce::CachedValue<int> fixedLengthRecordingBars;
-    juce::CachedValue<bool> recordAutomationEnabled;
-    juce::CachedValue<int> fixedVelocity;
-    
-    // Musical context
-    std::unique_ptr<MusicalContext> musicalContext;
-    double nextBpm = 0.0;
-    int nextMeter = 0;
-    bool sendMidiClock = true;
-    bool shouldStartSendingPushMidiClockBurst = true;
-    double lastTimePushMidiClockBurstStarted = -1.0;
-    std::vector<juce::String> sendMidiClockMidiDeviceNames = {};
-    std::vector<juce::String> sendMetronomeMidiDeviceNames = {};
-
-    // Tracks
-    void initializeTracks();
-    std::unique_ptr<TrackList> tracks;
-    int activeUiNotesMonitoringTrack = -1;
-    
-    // Scenes
-    void playScene(int sceneN);
-    void duplicateScene(int sceneN);
-    
-    #if !RPI_BUILD
-    // Desktop app UI
-    DevelopmentUIComponent devUiComponent;
-    void debugState() {
-        
-        
-        // As a sort of test, this function also removes some notes from the clips VT
-        for (auto track: tracks->objects){
-            for (int i=0; i<MAX_NUM_SCENES; i++){
-                auto clip = track->getClipAt(i);
-                for (int j=0; j<clip->state.getNumChildren(); j++){
-                    auto child = clip->state.getChild(j);
-                    if (child.hasType (IDs::SEQUENCE_EVENT)){
-                        clip->state.removeChild(child, nullptr);
-                    }
-                }
-                
-            }
+    MainComponent() : devUiComponent(&sequencer)
+    {
+        // Some platforms require permissions to open input channels so request that here
+        if (juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
+            && ! juce::RuntimePermissions::isGranted (juce::RuntimePermissions::recordAudio))
+        {
+            juce::RuntimePermissions::request (juce::RuntimePermissions::recordAudio,
+                                               [&] (bool granted) { setAudioChannels (granted ? 2 : 0, 2); });
+        }
+        else
+        {
+            // Specify the number of input and output channels that we want to open
+            setAudioChannels (2, 2);
         }
         
-        DBG(state.toXmlString());
-
+        #if !RPI_BUILD
+        addAndMakeVisible(devUiComponent);
+        setSize (devUiComponent.getWidth(), devUiComponent.getHeight());
+        #else
+        setSize(10, 10); // I think this needs to be called anyway...
+        #endif
+        
+        // Add action listener so sequencer can send messages to MainComponent
+        sequencer.addActionListener(this);
     }
+
+    ~MainComponent() override
+    {
+        shutdownAudio();
+    }
+    
+    void actionListenerCallback (const juce::String &message) override
+    {
+        juce::String actionName = message.substring(0, message.indexOf(":"));
+        juce::String actionData = message.substring(message.indexOf(":") + 1);
+    
+        if (actionName == ACTION_UPDATE_DEVUI_RELOAD_BROWSER) {
+            devUiComponent.reloadBrowser();
+        } else if (actionName == ACTION_UPDATE_DEVUI_STATE_TRNSPORT) {
+            devUiComponent.setStateTransport(actionData);
+        } else if (actionName == ACTION_UPDATE_DEVUI_STATE_TRACKS) {
+            devUiComponent.setStateTracks(actionData);
+        }
+    }
+
+    void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override
+    {
+        std::cout << "Prepare to play called with samples per block " << samplesPerBlockExpected << " and sample rate " << sampleRate << std::endl;
+        sequencer.prepareSequencer(samplesPerBlockExpected, sampleRate);
+    }
+    
+    void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
+    {
+        sequencer.getNextMIDISlice(bufferToFill);
+    }
+    
+    void releaseResources() override
+    {
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    }
+    
+    void resized() override
+    {
+        #if !RPI_BUILD
+        devUiComponent.setBounds(getLocalBounds());
+        #else
+        setSize(10, 10); // I think this needs to be called anyway...
+        #endif
+    }
+
+private:
+    Sequencer sequencer;
+    
+    #if !RPI_BUILD
+    // Only for desktop app UI
+    DevelopmentUIComponent devUiComponent;
     #endif
-
-    // Recurring tasks
-    void timerCallback() override;  // Callback used to update UI components
-
-    // Sine synth (for testing purposes only)
-    juce::Synthesiser sineSynth;
-    bool renderWithInternalSynth = true;
-    int nSynthVoices = 32;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

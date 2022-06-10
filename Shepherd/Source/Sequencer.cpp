@@ -1,31 +1,21 @@
-#include "MainComponent.h"
+/*
+  ==============================================================================
+
+    Sequencer.cpp
+    Created: 10 Jun 2022 12:07:14pm
+    Author:  Frederic Font Corbera
+
+  ==============================================================================
+*/
+
+#include "Sequencer.h"
 
 
 //==============================================================================
-MainComponent::MainComponent(): devUiComponent([this]{debugState();})
+Sequencer::Sequencer()
 {
-    #if !RPI_BUILD
-    addAndMakeVisible(devUiComponent);
-    setSize (devUiComponent.getWidth(), devUiComponent.getHeight());
-    #else
-    setSize(10, 10); // I think this needs to be called anyway...
-    #endif
-    
     // Start timer for recurring tasks
     startTimer (50);
-
-    // Some platforms require permissions to open input channels so request that here
-    if (juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
-        && ! juce::RuntimePermissions::isGranted (juce::RuntimePermissions::recordAudio))
-    {
-        juce::RuntimePermissions::request (juce::RuntimePermissions::recordAudio,
-                                           [&] (bool granted) { setAudioChannels (granted ? 2 : 0, 2); });
-    }
-    else
-    {
-        // Specify the number of input and output channels that we want to open
-        setAudioChannels (2, 2);
-    }
     
     // Set some defaults
     if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
@@ -56,7 +46,7 @@ MainComponent::MainComponent(): devUiComponent([this]{debugState();})
     // Load empty session to state
     DBG("Creating default session state");
     #if !RPI_BUILD
-    int numEnabledTracks = juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, MAX_NUM_TRACKS - 1));
+    int numEnabledTracks = juce::Random::getSystemRandom().nextInt (juce::Range<int> (2, MAX_NUM_TRACKS - 1));
     #else
     int numEnabledTracks = 0;
     #endif
@@ -74,15 +64,19 @@ MainComponent::MainComponent(): devUiComponent([this]{debugState();})
     // Send OSC message to frontend indiating that Shepherd is ready to rock
     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
     sendOscMessage(message);
-    mainComponentInitialized = true;
+    sequencerInitialized = true;
+    
+    #if !RPI_BUILD
+    // Randomly create clips so that we have testing material
+    randomizeClipsNotes();
+    #endif
 }
 
-MainComponent::~MainComponent()
+Sequencer::~Sequencer()
 {
-    shutdownAudio();
 }
 
-void MainComponent::bindState()
+void Sequencer::bindState()
 {
     state.addListener(this);
     
@@ -96,14 +90,14 @@ void MainComponent::bindState()
     }
 }
 
-void MainComponent::saveCurrentSessionToFile()
+void Sequencer::saveCurrentSessionToFile()
 {
     juce::File saveOutputFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + state.getProperty(IDs::name).toString()).withFileExtension("xml");
     if (auto xml = std::unique_ptr<juce::XmlElement> (state.createXml()))
         xml->writeTo(saveOutputFile);
 }
 
-void MainComponent::loadSessionFromFile(juce::String sessionName)
+void Sequencer::loadSessionFromFile(juce::String sessionName)
 {
     // TODO: This should be run when the RT thread is not trying to access state or objects, we should use some sort of flag to prevent that
     juce::File filePath = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + sessionName).withFileExtension("xml");
@@ -116,7 +110,7 @@ void MainComponent::loadSessionFromFile(juce::String sessionName)
     initializeTracks();
 }
 
-void MainComponent::initializeOSC()
+void Sequencer::initializeOSC()
 {
     // Setup OSC server
     // Note that OSC sender is not set up here because it is done lazily when trying to send a message
@@ -130,7 +124,7 @@ void MainComponent::initializeOSC()
 }
 
 
-bool MainComponent::midiDeviceAlreadyInitialized(const juce::String& deviceName)
+bool Sequencer::midiDeviceAlreadyInitialized(const juce::String& deviceName)
 {
     for (auto deviceData: midiOutDevices){
         if (deviceData->name == deviceName){
@@ -141,7 +135,7 @@ bool MainComponent::midiDeviceAlreadyInitialized(const juce::String& deviceName)
     return false;
 }
 
-void MainComponent::initializeMIDIInputs()
+void Sequencer::initializeMIDIInputs()
 {
     JUCE_ASSERT_MESSAGE_THREAD
     
@@ -197,7 +191,7 @@ void MainComponent::initializeMIDIInputs()
     }
 }
 
-void MainComponent::initializeMIDIOutputs()
+void Sequencer::initializeMIDIOutputs()
 {
     JUCE_ASSERT_MESSAGE_THREAD
     
@@ -252,7 +246,7 @@ void MainComponent::initializeMIDIOutputs()
     if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
 }
 
-MidiOutputDeviceData* MainComponent::initializeMidiOutputDevice(juce::String deviceName)
+MidiOutputDeviceData* Sequencer::initializeMidiOutputDevice(juce::String deviceName)
 {
     JUCE_ASSERT_MESSAGE_THREAD
     
@@ -283,7 +277,7 @@ MidiOutputDeviceData* MainComponent::initializeMidiOutputDevice(juce::String dev
     }
 }
 
-juce::MidiOutput* MainComponent::getMidiOutputDevice(juce::String deviceName)
+juce::MidiOutput* Sequencer::getMidiOutputDevice(juce::String deviceName)
 {
     for (auto deviceData: midiOutDevices){
         if (deviceData->name == deviceName){
@@ -298,7 +292,7 @@ juce::MidiOutput* MainComponent::getMidiOutputDevice(juce::String deviceName)
     return nullptr;
 }
 
-juce::MidiBuffer* MainComponent::getMidiOutputDeviceBuffer(juce::String deviceName)
+juce::MidiBuffer* Sequencer::getMidiOutputDeviceBuffer(juce::String deviceName)
 {
     for (auto deviceData: midiOutDevices){
         if (deviceData->name == deviceName){
@@ -313,28 +307,28 @@ juce::MidiBuffer* MainComponent::getMidiOutputDeviceBuffer(juce::String deviceNa
     return nullptr;
 }
 
-void MainComponent::clearMidiDeviceOutputBuffers()
+void Sequencer::clearMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
         deviceData->buffer.clear();
     }
 }
 
-void MainComponent::clearMidiTrackBuffers()
+void Sequencer::clearMidiTrackBuffers()
 {
     for (auto track: tracks->objects){
         track->clearLastSliceMidiBuffer();
     }
 }
 
-void MainComponent::sendMidiDeviceOutputBuffers()
+void Sequencer::sendMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
         deviceData->device->sendBlockOfMessagesNow(deviceData->buffer);
     }
 }
 
-void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames)
+void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames)
 {
     for (auto deviceName: midiOutDeviceNames){
         auto bufferToWrite = getMidiOutputDeviceBuffer(deviceName);
@@ -346,7 +340,7 @@ void MainComponent::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::
     }
 }
 
-void MainComponent::initializeHardwareDevices()
+void Sequencer::initializeHardwareDevices()
 {
     
     bool shouldLoadDefaults = false;
@@ -414,7 +408,7 @@ void MainComponent::initializeHardwareDevices()
     }
 }
 
-HardwareDevice* MainComponent::getHardwareDeviceByName(juce::String name)
+HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name)
 {
     for (auto device: hardwareDevices){
         if (device->getShortName() == name || device->getName() == name){
@@ -425,7 +419,7 @@ HardwareDevice* MainComponent::getHardwareDeviceByName(juce::String name)
     return nullptr;
 }
 
-void MainComponent::initializeTracks()
+void Sequencer::initializeTracks()
 {
     // Create some tracks according to state
     tracks = std::make_unique<TrackList>(state,
@@ -447,10 +441,8 @@ void MainComponent::initializeTracks()
 }
 
 //==============================================================================
-void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRate)
+void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRate)
 {
-    std::cout << "Prepare to play called with samples per block " << samplesPerBlockExpected << " and sample rate " << _sampleRate << std::endl;
-
     sampleRate = _sampleRate;
     samplesPerSlice = samplesPerBlockExpected; // We store samplesPerBlockExpected calling it samplesPerSlice as in our MIDI sequencer context we call our processig blocks "slices"
     
@@ -497,7 +489,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double _sampleRa
  See comments in the implementation for more details about each step.
  
 */
-void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
+void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFill)
 {
     // 1) -------------------------------------------------------------------------------------------------
     
@@ -506,7 +498,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     
     // 2) -------------------------------------------------------------------------------------------------
     
-    if (!mainComponentInitialized){
+    if (!sequencerInitialized){
         return;
     }
     
@@ -781,28 +773,9 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     }
 }
 
-void MainComponent::releaseResources()
-{
-}
-
-//==============================================================================
-void MainComponent::paint (juce::Graphics& g)
-{
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-}
-
-void MainComponent::resized()
-{
-    #if !RPI_BUILD
-    devUiComponent.setBounds(getLocalBounds());
-    #else
-    setSize(10, 10); // I think this needs to be called anyway...
-    #endif
-}
-
 //==============================================================================
 
-GlobalSettingsStruct MainComponent::getGlobalSettings()
+GlobalSettingsStruct Sequencer::getGlobalSettings()
 {
     GlobalSettingsStruct settings;
     settings.fixedLengthRecordingBars = fixedLengthRecordingBars;
@@ -815,7 +788,7 @@ GlobalSettingsStruct MainComponent::getGlobalSettings()
 }
 
 //==============================================================================
-void MainComponent::timerCallback()
+void Sequencer::timerCallback()
 {
     //std::cout << state.toXmlString() << std::endl;
     
@@ -839,7 +812,7 @@ void MainComponent::timerCallback()
 }
 
 //==============================================================================
-void MainComponent::playScene(int sceneN)
+void Sequencer::playScene(int sceneN)
 {
     jassert(sceneN < MAX_NUM_SCENES);
     for (auto track: tracks->objects){
@@ -852,7 +825,7 @@ void MainComponent::playScene(int sceneN)
     }
 }
 
-void MainComponent::duplicateScene(int sceneN)
+void Sequencer::duplicateScene(int sceneN)
 {
     // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
     jassert(sceneN < MAX_NUM_SCENES - 1);
@@ -866,7 +839,7 @@ void MainComponent::duplicateScene(int sceneN)
 }
 
 //==============================================================================
-void MainComponent::sendOscMessage (const juce::OSCMessage& message)
+void Sequencer::sendOscMessage (const juce::OSCMessage& message)
 {
     if (!oscSenderIsConnected){
         if (oscSender.connect (oscSendHost, oscSendPort)){
@@ -878,7 +851,7 @@ void MainComponent::sendOscMessage (const juce::OSCMessage& message)
     }
 }
 
-void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
+void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
 {
     const juce::String address = message.getAddressPattern().toString();
     
@@ -1102,7 +1075,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             sendOscMessage(returnMessage);
             
             #if !RPI_BUILD
-            devUiComponent.setStateTracks(stateAsStringParts.joinIntoString(","));
+            sendActionMessage(juce::String(ACTION_UPDATE_DEVUI_STATE_TRACKS) + ":" + stateAsStringParts.joinIntoString(","));
             #endif
             
         } else if (address == OSC_ADDRESS_STATE_TRANSPORT){
@@ -1141,7 +1114,7 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
             sendOscMessage(returnMessage);
             
             #if !RPI_BUILD
-            devUiComponent.setStateTransport(stateAsStringParts.joinIntoString(","));
+            sendActionMessage(juce::String(ACTION_UPDATE_DEVUI_STATE_TRNSPORT) + ":" + stateAsStringParts.joinIntoString(","));
             #endif
             
         }
@@ -1155,40 +1128,89 @@ void MainComponent::oscMessageReceived (const juce::OSCMessage& message)
         // Also in dev mode trigger reload ui
         #if !RPI_BUILD
         juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 2000);
-        devUiComponent.reloadBrowser();
+        sendActionMessage(ACTION_UPDATE_DEVUI_RELOAD_BROWSER);
         #endif
     }
 }
 
 //==============================================================================
 
-void MainComponent::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
+void Sequencer::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     //std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
 }
 
-void MainComponent::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
+void Sequencer::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
-void MainComponent::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
+void Sequencer::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
-void MainComponent::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)
+void Sequencer::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
-void MainComponent::valueTreeParentChanged (juce::ValueTree& treeWhoseParentHasChanged)
+void Sequencer::valueTreeParentChanged (juce::ValueTree& treeWhoseParentHasChanged)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+}
+
+//==============================================================================
+
+void Sequencer::debugState() {
+    DBG(state.toXmlString());
+}
+
+void Sequencer::randomizeClipsNotes() {
+    for (auto track: tracks->objects){
+        if (track->isEnabled()){
+            for (int i=0; i<MAX_NUM_SCENES; i++){
+                auto clip = track->getClipAt(i);
+                
+                // First remove all notes from clip
+                for (int j=0; j<clip->state.getNumChildren(); j++){
+                    auto child = clip->state.getChild(j);
+                    clip->state.setProperty(IDs::enabled, false, nullptr);
+                    clip->state.setProperty(IDs::clipLengthInBeats, 0.0, nullptr);
+                    if (child.hasType (IDs::SEQUENCE_EVENT)){
+                        clip->state.removeChild(child, nullptr);
+                    }
+                    clip->stopNow();
+                }
+                
+                // Then for 50% of the clips, add new random content
+                if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
+                    clip->state.setProperty(IDs::enabled, true, nullptr);
+                    double clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
+                    clip->state.setProperty(IDs::clipLengthInBeats, clipLengthInBeats, nullptr);
+                    std::vector<std::pair<int, float>> noteOnTimes = {};
+                    for (int j=0; j<clipLengthInBeats - 0.5; j++){
+                        noteOnTimes.push_back({j, juce::Random::getSystemRandom().nextFloat() * 0.5});
+                    };
+                    for (auto note: noteOnTimes) {
+                        // NOTE: don't care about the channel here because it is re-written when filling midi buffer
+                        int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
+                        juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, midiNote, 1.0f);
+                        msgNoteOn.setTimeStamp(note.first + note.second);
+                        clip->state.addChild(Helpers::midiMessageToSequenceEventValueTree(msgNoteOn), -1, nullptr);
+                        
+                        juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, midiNote, 0.0f);
+                        msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
+                        clip->state.addChild(Helpers::midiMessageToSequenceEventValueTree(msgNoteOff), -1, nullptr);
+                    }
+                }
+            }
+        }
+    }
 }

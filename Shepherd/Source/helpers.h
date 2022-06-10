@@ -55,6 +55,7 @@ namespace Helpers
                 Helpers::createUuidProperty (c);
                 c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
                 c.setProperty (IDs::enabled, false, nullptr);
+                c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 t.addChild (c, -1, nullptr);
             }
             

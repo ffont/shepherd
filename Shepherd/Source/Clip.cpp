@@ -26,30 +26,6 @@ Clip::Clip(const juce::ValueTree& _state,
     
     playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
     
-    #if !RPI_BUILD
-    // Certain chance to initialize midiSequence with some notes
-    // This makes testing quicker
-    if ((getTrackSettings().enabled) && (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5)){
-        state.setProperty(IDs::enabled, true, nullptr);
-        clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
-        std::vector<std::pair<int, float>> noteOnTimes = {};
-        for (int i=0; i<clipLengthInBeats; i++){
-            noteOnTimes.push_back({i, juce::Random::getSystemRandom().nextFloat() * 0.5});
-        };
-        for (auto note: noteOnTimes) {
-            // NOTE: don't care about the channel here because it is re-written when filling midi buffer
-            int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
-            juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, midiNote, 1.0f);
-            msgNoteOn.setTimeStamp(note.first + note.second);
-            state.addChild(Helpers::midiMessageToSequenceEventValueTree(msgNoteOn), -1, nullptr);
-            
-            juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, midiNote, 0.0f);
-            msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
-            state.addChild(Helpers::midiMessageToSequenceEventValueTree(msgNoteOff), -1, nullptr);
-        }
-    }
-    #endif
-    
     recreateMidiSequenceFromState();
 }
 

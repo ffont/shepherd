@@ -11,7 +11,8 @@
 #pragma once
 
 #include <JuceHeader.h>
-
+#include "defines.h"
+#include "Sequencer.h"
 
 //==============================================================================
 /*
@@ -19,9 +20,9 @@
 class DevelopmentUIComponent : public juce::Component
 {
 public:
-    DevelopmentUIComponent(std::function<void()> _printStateFunction)
+    DevelopmentUIComponent(Sequencer* _sequencer)
     {
-        printStateFunction = _printStateFunction;
+        sequencer = _sequencer;
         
         reloadBrowserButton.onClick = [this] {
             reloadBrowser();
@@ -37,10 +38,20 @@ public:
         addAndMakeVisible (toggleStateVisualizer);
         
         debugStateButton.onClick = [this] {
-            printStateFunction();
+            if (sequencer != nullptr){
+                sequencer->debugState();
+            }
         };
         debugStateButton.setButtonText("Debug state");
         addAndMakeVisible (debugStateButton);
+        
+        randomizeClipsContentButton.onClick = [this] {
+            if (sequencer != nullptr){
+                sequencer->randomizeClipsNotes();
+            }
+        };
+        randomizeClipsContentButton.setButtonText("Randomize clips notes");
+        addAndMakeVisible (randomizeClipsContentButton);
         
         addAndMakeVisible(browser);
         browser.goToURL(DEV_UI_SIMULATOR_URL);
@@ -77,6 +88,12 @@ public:
         updateStateInVisualizer();
     }
     
+    void setXmlState(const juce::String &state)
+    {
+        xmlState = state;
+        updateStateInVisualizer();
+    }
+    
     void reloadBrowser()
     {
         browser.goToURL(DEV_UI_SIMULATOR_URL);
@@ -92,6 +109,7 @@ public:
         reloadBrowserButton.setBounds(5, 5, 70, 20);
         toggleStateVisualizer.setBounds(80, 5, 120, 20);
         debugStateButton.setBounds(205, 5, 80, 20);
+        randomizeClipsContentButton.setBounds(290, 5, 120, 20);
         browser.setBounds(0, 30, browserWidth, browserHeight);
         if (showState){
             stateVisualizer.setBounds(0, 30 + browserHeight, browserWidth, stateVisualizerHeight);
@@ -116,14 +134,16 @@ private:
     
     juce::String stateTransport = "";
     juce::String stateTracks = "";
+    juce::String xmlState = "";
     
     juce::WebBrowserComponent browser;
     juce::TextButton debugStateButton;
     juce::TextButton reloadBrowserButton;
+    juce::TextButton randomizeClipsContentButton;
     juce::TextButton toggleStateVisualizer;
     juce::TextEditor stateVisualizer;
     
-    std::function<void()> printStateFunction;
+    Sequencer* sequencer;
     
     bool showState = true;
     bool finishedInitialization = false;

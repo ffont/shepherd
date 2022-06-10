@@ -6,10 +6,8 @@
     <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Main">
       <FILE id="FkBujr" name="defines.h" compile="0" resource="0" file="Source/defines.h"/>
       <FILE id="w1nHsg" name="helpers.h" compile="0" resource="0" file="Source/helpers.h"/>
-      <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
-      <FILE id="yJw2cK" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
-      <FILE id="Oxy1mT" name="MainComponent.cpp" compile="1" resource="0"
-            file="Source/MainComponent.cpp"/>
+      <FILE id="KatrYF" name="Sequencer.h" compile="0" resource="0" file="Source/Sequencer.h"/>
+      <FILE id="SozEZ5" name="Sequencer.cpp" compile="1" resource="0" file="Source/Sequencer.cpp"/>
       <FILE id="nsnrj4" name="MusicalContext.h" compile="0" resource="0"
             file="Source/MusicalContext.h"/>
       <FILE id="lgm1e0" name="MusicalContext.cpp" compile="1" resource="0"
@@ -26,6 +24,8 @@
       <FILE id="kwO2YT" name="Playhead.cpp" compile="1" resource="0" file="Source/Playhead.cpp"/>
     </GROUP>
     <GROUP id="{0C21C24E-748E-BBD6-0619-F3B611386F41}" name="Support">
+      <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="yJw2cK" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="pJ65YQ" name="DevelopmentUIComponent.h" compile="0" resource="0"
             file="Source/DevelopmentUIComponent.h"/>
       <FILE id="hEcX4G" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
