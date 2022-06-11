@@ -19,14 +19,35 @@ MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSetti
 void MusicalContext::bindState()
 {
     // Bind cached values to state
-    playheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
-    isPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
-    doingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
-    countInPlayheadPositionInBeats.referTo(state, IDs::countInPlayheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    stateIsPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
+    stateDoingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
+    stateCountInPlayheadPositionInBeats.referTo(state, IDs::countInPlayheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    stateBarCount.referTo(state, IDs::barCount, nullptr, Defaults::barCount);
+    
     bpm.referTo(state, IDs::bpm, nullptr, Defaults::bpm);
     meter.referTo(state, IDs::meter, nullptr, Defaults::meter);
-    barCount.referTo(state, IDs::barCount, nullptr, Defaults::barCount);
     metronomeOn.referTo(state, IDs::metronomeOn, nullptr, Defaults::metronomeOn);
+}
+
+void MusicalContext::updateStateMemberVersions()
+{
+    // Updates all the stateX versions of the members so that their status gets reflected in the state
+    if (statePlayheadPositionInBeats != playheadPositionInBeats){
+        statePlayheadPositionInBeats = playheadPositionInBeats;
+    }
+    if (stateIsPlaying != isPlaying){
+        stateIsPlaying = isPlaying;
+    }
+    if (stateDoingCountIn != doingCountIn){
+        stateDoingCountIn = doingCountIn;
+    }
+    if (stateCountInPlayheadPositionInBeats != countInPlayheadPositionInBeats){
+        stateCountInPlayheadPositionInBeats = countInPlayheadPositionInBeats;
+    }
+    if (stateBarCount != barCount){
+        stateBarCount = barCount;
+    }
 }
 
 //==============================================================================

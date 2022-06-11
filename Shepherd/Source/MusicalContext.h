@@ -19,6 +19,7 @@ class MusicalContext
 public:
     MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, juce::ValueTree& _state);
     void bindState();
+    void updateStateMemberVersions();
     
     double getNextQuantizedBarPosition();
     double getSliceLengthInBeats();
@@ -57,14 +58,20 @@ public:
 private:
     juce::ValueTree state;
     
-    juce::CachedValue<double> playheadPositionInBeats;
-    juce::CachedValue<bool> isPlaying;
-    juce::CachedValue<bool> doingCountIn;
-    juce::CachedValue<double> countInPlayheadPositionInBeats;
+    double playheadPositionInBeats = Defaults::playheadPosition;
+    bool isPlaying = Defaults::isPlaying;
+    bool doingCountIn = Defaults::doingCountIn;
+    double countInPlayheadPositionInBeats = Defaults::playheadPosition;
+    int barCount = Defaults::barCount;
+    
+    juce::CachedValue<double> statePlayheadPositionInBeats;
+    juce::CachedValue<bool> stateIsPlaying;
+    juce::CachedValue<bool> stateDoingCountIn;
+    juce::CachedValue<double> stateCountInPlayheadPositionInBeats;
+    juce::CachedValue<int> stateBarCount;
     
     juce::CachedValue<double> bpm;
     juce::CachedValue<int> meter;
-    juce::CachedValue<int> barCount;
     juce::CachedValue<bool> metronomeOn;
     
     double lastBarCountedPlayheadPosition = 0.0;

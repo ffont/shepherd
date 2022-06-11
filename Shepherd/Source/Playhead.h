@@ -18,6 +18,7 @@ class Playhead
 public:
     Playhead(const juce::ValueTree& state, std::function<juce::Range<double>()> parentSliceGetter);
     void bindState();
+    void updateStateMemberVersions();
     juce::ValueTree state;
 
     void playNow();
@@ -46,10 +47,14 @@ public:
 
 private:
     juce::Range<double> currentSlice { 0.0, 0.0 };
-    double playheadPositionInBeats;
+    double playheadPositionInBeats = Defaults::playheadPosition;
+    bool playing = Defaults::playing;
+    double willPlayAt = Defaults::willPlayAt;
+    double willStopAt = Defaults::willStopAt;
+    
     juce::CachedValue<double> statePlayheadPositionInBeats;  // Used only so that current position is somehow stored in the state
-    juce::CachedValue<bool> playing;
-    juce::CachedValue<double> willPlayAt;
-    juce::CachedValue<double> willStopAt;
+    juce::CachedValue<bool> statePlaying;
+    juce::CachedValue<double> stateWillPlayAt;
+    juce::CachedValue<double> stateWillStopAt;
     bool hasJustStoppedFlag = false;
 };

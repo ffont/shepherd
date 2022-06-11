@@ -794,10 +794,7 @@ GlobalSettingsStruct Sequencer::getGlobalSettings()
 //==============================================================================
 void Sequencer::timerCallback()
 {
-    //std::cout << state.toXmlString() << std::endl;
-    
     // Carry out actions that should be done periodically
-    
     if (!midiInIsConnected || !midiInPushIsConnected ){
         if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInputInitializationAttempted > 2000){
             // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
@@ -813,6 +810,9 @@ void Sequencer::timerCallback()
             initializeMIDIOutputs();
         }
     }
+    
+    // Update musical context stateX members
+    musicalContext->updateStateMemberVersions();
 }
 
 //==============================================================================
@@ -899,7 +899,7 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
                 } else if (address == OSC_ADDRESS_CLIP_SET_LENGTH){
                     jassert(message.size() == 3);
                     double newLength = (double)message[2].getFloat32();
-                    clip->setNewClipLength(newLength);
+                    clip->setNewClipLength(newLength, false);
                 }
             }
         }
@@ -1143,7 +1143,7 @@ void Sequencer::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasC
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
-    //std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
+    std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
 }
 
 void Sequencer::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
@@ -1186,7 +1186,8 @@ void Sequencer::randomizeClipsNotes() {
                 for (int j=0; j<clip->state.getNumChildren(); j++){
                     auto child = clip->state.getChild(j);
                     clip->state.setProperty(IDs::enabled, false, nullptr);
-                    clip->state.setProperty(IDs::clipLengthInBeats, 0.0, nullptr);
+                    clip->setNewClipLength(0.0, true);
+                    //clip->state.setProperty(IDs::clipLengthInBeats, 0.0, nullptr);
                     if (child.hasType (IDs::SEQUENCE_EVENT)){
                         clip->state.removeChild(child, nullptr);
                     }
@@ -1197,7 +1198,8 @@ void Sequencer::randomizeClipsNotes() {
                 if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
                     clip->state.setProperty(IDs::enabled, true, nullptr);
                     double clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
-                    clip->state.setProperty(IDs::clipLengthInBeats, clipLengthInBeats, nullptr);
+                    //clip->state.setProperty(IDs::clipLengthInBeats, clipLengthInBeats, nullptr);
+                    clip->setNewClipLength(clipLengthInBeats, true);
                     std::vector<std::pair<int, float>> noteOnTimes = {};
                     for (int j=0; j<clipLengthInBeats - 0.5; j++){
                         noteOnTimes.push_back({j, juce::Random::getSystemRandom().nextFloat() * 0.5});

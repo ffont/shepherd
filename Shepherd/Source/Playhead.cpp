@@ -18,11 +18,29 @@ Playhead::Playhead(const juce::ValueTree& _state, std::function<juce::Range<doub
 
 void Playhead::bindState()
 {
-    playing.referTo(state, IDs::playing, nullptr, Defaults::playing);
-    willPlayAt.referTo(state, IDs::willPlayAt, nullptr, Defaults::willPlayAt);
-    willStopAt.referTo(state, IDs::willStopAt, nullptr, Defaults::willStopAt);
+    statePlaying.referTo(state, IDs::playing, nullptr, Defaults::playing);
+    stateWillPlayAt.referTo(state, IDs::willPlayAt, nullptr, Defaults::willPlayAt);
+    stateWillStopAt.referTo(state, IDs::willStopAt, nullptr, Defaults::willStopAt);
     statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
 }
+
+void Playhead::updateStateMemberVersions()
+{
+    // Updates all the stateX versions of the members so that their status gets reflected in the state
+    if (statePlaying != playing){
+        statePlaying = playing;
+    }
+    if (stateWillPlayAt != willPlayAt){
+        stateWillPlayAt = willPlayAt;
+    }
+    if (stateWillStopAt != willStopAt){
+        stateWillStopAt = willStopAt;
+    }
+    if (statePlayheadPositionInBeats != playheadPositionInBeats){
+        statePlayheadPositionInBeats = playheadPositionInBeats;
+    }
+}
+    
 
 void Playhead::playNow()
 {

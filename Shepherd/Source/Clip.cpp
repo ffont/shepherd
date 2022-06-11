@@ -56,13 +56,33 @@ void Clip::bindState()
     uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
     name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
     
-    clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
-    currentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, Defaults::currentQuantizationStep);
-    willStartRecordingAt.referTo(state, IDs::willStartRecordingAt, nullptr, Defaults::willStartRecordingAt);
-    willStopRecordingAt.referTo(state, IDs::willStopRecordingAt, nullptr, Defaults::willStopRecordingAt);
-    recording.referTo(state, IDs::recording, nullptr, Defaults::recording);
+    stateClipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
+    stateCurrentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, Defaults::currentQuantizationStep);
+    stateWillStartRecordingAt.referTo(state, IDs::willStartRecordingAt, nullptr, Defaults::willStartRecordingAt);
+    stateWillStopRecordingAt.referTo(state, IDs::willStopRecordingAt, nullptr, Defaults::willStopRecordingAt);
+    stateRecording.referTo(state, IDs::recording, nullptr, Defaults::recording);
     
     state.addListener(this);
+}
+
+void Clip::updateStateMemberVersions()
+{
+    // Updates all the stateX versions of the members so that their status gets reflected in the state
+    if (stateClipLengthInBeats != clipLengthInBeats){
+        stateClipLengthInBeats = clipLengthInBeats;
+    }
+    if (stateRecording != recording){
+        stateRecording = recording;
+    }
+    if (stateWillStartRecordingAt != willStartRecordingAt){
+        stateWillStartRecordingAt = willStartRecordingAt;
+    }
+    if (stateWillStopRecordingAt != willStopRecordingAt){
+        stateWillStopRecordingAt = willStopRecordingAt;
+    }
+    if (stateCurrentQuantizationStep != currentQuantizationStep){
+        stateCurrentQuantizationStep = currentQuantizationStep;
+    }
 }
 
 void Clip::recreateMidiSequenceFromState()
@@ -78,10 +98,16 @@ void Clip::recreateMidiSequenceFromState()
 }
 
 void Clip::timerCallback(){
+    
+    // Recreate the MIDI sequence object and add it to the fifo if it has changed
     if (sequenceNeedsUpdate){
         recreateSequenceAndAddToFifo();
         sequenceNeedsUpdate = false;
     }
+    
+    // Update stateX member values if these have changed
+    updateStateMemberVersions();
+    playhead->updateStateMemberVersions();
 }
 
 void Clip::playNow()
@@ -337,20 +363,24 @@ void Clip::stopClipNowAndClearAllCues()
     stopNow();
 }
 
-void Clip::setNewClipLength(double newLength)
+void Clip::setNewClipLength(double newLength, bool force)
 {
-    // Only allow to set new clip length if current length is above 0.0 and clip has no active cues to stop playing/recording,
-    // otherwise this could led to edge cases which are hard to handle such as cues getting invalid or having clips with
-    // empty sequences (TODO: elaborate this more)
-    jassert(newLength >= 0.0);
-    if (clipLengthInBeats > 0.0 && !hasActiveStopCues()){
-        if (isPlaying()){
-            nextClipLength = newLength;
-            shouldUpdatePreProcessedSequence = true;
-        } else {
-            clipLengthInBeats = newLength;
-            computePreProcessedSequence();
+    if (!force){
+        // Only allow to set new clip length if current length is above 0.0 and clip has no active cues to stop playing/recording,
+        // otherwise this could led to edge cases which are hard to handle such as cues getting invalid or having clips with
+        // empty sequences (TODO: elaborate this more)
+        jassert(newLength >= 0.0);
+        if (clipLengthInBeats > 0.0 && !hasActiveStopCues()){
+            if (isPlaying()){
+                nextClipLength = newLength;
+                shouldUpdatePreProcessedSequence = true;
+            } else {
+                clipLengthInBeats = newLength;
+                computePreProcessedSequence();
+            }
         }
+    } else {
+        clipLengthInBeats = newLength;
     }
 }
 

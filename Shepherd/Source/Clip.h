@@ -50,6 +50,7 @@ public:
          );
     Clip* clone() const;
     void bindState();
+    void updateStateMemberVersions();
     juce::ValueTree state;
     
     bool isEnabled() { return enabled.get(); };
@@ -79,7 +80,7 @@ public:
     void clearStartRecordingCue();
     void clearStopRecordingCue();
     
-    void setNewClipLength(double newLength);
+    void setNewClipLength(double newLength, bool force);
     void clearClip();
     void doubleSequence();
     void quantizeSequence(double quantizationStep);
@@ -114,11 +115,19 @@ private:
     juce::CachedValue<bool> enabled;
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
-    juce::CachedValue<double> clipLengthInBeats;
-    juce::CachedValue<bool> recording;
-    juce::CachedValue<double> willStartRecordingAt;
-    juce::CachedValue<double> willStopRecordingAt;
-    juce::CachedValue<double> currentQuantizationStep;
+    // The following members (starting with stateX) have non-CachedValue equivalents below which are the ones really used.
+    // The stateX versions are used to copy the values to the state so that these get send to the UI
+    juce::CachedValue<double> stateClipLengthInBeats;
+    juce::CachedValue<bool> stateRecording;
+    juce::CachedValue<double> stateWillStartRecordingAt;
+    juce::CachedValue<double> stateWillStopRecordingAt;
+    juce::CachedValue<double> stateCurrentQuantizationStep;
+    
+    double clipLengthInBeats = Defaults::clipLengthInBeats;
+    bool recording = Defaults::recording;
+    double willStartRecordingAt = Defaults::willStopRecordingAt;
+    double willStopRecordingAt = Defaults::willStopRecordingAt;
+    double currentQuantizationStep = Defaults::currentQuantizationStep;
     
     std::unique_ptr<Playhead> playhead;
     double nextClipLength = -1.0;
