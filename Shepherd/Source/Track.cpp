@@ -231,16 +231,20 @@ std::vector<int> Track::getCurrentlyPlayingClipsIndex()
     return currentlyPlayingClips;
 }
 
-/** Insert a copy of the passed clip at the position indicated. All clips below that position will be shifted downwards to accomodate the new clip. Last clip will be removed
-    @param clipN         position where to insert the new clip
-    @param clip           clip to insert at clipN
+/** Duplicates the contents of the clip at scene N to the clip of scene N+1.  All clips below that position will be shifted downwards to accomodate the new clip. Contents of the last clip will be lost if overflowing max num clips.
+    @param clipN         position of the clip to duplicate
 */
-void Track::insertClipAt(int clipN, Clip* clip)
+void Track::duplicateClipAt(int clipN)
 {
-    int currentMidiClipsLength = clips->objects.size();
-    clips->objects.insert(clipN, clip);
-    clips->objects.removeLast();
-    jassert(clips->objects.size() == currentMidiClipsLength);
+    if ((clipN >= 0) && (clipN < clips->objects.size() - 2)){
+        // Don't try to duplicate last clip as there's no more space for it
+        juce::ValueTree previousClipState = clips->objects[clipN]->state.createCopy();
+        for (int i=clipN + 1; i<clips->objects.size(); i++){
+            juce::ValueTree previousClipStateAux = clips->objects[i]->state.createCopy();
+            clips->objects[i]->loadStateFromOtherClipState(previousClipState);
+            previousClipState = previousClipStateAux;
+        }
+    }
 }
 
 bool Track::hasClipsCuedToRecord()

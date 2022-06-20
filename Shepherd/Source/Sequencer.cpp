@@ -837,8 +837,7 @@ void Sequencer::duplicateScene(int sceneN)
     // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
     // sceneN.
     for (auto track: tracks->objects){
-        auto clip = track->getClipAt(sceneN);
-        track->insertClipAt(sceneN, clip->clone());
+        track->duplicateClipAt(sceneN);
     }
 }
 

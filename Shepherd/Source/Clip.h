@@ -48,7 +48,7 @@ public:
          std::function<TrackSettingsStruct()> trackSettingsGetter,
          std::function<MusicalContext*()> musicalContextGetter
          );
-    Clip* clone() const;
+    void loadStateFromOtherClipState(const juce::ValueTree& _state);
     void bindState();
     void updateStateMemberVersions();
     juce::ValueTree state;
@@ -57,11 +57,10 @@ public:
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
     
-    void recreateMidiSequenceFromState();
-    
     void prepareSlice();
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
+    bool shouldSendRemainingNotesOff = false;
     
     void playNow();
     void playNow(double sliceOffset);
@@ -84,7 +83,7 @@ public:
     void clearClip();
     void doubleSequence();
     void quantizeSequence(double quantizationStep);
-    void replaceSequence(juce::MidiMessageSequence newSequence, double newLength);
+    void replaceSequence(juce::ValueTree newSequence, double newLength);
     void resetPlayheadPosition();
     void undo();
     
@@ -130,18 +129,14 @@ private:
     double currentQuantizationStep = Defaults::currentQuantizationStep;
     
     std::unique_ptr<Playhead> playhead;
-    double nextClipLength = -1.0;
-    juce::MidiMessageSequence midiSequence = {};
-    juce::MidiMessageSequence preProcessedMidiSequence = {};
     juce::MidiMessageSequence recordedMidiSequence = {};
-    juce::MidiMessageSequence nextMidiSequence = {};
     
     double hasJustStoppedRecordingFlag = false;
     double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
     void addRecordedSequenceToSequence();
     bool hasJustStoppedRecording();
     
-    std::vector<std::pair<juce::MidiMessageSequence, double>> midiSequenceAndClipLengthUndoStack;
+    std::vector<juce::ValueTree> midiSequenceAndClipLengthUndoStack;
     int allowedUndoLevels = 5;
     void saveToUndoStack();
     bool shouldUndo = false;
@@ -153,28 +148,23 @@ private:
     std::function<MusicalContext*()> getMusicalContext;
     
     void stopClipNowAndClearAllCues();
-    bool shouldReplaceSequence = false;
+
     
-    void clearClipHelper();
-    bool shouldclearClip = false;
-    
-    void doubleSequenceHelper();
-    bool shouldDoubleSequence = false;
-    
-    bool shouldUpdatePreProcessedSequence = false;
-    void computePreProcessedSequence();
-    
+    // Pre-processing of MIDI sequence
+    void preProcessSequence(juce::MidiMessageSequence& sequence);
+    void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
+    double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
     void removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence);
     void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
     void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
     
-    double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
-    void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
-    
+    // Trigger re-creation of sequence if needed
     void timerCallback() override;
     
-    // RT sharing stuff
+    // Real-time thread state sharing stuff
     void recreateSequenceAndAddToFifo() {
+        
+        // Create sequence of MIDI messages by reading from SEQUENCE_EVENT elements in the state
         juce::MidiMessageSequence midiSequence;
         for (int i=0; i<state.getNumChildren(); i++){
             auto child = state.getChild(i);
@@ -182,6 +172,10 @@ private:
                 midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(child));
             }
         }
+        // Pre-process de MIDI sequence (update quantization, etc)
+        preProcessSequence(midiSequence);
+        
+        // Creat ClipSequence::Ptr object to share with the RT thread
         ClipSequence::Ptr clipSequenceObject = new ClipSequence();
         clipSequenceObject->lengthInBeats = clipLengthInBeats;
         clipSequenceObject->midiSequence = midiSequence;

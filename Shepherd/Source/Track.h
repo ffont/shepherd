@@ -55,7 +55,7 @@ public:
     void stopAllPlayingClips(bool now, bool deCue, bool reCue);
     void stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue);
     std::vector<int> getCurrentlyPlayingClipsIndex();
-    void insertClipAt(int clipN, Clip* clip);
+    void duplicateClipAt(int clipN);
     
     bool hasClipsCuedToRecord();
     bool inputMonitoringEnabled();

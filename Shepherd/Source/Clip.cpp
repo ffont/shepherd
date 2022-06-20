@@ -26,28 +26,17 @@ Clip::Clip(const juce::ValueTree& _state,
     
     playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
     
-    recreateMidiSequenceFromState();
-    
     startTimer(50); // Check if sequence should be updated and do it!
 }
 
-/** Return a pointer to a "cloned" version of the current clip which has the same MIDI sequence
- Note that the playhead status is not copied therefore the new clip will have same MIDI sequence and length, but it will be stopped, etc.
-    @param clipN         position where to insert the new clip
-    @param clip           clip to insert at clipN
-*/
-Clip* Clip::clone() const
+void Clip::loadStateFromOtherClipState(const juce::ValueTree& otherClipState)
 {
-    auto newClip = new Clip(
-        this->state,
-        this->playhead->getParentSlice,
-        this->getGlobalSettings,
-        this->getTrackSettings,
-        this->getMusicalContext
-    );
-    newClip->replaceSequence(this->midiSequence, this->clipLengthInBeats);
-    newClip->quantizeSequence(this->currentQuantizationStep);
-    return newClip;
+    if (otherClipState.hasType(IDs::CLIP)){
+        enabled = otherClipState.getProperty(IDs::enabled);
+        currentQuantizationStep = otherClipState.getProperty(IDs::currentQuantizationStep);
+        replaceSequence(otherClipState, otherClipState.getProperty(IDs::clipLengthInBeats));
+        updateStateMemberVersions();
+    }
 }
 
 void Clip::bindState()
@@ -83,18 +72,6 @@ void Clip::updateStateMemberVersions()
     if (stateCurrentQuantizationStep != currentQuantizationStep){
         stateCurrentQuantizationStep = currentQuantizationStep;
     }
-}
-
-void Clip::recreateMidiSequenceFromState()
-{
-    midiSequence.clear();
-    for (int i=0; i<state.getNumChildren(); i++){
-        auto child = state.getChild(i);
-        if (child.hasType (IDs::SEQUENCE_EVENT)){
-            midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(child));
-        }
-    }
-    shouldUpdatePreProcessedSequence = true;
 }
 
 void Clip::timerCallback(){
@@ -181,7 +158,9 @@ void Clip::clearStopCue()
 void Clip::startRecordingNow()
 {
     clearStartRecordingCue();
-    saveToUndoStack(); // Save current sequence and clip length to undo stack so these can be recovered later
+    
+    // TODO: call saveToUndoStack to make it RT safe.. is startRecordingNowcalled potentially called from RT thread?
+    // saveToUndoStack(); // Save current sequence and clip length to undo stack so these can be recovered later
     recording = true;
     hasJustStoppedRecordingFlag = false;
     if (isEmpty() && getGlobalSettings().fixedLengthRecordingBars > 0){
@@ -371,35 +350,20 @@ void Clip::setNewClipLength(double newLength, bool force)
         // empty sequences (TODO: elaborate this more)
         jassert(newLength >= 0.0);
         if (clipLengthInBeats > 0.0 && !hasActiveStopCues()){
-            if (isPlaying()){
-                nextClipLength = newLength;
-                shouldUpdatePreProcessedSequence = true;
-            } else {
-                clipLengthInBeats = newLength;
-                computePreProcessedSequence();
-            }
+            clipLengthInBeats = newLength;
+            sequenceNeedsUpdate = true;
         }
     } else {
         clipLengthInBeats = newLength;
+        sequenceNeedsUpdate = true;
     }
 }
 
 void Clip::clearClip()
 {
-    // Removes all midi events from the midi sequence and sets clip length to 0
-    if (isPlaying()){
-        // If is playing, clear sequence at the start of next process block
-        shouldclearClip = true;
-    } else {
-        // If not playing, clear sequence immediately
-        clearClipHelper();
-    }
-}
-
-void Clip::clearClipHelper()
-{
-    // TODO: maybe refactor this so we don't need the helper?
-    // This will be related to a mechanism for not editing state from real-time thread
+    // NOTE: this should NOT be called from RT thread
+    
+    // Removes all sequence events from VT
     for (int i=0; i<state.getNumChildren(); i++){
         auto child = state.getChild(i);
         if (child.hasType (IDs::SEQUENCE_EVENT)){
@@ -407,64 +371,58 @@ void Clip::clearClipHelper()
             i = i-1;
         }
     }
-    recreateMidiSequenceFromState();    
-    clipLengthInBeats = 0.0;
+    
+    // Also sets new length to 0.0
+    setNewClipLength(0.0, true);
+    
+    // Stops playing the clip and clears all cues (?)
+    shouldSendRemainingNotesOff = true;
     stopClipNowAndClearAllCues();
 }
 
 void Clip::doubleSequence()
 {
+    // NOTE: this should NOT be called from RT thread
+    
     // Makes the midi sequence twice as long and duplicates existing events in the second repetition of it
-    if (isPlaying()){
-        // If is playing, double sequence at the start of next process block
-        shouldDoubleSequence = true;
-    } else {
-        // If not playing, double sequence immediately
-        doubleSequenceHelper();
+    saveToUndoStack();
+    
+    // Iterate over all sequence events and re-add them at the end with doubled length
+    int numChildrenBeforeDoubling = state.getNumChildren();
+    for (int i=0; i<numChildrenBeforeDoubling; i++){
+        auto child = state.getChild(i);
+        if (child.hasType (IDs::SEQUENCE_EVENT)){
+            auto childAtDoubleTime = child.createCopy();
+            childAtDoubleTime.setProperty(IDs::timestamp, (double)child.getProperty(IDs::timestamp) + clipLengthInBeats, nullptr);
+            state.addChild(childAtDoubleTime, -1, nullptr);
+        }
     }
-}
-
-void Clip::doubleSequenceHelper()
-{
-    saveToUndoStack(); // Save current sequence and clip length to undo stack so these can be recovered later
-    juce::MidiMessageSequence doubledSequence;
-    for (int i=0; i < midiSequence.getNumEvents(); i++){
-        juce::MidiMessage msg = midiSequence.getEventPointer(i)->message;
-        // Add original event
-        doubledSequence.addEvent(msg);
-        // Add event delayed by length of clip
-        msg.setTimeStamp(msg.getTimeStamp() + clipLengthInBeats);
-        doubledSequence.addEvent(msg);
-    }
-    midiSequence = doubledSequence;
-    clipLengthInBeats = clipLengthInBeats * 2;
-    shouldUpdatePreProcessedSequence = true;
+    setNewClipLength(clipLengthInBeats * 2, true);
 }
 
 
 void Clip::saveToUndoStack()
 {
-    // TODO: re implement using VT objects
-    // Add pair of <current midi sequence, current clip length> to the undo stack so they can be used later
+    // NOTE: this should NOT be called from RT thread
+    
+    // Add copy of clip state to the undo stack
     // If more than X elements are added to the stack, remove the older ones
-    std::pair<juce::MidiMessageSequence, double> pairForStack = {midiSequence, clipLengthInBeats};
-    midiSequenceAndClipLengthUndoStack.push_back(pairForStack);
+    updateStateMemberVersions(); // Make sure state member versions are updated before adding to stack as IDs::clipLengthInBeats will be needed when undoing
+    midiSequenceAndClipLengthUndoStack.push_back(state.createCopy());
     if (midiSequenceAndClipLengthUndoStack.size() > allowedUndoLevels){
-        std::vector<std::pair<juce::MidiMessageSequence, double>> newMidiSequenceAndClipLengthUndoStack;
-        for (int i=allowedUndoLevels-(int)midiSequenceAndClipLengthUndoStack.size(); i<allowedUndoLevels; i++){
-            newMidiSequenceAndClipLengthUndoStack.push_back(midiSequenceAndClipLengthUndoStack[i]);
-        }
-        midiSequenceAndClipLengthUndoStack = newMidiSequenceAndClipLengthUndoStack;
+        midiSequenceAndClipLengthUndoStack.erase(midiSequenceAndClipLengthUndoStack.begin());
     }
 }
 
 void Clip::undo()
 {
+    // NOTE: this should NOT be called from RT thread
+    
     // Check if there are any contents available in the undo stack
-    // If there are, set the current midi sequence and clip length to replace
+    // If there are, replace the relevant parts of the current state with the relevant parts of the saved state
     if (midiSequenceAndClipLengthUndoStack.size() > 0){
-        std::pair<juce::MidiMessageSequence, double> pairFromStack = midiSequenceAndClipLengthUndoStack.back();
-        replaceSequence(pairFromStack.first, pairFromStack.second);
+        auto newState = midiSequenceAndClipLengthUndoStack.back().createCopy();
+        replaceSequence(newState, newState.getProperty(IDs::clipLengthInBeats));
         midiSequenceAndClipLengthUndoStack.pop_back();
     }
 }
@@ -473,28 +431,34 @@ void Clip::quantizeSequence(double quantizationStep)
 {
     jassert(quantizationStep >= 0.0);
     currentQuantizationStep = quantizationStep;
-    if (isPlaying()){
-        // Re-compute pre-processed sequence (including new quantization) at next process slice call
-        shouldUpdatePreProcessedSequence = true;
-    } else {
-        // Re-compute pre-processed sequence (including new quantization) now
-        computePreProcessedSequence();
-    }
 }
 
-void Clip::replaceSequence(juce::MidiMessageSequence newSequence, double newLength)
+void Clip::replaceSequence(juce::ValueTree newSequence, double newLength)
 {
-    // Replace sequence and length by new ones
-    if (isPlaying()){
-        // If is playing, do the replace at start of the next processSlice block
-        nextMidiSequence = newSequence;
-        nextClipLength = newLength;
-        shouldReplaceSequence = true;
-    } else {
-        // If not playing, do it immediately
-        midiSequence = newSequence;
-        clipLengthInBeats = newLength;
+    // NOTE: this should NOT be called from RT thread
+    
+    // First remove all sequence events
+    for (int i=0; i<state.getNumChildren(); i++){
+        auto child = state.getChild(i);
+        if (child.hasType (IDs::SEQUENCE_EVENT)){
+            state.removeChild(i, nullptr);
+            i = i-1;
+        }
     }
+    
+    shouldSendRemainingNotesOff = true;
+    
+    // Now add the new sequence events to the clip
+    for (int i=0; i<newSequence.getNumChildren(); i++){
+        auto child = newSequence.getChild(i);
+        if (child.hasType (IDs::SEQUENCE_EVENT)){
+            auto childToAdd = child.createCopy();
+            state.addChild(childToAdd, -1, nullptr);
+        }
+    }
+    
+    // Finally replace length
+    setNewClipLength(newLength, true);
 }
 
 double Clip::getPlayheadPosition()
@@ -514,6 +478,8 @@ double Clip::getLengthInBeats()
 
 void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
 {
+    // TODO: make sure this is RT safe by using a pre-allocated data-structure to indicate all the notes being currently played (big integer?) so we don't have to allocate/deallocate or iterate things here
+    
     // Add midi messages to the buffer to stop all currently playing midi notes
     // Also send sustain pedal off message if sustain was on
     // Add all the messages at the very end of the buffer to make sure they go after any potential note on message sent in this buffer
@@ -597,47 +563,10 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
     }
     juce::MidiMessageSequence sequenceToRender = clipSequenceForRTThread->sequenceAsMidi();
     
-    if ((nextClipLength > -1.0) && (nextClipLength != clipSequenceForRTThread->lengthInBeats)){
-        if (nextClipLength < clipSequenceForRTThread->lengthInBeats){
-            // To avoid possible hanging notes, send note off to all playing notes
-            renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
-        }
-        clipSequenceForRTThread->lengthInBeats = nextClipLength;
-        clipLengthInBeats = nextClipLength; // TODO: rethink this as we can't set this stuff from the audio thread...
-        nextClipLength = -1.0;
-        if (clipSequenceForRTThread->lengthInBeats == 0.0){
-            // If new length is set to be 0, this equivalent to celaring the clip
-            shouldclearClip = true;
-        }
-    }
-    
-    if (shouldclearClip){
+    // TODO: If clip has just been cleared or replaced, render remaining note offs to buffer
+    if (shouldSendRemainingNotesOff){
         renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
-        clearClipHelper();
-        shouldclearClip = false;
-    }
-    
-    if (shouldReplaceSequence){
-        // To avoid possible hanging notes, send note off to all playing notes
-        renderRemainingNoteOffsIntoMidiBuffer(bufferToFill);
-        midiSequence = nextMidiSequence;
-        shouldReplaceSequence = false;
-        if (isEmpty()){
-            // If after replacing the clip is empty, then stop the clip and all cues
-            stopClipNowAndClearAllCues();
-        }
-        // Trigger should update pre-processed sequence after replacing it
-        shouldUpdatePreProcessedSequence = true;
-    }
-    
-    if (shouldDoubleSequence){
-        doubleSequenceHelper();
-        shouldDoubleSequence = false;
-    }
-    
-    if (shouldUpdatePreProcessedSequence){
-        computePreProcessedSequence();
-        shouldUpdatePreProcessedSequence = false;
+        shouldSendRemainingNotesOff = false;
     }
     
     // 2) -------------------------------------------------------------------------------------------------
@@ -866,7 +795,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
             double previousLength = clipSequenceForRTThread->lengthInBeats;
             if (clipSequenceForRTThread->lengthInBeats == 0.0){
                 clipSequenceForRTThread->lengthInBeats = std::ceil(playhead->getCurrentSlice().getEnd());
-                clipLengthInBeats = std::ceil(playhead->getCurrentSlice().getEnd());  // TODO: rethink this as we can't set this from the audio thread
+                clipLengthInBeats = std::ceil(playhead->getCurrentSlice().getEnd());
             }
             addRecordedSequenceToSequence();
             if (previousLength == 0.0 && clipSequenceForRTThread->lengthInBeats > 0.0 && clipSequenceForRTThread->lengthInBeats > playhead->getCurrentSlice().getEnd()){
@@ -877,7 +806,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
             // If stopping to record, the clip is new and no new notes have been added, trigger clear clip to make it stop
             // and clear any remaining cues.
             if (isEmpty()){
-                clearClipHelper();
+                // TODO: clear clip (?)
             }
         }
     }
@@ -886,36 +815,34 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
 
 void Clip::addRecordedSequenceToSequence()
 {
+    // TODO: implement that properly with VT model
+    
+    
     if (recordedMidiSequence.getNumEvents() > 0){
         
         // If there are events in the recordedMidiSequence, add them to the sequence buffer and clear the recording buffer
-        midiSequence.addSequence(recordedMidiSequence, 0);
+        //midiSequence.addSequence(recordedMidiSequence, 0);
         recordedMidiSequence.clear();
-        
-        // Trigger pre-process the sequence at the start of next process slice call
-        shouldUpdatePreProcessedSequence = true;
     }
 }
 
-void Clip::computePreProcessedSequence()
+void Clip::preProcessSequence(juce::MidiMessageSequence& sequence)
 {
-    // Reset pre-processed sequence to the contents of the midi sequence
-    preProcessedMidiSequence.clear();
-    preProcessedMidiSequence.addSequence(midiSequence, 0);
+    sequence.updateMatchedPairs();
     
-    // Updates preProcessedMidiSequence to quantize it
+    // Applies quantization
     if (currentQuantizationStep > 0.0){
-        quantizeSequence(preProcessedMidiSequence, currentQuantizationStep);
+        quantizeSequence(sequence, currentQuantizationStep);
     }
     
     // Adjust length of the sequence (remove events after the length)
-    removeEventsAfterTimestampFromSequence(preProcessedMidiSequence, clipLengthInBeats);
+    removeEventsAfterTimestampFromSequence(sequence, clipLengthInBeats);
     
     // Remove unmatched notes
-    removeUnmatchedNotesFromSequence(preProcessedMidiSequence);
+    removeUnmatchedNotesFromSequence(sequence);
     
     // Fix "orphan" pitch-bend messages
-    makeSureSequenceResetsPitchBend(preProcessedMidiSequence);
+    makeSureSequenceResetsPitchBend(sequence);
     
 }
 
@@ -931,8 +858,8 @@ void Clip::quantizeSequence(juce::MidiMessageSequence& sequence, double quantiza
                 if (msgOffIndex > -1){
                     juce::MidiMessage msgOff = sequence.getEventPointer(msgOffIndex)->message;
                     double noteDuration = msgOff.getTimeStamp() - msgOn.getTimeStamp();
-                    double quantizedNoteDuration = findNearestQuantizedBeatPosition(noteDuration, quantizationStep);
-                    double quantizedNoteOffPositionInBeats = quantizedNoteOnPositionInBeats + quantizedNoteDuration;
+                    //double quantizedNoteDuration = findNearestQuantizedBeatPosition(noteDuration, quantizationStep);
+                    double quantizedNoteOffPositionInBeats = quantizedNoteOnPositionInBeats + noteDuration;
                     if (quantizedNoteOffPositionInBeats >= clipLengthInBeats){
                         // If after quantization one event falls after the clip length, set it slightly before its end to avoid
                         // hanging notes
@@ -940,6 +867,7 @@ void Clip::quantizeSequence(juce::MidiMessageSequence& sequence, double quantiza
                     }
                     sequence.getEventPointer(msgOffIndex)->message.setTimeStamp(quantizedNoteOffPositionInBeats);
                 }
+                
                 sequence.getEventPointer(i)->message.setTimeStamp(quantizedNoteOnPositionInBeats);
             }
         }
@@ -954,8 +882,8 @@ double Clip::findNearestQuantizedBeatPosition(double beatPosition, double quanti
 void Clip::removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence)
 {
     // Check that there are no unmatched note on/offs in the sequence and remove them if that is the case
+    // Note that this assumes that sequence.updateMatchedPairs() has been called
     std::vector<int> eventsToRemove = {};
-    sequence.updateMatchedPairs();
     for (int i=0; i < sequence.getNumEvents(); i++){
         juce::MidiMessage msg = sequence.getEventPointer(i)->message;
         if (msg.isNoteOn()){
@@ -1008,16 +936,19 @@ void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
 
 void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
+    // Eg: change in quantization
     sequenceNeedsUpdate = true;
 }
 
 void Clip::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
 {
+    // Eg: new note added
     sequenceNeedsUpdate = true;
 }
 
 void Clip::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
 {
+    // Eg: note removed
     sequenceNeedsUpdate = true;
 }
 
