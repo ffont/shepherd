@@ -212,7 +212,7 @@ void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool r
                     clip->clearStartRecordingCue();
                 }
             }
-            if (reCue && wasPlaying && !clip->isEmpty()){
+            if (reCue && wasPlaying && !clip->hasZeroLength()){
                 clip->playAt(0.0);
             }
         }

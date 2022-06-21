@@ -31,7 +31,7 @@ struct ClipSequence : juce::ReferenceCountedObject
     using Ptr = juce::ReferenceCountedObjectPtr<ClipSequence>;
     double lengthInBeats = 0.0;
     juce::MidiMessageSequence midiSequence = {};
-    juce::MidiMessageSequence sequenceAsMidi() {
+    juce::MidiMessageSequence& sequenceAsMidi() {
         // Using helper function here as in the future we might want to store sequences with another format other than MIDI
         return midiSequence;
     }
@@ -53,7 +53,6 @@ public:
     void updateStateMemberVersions();
     juce::ValueTree state;
     
-    bool isEnabled() { return enabled.get(); };
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
     
@@ -79,7 +78,8 @@ public:
     void clearStartRecordingCue();
     void clearStopRecordingCue();
     
-    void setNewClipLength(double newLength, bool force);
+    void setClipLength(double newLength);
+    void setClipLengthToGlobalFixedLength();
     void clearClip();
     void doubleSequence();
     void quantizeSequence(double quantizationStep);
@@ -98,7 +98,9 @@ public:
     bool hasActiveStartCues();
     bool hasActiveStopCues();
     bool hasActiveCues();
-    bool isEmpty();
+    bool hasZeroLength();
+    bool hasSequenceEvents();
+    int getNumSequenceEvents();
     juce::String getStatus();
     
 protected:
@@ -111,29 +113,29 @@ protected:
     
 private:
     
-    juce::CachedValue<bool> enabled;
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
+    juce::CachedValue<double> clipLengthInBeats;
     // The following members (starting with stateX) have non-CachedValue equivalents below which are the ones really used.
     // The stateX versions are used to copy the values to the state so that these get send to the UI
-    juce::CachedValue<double> stateClipLengthInBeats;
     juce::CachedValue<bool> stateRecording;
     juce::CachedValue<double> stateWillStartRecordingAt;
     juce::CachedValue<double> stateWillStopRecordingAt;
     juce::CachedValue<double> stateCurrentQuantizationStep;
     
-    double clipLengthInBeats = Defaults::clipLengthInBeats;
     bool recording = Defaults::recording;
     double willStartRecordingAt = Defaults::willStopRecordingAt;
     double willStopRecordingAt = Defaults::willStopRecordingAt;
     double currentQuantizationStep = Defaults::currentQuantizationStep;
+    int numSequenceEvents = 0;
+    double shouldUpdateClipLenthInTimerTo = -1.0;
     
     std::unique_ptr<Playhead> playhead;
-    juce::MidiMessageSequence recordedMidiSequence = {};
     
+    Fifo<juce::MidiMessage, 100> recordedMidiMessages;
     double hasJustStoppedRecordingFlag = false;
     double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
-    void addRecordedSequenceToSequence();
+    void addRecordedNotesToSequence();
     bool hasJustStoppedRecording();
     
     std::vector<juce::ValueTree> midiSequenceAndClipLengthUndoStack;
@@ -141,20 +143,21 @@ private:
     void saveToUndoStack();
     bool shouldUndo = false;
     
-    juce::SortedSet<int> notesCurrentlyPlayed;
+    juce::BigInteger notesCurrentlyPlayed = 0;
     bool sustainPedalBeingPressed = false;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<TrackSettingsStruct()> getTrackSettings;
     std::function<MusicalContext*()> getMusicalContext;
     
+    void clearAllCues();
     void stopClipNowAndClearAllCues();
 
-    
     // Pre-processing of MIDI sequence
     void preProcessSequence(juce::MidiMessageSequence& sequence);
     void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
     void removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence);
+    void removeOverlappingNotesOfSameNumber(juce::MidiMessageSequence& sequence);
     void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
     void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
     
@@ -183,10 +186,8 @@ private:
         clipSequenceObjectsReleasePool.add(clipSequenceObject);  // Add object to release pool so it is never deleted in the audio thread
         clipSequenceObjectsFifo.push(clipSequenceObject);  // Add object to the fifo si it can be pulled from the audio thread (when MIDI messages are added to buffers)
         
-        if (clipSequenceObjectsFifo.getAvailableSpace() == 0){
-            DBG("WARNING, fifo for clip " << getName() << " is full");
-        } else if (clipSequenceObjectsFifo.getAvailableSpace() < 10){
-            DBG("WARNING, fifo for clip " << getName() << " getting close to full");
+        if (clipSequenceObjectsFifo.getAvailableSpace() < 10){
+            DBG("WARNING, fifo for clip " << getName() << " getting close to full or full");
             DBG("- Available space: " << clipSequenceObjectsFifo.getAvailableSpace() << ", available for reading: " << clipSequenceObjectsFifo.getNumAvailableForReading());
         }
     }

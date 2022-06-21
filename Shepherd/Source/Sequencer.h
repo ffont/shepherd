@@ -99,6 +99,7 @@ private:
     juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
     
     // Aux MIDI buffers
+    // We call .ensure_size for these buffers to make sure we don't to allocations in the RT thread
     juce::MidiBuffer midiClockMessages;
     juce::MidiBuffer midiMetronomeMessages;
     juce::MidiBuffer pushMidiClockMessages;
@@ -106,6 +107,7 @@ private:
     juce::MidiBuffer incomingMidiKeys;
     juce::MidiBuffer incomingMidiPush;
     juce::MidiBuffer monitoringNotesMidiBuffer;
+    juce::MidiBuffer internalSynthCombinedBuffer; // Only used for debugging
     
     // Hardware devices
     juce::OwnedArray<HardwareDevice> hardwareDevices;

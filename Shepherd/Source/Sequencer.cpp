@@ -25,6 +25,19 @@ Sequencer::Sequencer()
         sendMetronomeMidiDeviceNames = {DEFAULT_MIDI_OUT_DEVICE_NAME};
     }
     
+    // Pre allocate memory for MIDI buffers
+    // My rough tests indicate that 1 midi message takes 9 int8 array positions in the midibuffer.data structure
+    // (therefore 9 bytes?). These buffers are cleared at every slice, so some milliseconds only, no need to make them super
+    // big but make them considerably big to be on the safe side.
+    midiClockMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    midiMetronomeMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    pushMidiClockMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    incomingMidi.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    incomingMidiKeys.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    incomingMidiPush.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    monitoringNotesMidiBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    
     // Init hardware devices
     initializeHardwareDevices();
     
@@ -259,6 +272,7 @@ MidiOutputDeviceData* Sequencer::initializeMidiOutputDevice(juce::String deviceN
     }
     
     MidiOutputDeviceData* deviceData = new MidiOutputDeviceData();
+    deviceData->buffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
     deviceData->identifier = outDeviceIdentifier;
     deviceData->name = deviceName;
     deviceData->device = juce::MidiOutput::openDevice(outDeviceIdentifier);
@@ -461,9 +475,9 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
      
  2) Check if main component has been fully initialized, if not do not proceed with getNextMIDISlice as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
     
- 3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buggers and other auxiliary buffers.
+ 3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buffers and other auxiliary buffers.
      
- 4) Check if tempo or meter should be updated and, in case we're doing a count in, if count in finishes in this slice
+ 4) Check if tempo or meter should be updated and, in case we're doing a count in, check if count in finishes in this slice
      
  5) Update musical context bar counter
     
@@ -758,11 +772,11 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     #if !RPI_BUILD
     if (renderWithInternalSynth){
         // All buffers are combined into a single buffer which is then sent to the synth
-        juce::MidiBuffer combinedBuffer;
+        internalSynthCombinedBuffer.clear();
         for (auto deviceData: midiOutDevices){
-            combinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
+            internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
         }
-        sineSynth.renderNextBlock (*bufferToFill.buffer, combinedBuffer, bufferToFill.startSample, sliceNumSamples);
+        sineSynth.renderNextBlock (*bufferToFill.buffer, internalSynthCombinedBuffer, bufferToFill.startSample, sliceNumSamples);
     }
     #endif
     
@@ -898,7 +912,7 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
                 } else if (address == OSC_ADDRESS_CLIP_SET_LENGTH){
                     jassert(message.size() == 3);
                     double newLength = (double)message[2].getFloat32();
-                    clip->setNewClipLength(newLength, false);
+                    clip->setClipLength(newLength);
                 }
             }
         }
@@ -1047,6 +1061,19 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
         } else if (address == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
             jassert(message.size() == 1);
             fixedLengthRecordingBars = message[0].getInt32();
+            
+            // If there are empty clips cued to record and playhead is stopped, also update their length
+            for (int track_num=0; track_num<tracks->objects.size(); track_num++){
+                auto track = tracks->objects[track_num];
+                for (int clip_num=0; clip_num<track->getNumberOfClips(); clip_num++){
+                    auto clip = track->getClipAt(clip_num);
+                    if (!clip->hasSequenceEvents() && clip->isCuedToStartRecording() && !clip->isRecording() && !clip->isPlaying()){
+                        clip->setClipLengthToGlobalFixedLength();
+                    }
+                }
+            }
+            
+            
         } else if (address == OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
             jassert(message.size() == 0);
             recordAutomationEnabled = !recordAutomationEnabled;
@@ -1142,7 +1169,7 @@ void Sequencer::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasC
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
-    std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
+    //std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
 }
 
 void Sequencer::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
@@ -1185,20 +1212,17 @@ void Sequencer::randomizeClipsNotes() {
                 for (int j=0; j<clip->state.getNumChildren(); j++){
                     auto child = clip->state.getChild(j);
                     clip->state.setProperty(IDs::enabled, false, nullptr);
-                    clip->setNewClipLength(0.0, true);
-                    //clip->state.setProperty(IDs::clipLengthInBeats, 0.0, nullptr);
                     if (child.hasType (IDs::SEQUENCE_EVENT)){
                         clip->state.removeChild(child, nullptr);
                     }
-                    clip->stopNow();
+                    clip->setClipLength(0.0); // This will trigger stopping the clip
                 }
                 
                 // Then for 50% of the clips, add new random content
                 if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
                     clip->state.setProperty(IDs::enabled, true, nullptr);
                     double clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
-                    //clip->state.setProperty(IDs::clipLengthInBeats, clipLengthInBeats, nullptr);
-                    clip->setNewClipLength(clipLengthInBeats, true);
+                    clip->setClipLength(clipLengthInBeats);
                     std::vector<std::pair<int, float>> noteOnTimes = {};
                     for (int j=0; j<clipLengthInBeats - 0.5; j++){
                         noteOnTimes.push_back({j, juce::Random::getSystemRandom().nextFloat() * 0.5});
