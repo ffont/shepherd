@@ -835,9 +835,41 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
 void Clip::addRecordedNotesToSequence()
 {
     // Add messages from the recordedMidiMessages fifo to the state
+    // Note that corresponding note on/off messages can arrive in different calls to
+    // addRecordedNotesToSequence. We only add a SEQUENCE_EVENT child when we receive
+    // a note off message for a corresponding note on which was stored in
+    // "recordedNoteOnMessagesPendingToAdd"
+    
     juce::MidiMessage msg;
     while (recordedMidiMessages.pull(msg)) {
-        state.addChild(Helpers::midiMessageToSequenceEventValueTree(msg), -1, nullptr);
+        if (msg.isNoteOn()){
+            // Save the message to the "recordedNoteOnMessagesPendingToAdd" of pending note on messages
+            // that will persist consecutive calls to addRecordedNotesToSequence
+            recordedNoteOnMessagesPendingToAdd.push_back(msg);
+        } else if (msg.isNoteOff()){
+            // Find the corresponding pending note on message from "recordedNoteOnMessagesPendingToAdd"
+            // and create a new SEQUENCE_EVENT of type "note"
+            for (int i=0; i<recordedNoteOnMessagesPendingToAdd.size(); i++){
+                if (recordedNoteOnMessagesPendingToAdd[i].getNoteNumber() == msg.getNoteNumber()){
+                    // Found corresponding note on message, create SEQUENCE_EVENT event and remove the note on message from "recordedNoteOnMessagesPendingToAdd"
+                    int midiNote = msg.getNoteNumber();
+                    float midiVelocity = recordedNoteOnMessagesPendingToAdd[i].getFloatVelocity();
+                    double timestamp = recordedNoteOnMessagesPendingToAdd[i].getTimeStamp();
+                    // TODO: is it a problem if we obtain negative durations?
+                    double duration = msg.getTimeStamp() - recordedNoteOnMessagesPendingToAdd[i].getTimeStamp();
+                    if (duration < 0.0){
+                        // If duration is negative, add clip length as playhead will have wrapped
+                        duration += clipLengthInBeats;
+                    }
+                    state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                    recordedNoteOnMessagesPendingToAdd.erase(recordedNoteOnMessagesPendingToAdd.begin() + i);
+                    break;
+                }
+            }
+        } else if (msg.isAftertouch() || msg.isController() || msg.isChannelPressure() ){
+            // Save the message as SEQUENCE_EVENT of type "midi"
+            state.addChild(Helpers::createSequenceEventFromMidiMessage(msg), -1, nullptr);
+        }
     }
 }
 
@@ -934,7 +966,7 @@ void Clip::removeOverlappingNotesOfSameNumber(juce::MidiMessageSequence& sequenc
         juce::MidiMessage msg = sequence.getEventPointer(i)->message;
         if (msg.isNoteOn()){
             if (activeNotes[msg.getNoteNumber()] == true){
-                // If note is already active it means that no note off was issues before this note on for the same number. Remove this event as we don't allow overlapping events (it could mess things up when storing "notesCurrentlyPlayed"). Also remove matched note off (if any)
+                // If note is already active it means that no note off was issued before this note on for the same number. Remove this event as we don't allow overlapping events (it could mess things up when storing "notesCurrentlyPlayed"). Also remove matched note off (if any)
                 eventsToRemove.add(i);
                 int noteOffIndex = sequence.getIndexOfMatchingKeyUp(i);
                 if (noteOffIndex == -1){
@@ -997,8 +1029,16 @@ void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
 
 void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
-    // Eg: change in quantization
-    sequenceNeedsUpdate = true;
+    // Eg: change in quantization or individual note property
+    if ((property == IDs::currentQuantizationStep) ||
+        (property == IDs::clipLengthInBeats) ||
+        (property == IDs::timestamp) ||
+        (property == IDs::midiNote) ||
+        (property == IDs::duration) ||
+        (property == IDs::eventMidiBytes) ||
+        (property == IDs::midiVelocity)){
+        sequenceNeedsUpdate = true;
+    }
 }
 
 void Clip::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
@@ -1006,8 +1046,10 @@ void Clip::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& ch
     // Eg: new note added
     sequenceNeedsUpdate = true;
     
-    // Update "numSequenceEvents". Note that if at some point CLIP has children other than SEQUENCE_EVENT, this number will be innacurate
-    numSequenceEvents = state.getNumChildren();
+    // Update "numSequenceEvents"
+    int count = 0;
+    for (auto child: state) { if (child.hasType(IDs::SEQUENCE_EVENT)) {count += 1;}}
+    numSequenceEvents = count;
 }
 
 void Clip::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
@@ -1015,8 +1057,10 @@ void Clip::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& 
     // Eg: note removed
     sequenceNeedsUpdate = true;
     
-    // Update "numSequenceEvents". Note that if at some point CLIP has children other than SEQUENCE_EVENT, this number will be innacurate
-    numSequenceEvents = state.getNumChildren();
+    // Update "numSequenceEvents"
+    int count = 0;
+    for (auto child: state) { if (child.hasType(IDs::SEQUENCE_EVENT)) {count += 1;}}
+    numSequenceEvents = count;
 }
 
 void Clip::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)

@@ -185,10 +185,14 @@ DECLARE_ID (willStartRecordingAt)
 DECLARE_ID (willStopRecordingAt)
 DECLARE_ID (timestamp)
 DECLARE_ID (eventMidiBytes)
+DECLARE_ID (midiNote)
+DECLARE_ID (midiVelocity)
+DECLARE_ID (duration)
 
 #undef DECLARE_ID
 }
 
+enum SequenceEventType { midi, note };
 
 struct MidiOutputDeviceData {
     juce::String identifier;

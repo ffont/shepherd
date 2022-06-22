@@ -133,6 +133,7 @@ private:
     std::unique_ptr<Playhead> playhead;
     
     Fifo<juce::MidiMessage, 100> recordedMidiMessages;
+    std::vector<juce::MidiMessage> recordedNoteOnMessagesPendingToAdd = {};
     double hasJustStoppedRecordingFlag = false;
     double preRecordingBeatsThreshold = 0.20;  // When starting to record, if notes are played up to this amount before the recording start position, quantize them to the recording start position
     void addRecordedNotesToSequence();
@@ -172,9 +173,12 @@ private:
         for (int i=0; i<state.getNumChildren(); i++){
             auto child = state.getChild(i);
             if (child.hasType (IDs::SEQUENCE_EVENT)){
-                midiSequence.addEvent(Helpers::eventValueTreeToMidiMessage(child));
+                for (auto msg: Helpers::eventValueTreeToMidiMessages(child, clipLengthInBeats)) {
+                    midiSequence.addEvent(msg);
+                }
             }
         }
+        
         // Pre-process de MIDI sequence (update quantization, etc)
         preProcessSequence(midiSequence);
         

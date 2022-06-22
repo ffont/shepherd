@@ -1231,13 +1231,10 @@ void Sequencer::randomizeClipsNotes() {
                     for (auto note: noteOnTimes) {
                         // NOTE: don't care about the channel here because it is re-written when filling midi buffer
                         int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
-                        juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(1, midiNote, 1.0f);
-                        msgNoteOn.setTimeStamp(note.first + note.second);
-                        clip->state.addChild(Helpers::midiMessageToSequenceEventValueTree(msgNoteOn), -1, nullptr);
-                        
-                        juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(1, midiNote, 0.0f);
-                        msgNoteOff.setTimeStamp(note.first + note.second + 0.25);
-                        clip->state.addChild(Helpers::midiMessageToSequenceEventValueTree(msgNoteOff), -1, nullptr);
+                        float midiVelocity = 1.0f;
+                        double timestamp = note.first + note.second;
+                        double duration = 0.25;
+                        clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
                     }
                 }
             }

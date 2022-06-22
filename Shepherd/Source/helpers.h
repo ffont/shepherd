@@ -54,7 +54,6 @@ namespace Helpers
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
                 c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
-                c.setProperty (IDs::enabled, false, nullptr);
                 c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 c.setProperty (IDs::currentQuantizationStep, Defaults::currentQuantizationStep, nullptr);
                 
@@ -77,15 +76,13 @@ namespace Helpers
         return session;
     }
 
-    inline juce::ValueTree midiMessageToSequenceEventValueTree(juce::MidiMessage msg)
+    inline juce::ValueTree createSequenceEventFromMidiMessage(juce::MidiMessage msg)
     {
         juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
         Helpers::createUuidProperty (sequenceEvent);
-        sequenceEvent.setProperty(IDs::type, "midi", nullptr);
+        sequenceEvent.setProperty(IDs::type, SequenceEventType::midi, nullptr);
         sequenceEvent.setProperty(IDs::timestamp, msg.getTimeStamp(), nullptr);
         juce::StringArray bytes = {};
-        // Only support 3-byte MIDI messages so far
-        jassert(msg.getRawDataSize() == 3);
         for (int i=0; i<msg.getRawDataSize(); i++){
             bytes.add(juce::String(msg.getRawData()[i]));
         }
@@ -93,16 +90,57 @@ namespace Helpers
         return sequenceEvent;
     }
 
-    inline juce::MidiMessage eventValueTreeToMidiMessage(juce::ValueTree& sequenceEvent)
+    inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration)
     {
-        juce::String bytesString = sequenceEvent.getProperty(IDs::eventMidiBytes, Defaults::eventMidiBytes);
-        juce::StringArray bytes;
-        bytes.addTokens(bytesString, ",", "");
-        // Only support 3-byte MIDI messages so far
-        jassert(bytes.size() == 3);
-        juce::MidiMessage msg = juce::MidiMessage(bytes[0].getIntValue(), bytes[1].getIntValue(), bytes[2].getIntValue());
-        msg.setTimeStamp(sequenceEvent.getProperty(IDs::timestamp, Defaults::timestamp));
-        return msg;
+        juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
+        Helpers::createUuidProperty (sequenceEvent);
+        sequenceEvent.setProperty(IDs::type, SequenceEventType::note, nullptr);
+        sequenceEvent.setProperty(IDs::timestamp, timestamp, nullptr);
+        sequenceEvent.setProperty(IDs::midiNote, note, nullptr);
+        sequenceEvent.setProperty(IDs::midiVelocity, velocity, nullptr);
+        sequenceEvent.setProperty(IDs::duration, duration, nullptr);
+        return sequenceEvent;
+    }
+
+    inline std::vector<juce::MidiMessage> eventValueTreeToMidiMessages(juce::ValueTree& sequenceEvent, double clipLength)
+    {
+        std::vector<juce::MidiMessage> messages = {};
+        
+        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::midi) {
+            juce::String bytesString = sequenceEvent.getProperty(IDs::eventMidiBytes, Defaults::eventMidiBytes);
+            juce::StringArray bytes;
+            bytes.addTokens(bytesString, ",", "");
+            juce::MidiMessage msg;
+            if (bytes.size() == 2){
+                msg = juce::MidiMessage(bytes[0].getIntValue(), bytes[1].getIntValue());
+            } else if (bytes.size() == 3){
+                msg = juce::MidiMessage(bytes[0].getIntValue(), bytes[1].getIntValue(), bytes[2].getIntValue());
+            }
+            msg.setTimeStamp(sequenceEvent.getProperty(IDs::timestamp, Defaults::timestamp));
+            messages.push_back(msg);
+            
+        } else if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
+            // NOTE: don't care about MIDI channel here as it will be replaced when sending the note
+            // to the appropriate output device
+            int midiChannel = 1;
+            int midiNote = (int)sequenceEvent.getProperty(IDs::midiNote);
+            float midiVelocity = (float)sequenceEvent.getProperty(IDs::midiVelocity);
+            double timestamp = (double)sequenceEvent.getProperty(IDs::timestamp);
+            double duration = (double)sequenceEvent.getProperty(IDs::duration);
+            
+            juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(midiChannel, midiNote, midiVelocity);
+            msgNoteOn.setTimeStamp(timestamp);
+            messages.push_back(msgNoteOn);
+            
+            juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(midiChannel, midiNote, 0.0f);
+            if (clipLength == -1){
+                msgNoteOff.setTimeStamp(timestamp + duration);
+            } else {
+                msgNoteOff.setTimeStamp(std::fmod(timestamp + duration, clipLength));
+            }
+            messages.push_back(msgNoteOff);
+        }
+        return messages;
     }
 
 }
