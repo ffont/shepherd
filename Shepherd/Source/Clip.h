@@ -57,7 +57,7 @@ public:
     juce::String getName() { return name.get(); };
     
     void prepareSlice();
-    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages);
+    void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
     bool shouldSendRemainingNotesOff = false;
     

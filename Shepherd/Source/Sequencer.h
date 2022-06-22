@@ -94,9 +94,9 @@ private:
     
     std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
-    std::vector<juce::MidiMessage> lastMidiNoteOnMessages = {};
-    int lastMidiNoteOnMessagesToStore = 20;
     juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
+    int lastMidiNoteOnMessagesToStore = 20;
+    juce::Array<juce::MidiMessage> lastMidiNoteOnMessages;
     
     // Aux MIDI buffers
     // We call .ensure_size for these buffers to make sure we don't to allocations in the RT thread
@@ -133,6 +133,7 @@ private:
     double lastTimePushMidiClockBurstStarted = -1.0;
     std::vector<juce::String> sendMidiClockMidiDeviceNames = {};
     std::vector<juce::String> sendMetronomeMidiDeviceNames = {};
+    std::vector<juce::String> sendPushMidiClockDeviceNames = {PUSH_MIDI_OUT_DEVICE_NAME};
 
     // Tracks
     void initializeTracks();

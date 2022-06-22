@@ -135,7 +135,7 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
     }
 }
 
-void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     for (auto clip: clips->objects){
         clip->processSlice(incommingBuffer, &lastSliceMidiBuffer, lastMidiNoteOnMessages);

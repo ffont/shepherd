@@ -38,6 +38,9 @@ Sequencer::Sequencer()
     monitoringNotesMidiBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
     internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
     
+    // Pre-allocate memory for lastMidiNoteOnMessages array
+    lastMidiNoteOnMessages.ensureStorageAllocated(MIDI_BUFFER_MIN_BYTES);
+    
     // Init hardware devices
     initializeHardwareDevices();
     
@@ -154,7 +157,7 @@ void Sequencer::initializeMIDIInputs()
     
     std::cout << "Initializing MIDI input devices" << std::endl;
     
-    lastTimeMidiInputInitializationAttempted = juce::Time::getCurrentTime().toMilliseconds();
+    lastTimeMidiInputInitializationAttempted = juce::Time::getMillisecondCounter();
     
     // Setup MIDI devices
     auto midiInputs = juce::MidiInput::getAvailableDevices();
@@ -210,7 +213,7 @@ void Sequencer::initializeMIDIOutputs()
     
     std::cout << "Initializing MIDI output devices" << std::endl;
     
-    lastTimeMidiOutputInitializationAttempted = juce::Time::getCurrentTime().toMilliseconds();
+    lastTimeMidiOutputInitializationAttempted = juce::Time::getMillisecondCounter();
     
     bool someFailedInitialization = false;
     
@@ -475,7 +478,7 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
      
  2) Check if main component has been fully initialized, if not do not proceed with getNextMIDISlice as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
     
- 3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buffers and other auxiliary buffers.
+ 3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buffers and other auxiliary buffers. Clearing the buffers does not free their pre-allocated memory, so this is fine in the RT thread.
      
  4) Check if tempo or meter should be updated and, in case we're doing a count in, check if count in finishes in this slice
      
@@ -582,7 +585,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
             } else {
                 msgToStoreInQueue.setTimeStamp(musicalContext->getPlayheadPositionInBeats() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
             }
-            lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
+            lastMidiNoteOnMessages.insert(0, msgToStoreInQueue);
         }
     }
 
@@ -619,7 +622,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
                         } else {
                             msgToStoreInQueue.setTimeStamp(musicalContext->getPlayheadPositionInBeats() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
                         }
-                        lastMidiNoteOnMessages.insert(lastMidiNoteOnMessages.begin(), msgToStoreInQueue);
+                        lastMidiNoteOnMessages.insert(0, msgToStoreInQueue);
                     }
                 }
             }
@@ -662,11 +665,9 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         }
     }
     
-    // Remove old messages from lastMidiNoteOnMessages if the capacity of the buffer is exceeded
+    // Remove old messages from lastMidiNoteOnMessages if we are already storing lastMidiNoteOnMessagesToStore
     if (lastMidiNoteOnMessages.size() > lastMidiNoteOnMessagesToStore){
-        for (int i=0; i<lastMidiNoteOnMessagesToStore-lastMidiNoteOnMessages.size(); i++){
-            lastMidiNoteOnMessages.pop_back();
-        }
+        lastMidiNoteOnMessages.removeLast(lastMidiNoteOnMessages.size() - lastMidiNoteOnMessagesToStore);
     }
     
     // Send incoming MIDI buffer to each track so notes are forwarded to corresponding devices if input monitoring is enabled
@@ -727,12 +728,12 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     // To sync Shepherd tempo with Push's button/pad animation tempo, a number of MIDI clock messages wrapped by a start and a stop
     // message should be sent to Push.
     if ((shouldStartSendingPushMidiClockBurst) && (musicalContext->playheadIsPlaying())){
-        lastTimePushMidiClockBurstStarted = juce::Time::getCurrentTime().toMilliseconds();
+        lastTimePushMidiClockBurstStarted = juce::Time::getMillisecondCounter();
         shouldStartSendingPushMidiClockBurst = false;
         musicalContext->renderMidiStartInSlice(pushMidiClockMessages);
     }
     if (lastTimePushMidiClockBurstStarted > -1.0){
-        double timeNow = juce::Time::getCurrentTime().toMilliseconds();
+        double timeNow = juce::Time::getMillisecondCounter();
         if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
             pushMidiClockMessages.addEvents(midiClockMessages, 0, sliceNumSamples, 0);
         } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
@@ -745,7 +746,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     // Also send MIDI clock message to Push
     writeMidiToDevicesMidiBuffer(midiClockMessages, sendMidiClockMidiDeviceNames);
     writeMidiToDevicesMidiBuffer(midiMetronomeMessages, sendMetronomeMidiDeviceNames);
-    writeMidiToDevicesMidiBuffer(pushMidiClockMessages, std::vector<juce::String>{PUSH_MIDI_OUT_DEVICE_NAME});
+    writeMidiToDevicesMidiBuffer(pushMidiClockMessages, sendPushMidiClockDeviceNames);
     
     // 11) -------------------------------------------------------------------------------------------------
     
@@ -810,7 +811,7 @@ void Sequencer::timerCallback()
 {
     // Carry out actions that should be done periodically
     if (!midiInIsConnected || !midiInPushIsConnected ){
-        if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiInputInitializationAttempted > 2000){
+        if (juce::Time::getMillisecondCounter() - lastTimeMidiInputInitializationAttempted > 2000){
             // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
             // time we tried to initialize them, try to initialize again
             initializeMIDIInputs();
@@ -818,7 +819,7 @@ void Sequencer::timerCallback()
     }
     
     if (shouldTryInitializeMidiOutputs){
-        if (juce::Time::getCurrentTime().toMilliseconds() - lastTimeMidiOutputInitializationAttempted > 2000){
+        if (juce::Time::getMillisecondCounter() - lastTimeMidiOutputInitializationAttempted > 2000){
             // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
             // time we tried to initialize them, try to initialize again
             initializeMIDIOutputs();

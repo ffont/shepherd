@@ -580,7 +580,7 @@ void Clip::prepareSlice()
  See comments in the implementation for more details about each step.
  
 */
-void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, std::vector<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages)
 {
     // 1) -------------------------------------------------------------------------------------------------
     
