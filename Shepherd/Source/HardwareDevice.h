@@ -12,6 +12,7 @@
 
 #include <JuceHeader.h>
 #include "helpers.h"
+#include "Fifo.h"
 
 class HardwareDevice
 {
@@ -37,6 +38,9 @@ public:
     int getMidiCCParameterValue(int index);
     void setMidiCCParameterValue(int index, int value, bool notifyController);
     
+    void addMidiMessageToRenderInBufferFifo(juce::MidiMessage msg);
+    void renderPendingMidiMessagesToRenderInBuffer();
+    
 private:
     juce::String name = "Generic device";
     juce::String shortName = "Generic";
@@ -48,4 +52,6 @@ private:
     std::array<int, 128> midiCCParameterValues = {0};
     
     std::function<void(const juce::OSCMessage& message)> sendOscMessage;
+    
+    Fifo<juce::MidiMessage, 100> midiMessagesToRenderInBuffer;
 };

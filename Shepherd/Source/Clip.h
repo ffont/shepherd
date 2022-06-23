@@ -164,7 +164,7 @@ private:
     void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
     int getIndexOfMatchingKeyUpInSequence(juce::MidiMessageSequence& sequence, int index);
     
-    // Trigger re-creation of sequence if needed
+    // Trigger re-creation of sequences and do other async tasks
     void timerCallback() override;
     
     // Real-time thread state sharing stuff

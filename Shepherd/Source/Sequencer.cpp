@@ -719,6 +719,14 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         track->writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
     }
     
+    for (auto device: hardwareDevices){
+        // Send "arbitrary" messages pending to be sent in every hardware device
+        // NOTE: iterating hardwareDevices could be problematic without a lock if devices are
+        // added/removed. However this not something that will be happening as hw devices should
+        // not be created or removed...
+        device->renderPendingMidiMessagesToRenderInBuffer();
+    }
+    
     // 10) -------------------------------------------------------------------------------------------------
     
     musicalContext->renderMetronomeInSlice(midiMetronomeMessages);

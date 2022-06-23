@@ -106,3 +106,29 @@ void HardwareDevice::setMidiCCParameterValue(int index, int value, bool notifyCo
         sendOscMessage(returnMessage);
     }
 }
+
+void HardwareDevice::addMidiMessageToRenderInBufferFifo(juce::MidiMessage msg)
+{
+    midiMessagesToRenderInBuffer.push(msg);
+    
+    if (midiMessagesToRenderInBuffer.getAvailableSpace() < 10){
+        DBG("WARNING, midi messages fifo for hardware device " << getName() << " getting close to full or full");
+        DBG("- Available space: " << midiMessagesToRenderInBuffer.getAvailableSpace() << ", available for reading: " << midiMessagesToRenderInBuffer.getNumAvailableForReading());
+    }
+}
+
+void HardwareDevice::renderPendingMidiMessagesToRenderInBuffer()
+{
+    // If there are pending MIDI messages to be rendered in the hardware device buffer buffer, send them
+    juce::MidiMessage msg;
+    while (midiMessagesToRenderInBuffer.pull(msg)) {
+        if (device != nullptr){
+            int trackMidiOutputChannel = getMidiOutputChannel();
+            if (trackMidiOutputChannel > -1){
+                msg.setChannel(trackMidiOutputChannel);
+                
+                device->getMidiOutputDevice
+            }
+        }
+    }
+}
