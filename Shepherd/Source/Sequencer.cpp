@@ -393,7 +393,8 @@ void Sequencer::initializeHardwareDevices()
                     HardwareDevice* device = new HardwareDevice(name,
                                                                 shortName,
                                                                 [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                                [this](const juce::OSCMessage &message){sendOscMessage(message);}
+                                                                [this](const juce::OSCMessage &message){sendOscMessage(message);},
+                                                                [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
                                                                 );
                     device->configureMidiOutput(midiDeviceName, midiChannel);
                     hardwareDevices.add(device);
@@ -416,7 +417,8 @@ void Sequencer::initializeHardwareDevices()
             HardwareDevice* device = new HardwareDevice(name,
                                                         shortName,
                                                         [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                        [this](const juce::OSCMessage &message){sendOscMessage(message);}
+                                                        [this](const juce::OSCMessage &message){sendOscMessage(message);},
+                                                        [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
                                                         );
             device->configureMidiOutput(synthsMidiOut, i + 1);
             hardwareDevices.add(device);

@@ -20,7 +20,8 @@ public:
     HardwareDevice(juce::String name,
                    juce::String shortName,
                    std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
-                   std::function<void(const juce::OSCMessage& message)> oscMessageSender);
+                   std::function<void(const juce::OSCMessage& message)> oscMessageSender,
+                   std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter);
     
     juce::String getName();
     juce::String getShortName();
@@ -47,6 +48,7 @@ private:
     
     juce::String midiOutputDeviceName = "";
     std::function<juce::MidiOutput*(juce::String deviceName)> getMidiOutputDevice;
+    std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
     int midiOutputChannel = -1;
     
     std::array<int, 128> midiCCParameterValues = {0};

@@ -14,12 +14,14 @@
 HardwareDevice::HardwareDevice(juce::String _name,
                juce::String _shortName,
                std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
-               std::function<void(const juce::OSCMessage& message)> oscMessageSender)
+               std::function<void(const juce::OSCMessage& message)> oscMessageSender,
+               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
 {
     name = _name;
     shortName = _shortName;
     getMidiOutputDevice = outputMidiDeviceGetter;
     sendOscMessage = oscMessageSender;
+    getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     
     for (int i=0; i<midiCCParameterValues.size(); i++){
         midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (mid value)
@@ -121,14 +123,12 @@ void HardwareDevice::renderPendingMidiMessagesToRenderInBuffer()
 {
     // If there are pending MIDI messages to be rendered in the hardware device buffer buffer, send them
     juce::MidiMessage msg;
+    juce::MidiBuffer* buffer = getMidiOutputDeviceBuffer(getMidiOutputDeviceName());
     while (midiMessagesToRenderInBuffer.pull(msg)) {
-        if (device != nullptr){
-            int trackMidiOutputChannel = getMidiOutputChannel();
-            if (trackMidiOutputChannel > -1){
-                msg.setChannel(trackMidiOutputChannel);
-                
-                device->getMidiOutputDevice
-            }
+        int deviceMidiOutputChannel = getMidiOutputChannel();
+        if ((buffer != nullptr) && (deviceMidiOutputChannel > -1)){
+            msg.setChannel(deviceMidiOutputChannel);
+            buffer->addEvent(msg, 0);
         }
     }
 }
