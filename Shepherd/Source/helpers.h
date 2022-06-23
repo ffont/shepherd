@@ -102,9 +102,12 @@ namespace Helpers
         return sequenceEvent;
     }
 
-    inline std::vector<juce::MidiMessage> eventValueTreeToMidiMessages(juce::ValueTree& sequenceEvent, double clipLength)
+    inline std::vector<juce::MidiMessage> eventValueTreeToMidiMessages(juce::ValueTree& sequenceEvent)
     {
         std::vector<juce::MidiMessage> messages = {};
+        
+        // NOTE: don't care about MIDI channel here as they will be replaced when sending the notes to the appropriate output device
+        int midiChannel = 1;
         
         if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::midi) {
             juce::String bytesString = sequenceEvent.getProperty(IDs::eventMidiBytes, Defaults::eventMidiBytes);
@@ -116,28 +119,23 @@ namespace Helpers
             } else if (bytes.size() == 3){
                 msg = juce::MidiMessage(bytes[0].getIntValue(), bytes[1].getIntValue(), bytes[2].getIntValue());
             }
-            msg.setTimeStamp(sequenceEvent.getProperty(IDs::timestamp, Defaults::timestamp));
+            msg.setChannel(midiChannel);
+            msg.setTimeStamp(sequenceEvent.getProperty(IDs::renderedStartTimestamp));
             messages.push_back(msg);
             
         } else if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
-            // NOTE: don't care about MIDI channel here as it will be replaced when sending the note
-            // to the appropriate output device
-            int midiChannel = 1;
+           
             int midiNote = (int)sequenceEvent.getProperty(IDs::midiNote);
             float midiVelocity = (float)sequenceEvent.getProperty(IDs::midiVelocity);
-            double timestamp = (double)sequenceEvent.getProperty(IDs::timestamp);
-            double duration = (double)sequenceEvent.getProperty(IDs::duration);
+            double noteOnTimestamp = (double)sequenceEvent.getProperty(IDs::renderedStartTimestamp);
+            double noteOffTimestamp = (double)sequenceEvent.getProperty(IDs::renderedEndTimestamp);
             
             juce::MidiMessage msgNoteOn = juce::MidiMessage::noteOn(midiChannel, midiNote, midiVelocity);
-            msgNoteOn.setTimeStamp(timestamp);
+            msgNoteOn.setTimeStamp(noteOnTimestamp);
             messages.push_back(msgNoteOn);
             
             juce::MidiMessage msgNoteOff = juce::MidiMessage::noteOff(midiChannel, midiNote, 0.0f);
-            if (clipLength == -1){
-                msgNoteOff.setTimeStamp(timestamp + duration);
-            } else {
-                msgNoteOff.setTimeStamp(std::fmod(timestamp + duration, clipLength));
-            }
+            msgNoteOff.setTimeStamp(noteOffTimestamp);
             messages.push_back(msgNoteOff);
         }
         return messages;

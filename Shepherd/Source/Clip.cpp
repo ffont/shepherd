@@ -634,7 +634,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         // on/offs, etc., are already rendered in the sequence.
         
         for (int i=0; i < sequenceToRender.getNumEvents(); i++){
-            juce::MidiMessage msg = sequenceToRender.getEventPointer(i)->message;
+            juce::MidiMessage& msg = sequenceToRender.getEventPointer(i)->message;
             double eventPositionInBeats = msg.getTimeStamp();
             if (loopingInThisSlice && eventPositionInBeats < sliceInBeats.getStart()){
                 // If we're looping and the event position is before the start of the slice, make checks using looped version
@@ -873,64 +873,88 @@ void Clip::addRecordedNotesToSequence()
     }
 }
 
+double Clip::findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep)
+{
+    if (quantizationStep > 0.0){
+        return std::round(beatPosition / quantizationStep) * quantizationStep;
+    } else {
+        return beatPosition;
+    }
+}
+
 void Clip::preProcessSequence(juce::MidiMessageSequence& sequence)
 {
-    // Applies quantization
-    if (currentQuantizationStep > 0.0){
-        quantizeSequence(sequence, currentQuantizationStep);
-    }
-    
-    // Adjust length of the sequence (remove events after the length)
-    removeEventsAfterTimestampFromSequence(sequence, clipLengthInBeats);
-    
     // Update sequences noteOn<>noteOff pointers
-    sequence.updateMatchedPairs();
+    updateMatchedNoteOnOffPairs(sequence);
     
     // Remove overlapping note on/offs
-    removeOverlappingNotesOfSameNumber(sequence);
+    // NOTE: this seems to be not necessary as updateMatchedNoteOnOffPairs is already
+    // preventing that issue from happening because it adds extra noteOff messages if
+    // two consecutive noteOn messages are found
+    // removeOverlappingNotesOfSameNumber(sequence);
     
-    // Remove unmatched notes
-    removeUnmatchedNotesFromSequence(sequence);
+    // Remove unmatched notes (just in case...)
+    // NOTE: No need to remove unmatched notes because the sequence is always generated
+    // in a controleld way and therefore we won't have this issue
+    //removeUnmatchedNotesFromSequence(sequence);
     
     // Fix "orphan" pitch-bend messages
     makeSureSequenceResetsPitchBend(sequence);
-    
-    // Update sequences noteOn<>noteOff pointers (again)
+}
+
+void Clip::updateMatchedNoteOnOffPairs(juce::MidiMessageSequence& sequence)
+{
+    // Use JUCE's updateMatchedPairs which will sequentially iterate the sequence and
+    // set pointers from noteOn messages to the following noteOff messages that are
+    // found. If two consecutive noteOn messages are found without a noteOff (of the same
+    // note number) in the middle, a new noteOff message will be inserted before the second
+    // note on.
     sequence.updateMatchedPairs();
     
-}
-
-void Clip::quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep)
-{
-    if (quantizationStep > 0.0){
-        for (int i=0; i < sequence.getNumEvents(); i++){
-            juce::MidiMessage msgOn = sequence.getEventPointer(i)->message;
-            if (msgOn.isNoteOn()){
-                // If message is note on, quantize the start position of the message and the duration
-                double quantizedNoteOnPositionInBeats = findNearestQuantizedBeatPosition(msgOn.getTimeStamp(), quantizationStep);
-                int msgOffIndex = sequence.getIndexOfMatchingKeyUp(i);
-                if (msgOffIndex > -1){
-                    juce::MidiMessage msgOff = sequence.getEventPointer(msgOffIndex)->message;
-                    double noteDuration = msgOff.getTimeStamp() - msgOn.getTimeStamp();
-                    //double quantizedNoteDuration = findNearestQuantizedBeatPosition(noteDuration, quantizationStep);
-                    double quantizedNoteOffPositionInBeats = quantizedNoteOnPositionInBeats + noteDuration;
-                    if (quantizedNoteOffPositionInBeats >= clipLengthInBeats){
-                        // If after quantization one event falls after the clip length, set it slightly before its end to avoid
-                        // hanging notes
-                        quantizedNoteOffPositionInBeats = clipLengthInBeats - 0.01;
+    // Note that the previous process can still leave some noteOn messages without the
+    // pointer to the corresponding noteOffObject if the note off appears before the
+    // noteOn in the sequence. This can happen if the notes wrap across clip length, and
+    // this is a case not considered by JUCE (JUCE assumes note offs always come after
+    // the note on). We could set the references to the matching note off manually but
+    // then this will make some of JUCE's code to break (for example when copying a
+    // sequence). We opt to leave these note ons without mathing pair like that, as this
+    // is only used in the "getIndexOfMatchingKeyUp" midi sequence method and we don't
+    // really rely on this.
+        
+    /*
+    for (int i=0; i < sequence.getNumEvents(); i++){
+        auto* meh1 = sequence.getEventPointer(i); // midi event holder
+        auto& m1 = meh1->message;
+        if ((m1.isNoteOn()) && (meh1->noteOffObject == nullptr)){
+            // If message is note on, find a note off message with the same note number,
+            // channel and which is not being pointer by another note on meh
+            auto note = m1.getNoteNumber();
+            auto chan = m1.getChannel();
+            
+            for (int j=0; j < sequence.getNumEvents(); j++){
+                auto* meh2 = sequence.getEventPointer(j);
+                auto& m2 = meh2->message;
+                if (m2.isNoteOff() && m2.getNoteNumber() == note && m2.getChannel() == chan) {
+                    // Found a candidate of note off message to use. If it is note already
+                    // been pointer by another note on message, use that one
+                    bool m2IsAlreadyBeingPointedByAnotherNoteOnMessage = false;
+                    for (int k=0; k < sequence.getNumEvents(); k++){
+                        auto* meh3 = sequence.getEventPointer(k);
+                        auto& m3 = meh3->message;
+                        if (m3.isNoteOn() && meh3->noteOffObject == meh2){
+                            m2IsAlreadyBeingPointedByAnotherNoteOnMessage = true;
+                            break;
+                        }
                     }
-                    sequence.getEventPointer(msgOffIndex)->message.setTimeStamp(quantizedNoteOffPositionInBeats);
+                    
+                    if (!m2IsAlreadyBeingPointedByAnotherNoteOnMessage) {
+                        meh1->noteOffObject = meh2;
+                        break;
+                    }
                 }
-                
-                sequence.getEventPointer(i)->message.setTimeStamp(quantizedNoteOnPositionInBeats);
             }
         }
-    }
-}
-
-double Clip::findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep)
-{
-    return std::round(beatPosition / quantizationStep) * quantizationStep;
+    }*/
 }
 
 void Clip::removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence)
@@ -939,9 +963,9 @@ void Clip::removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence)
     // Note that this assumes that sequence.updateMatchedPairs() has been called
     juce::SortedSet<int> eventsToRemove = {};
     for (int i=0; i < sequence.getNumEvents(); i++){
-        juce::MidiMessage msg = sequence.getEventPointer(i)->message;
+        juce::MidiMessage& msg = sequence.getEventPointer(i)->message;
         if (msg.isNoteOn()){
-            int noteOffIndex = sequence.getIndexOfMatchingKeyUp(i);
+            int noteOffIndex = getIndexOfMatchingKeyUpInSequence(sequence, i);
             if (noteOffIndex == -1){
                 eventsToRemove.add(i);
             }
@@ -963,12 +987,12 @@ void Clip::removeOverlappingNotesOfSameNumber(juce::MidiMessageSequence& sequenc
     juce::SortedSet<int> eventsToRemove = {};
     juce::BigInteger activeNotes = {};
     for (int i=0; i < sequence.getNumEvents(); i++){
-        juce::MidiMessage msg = sequence.getEventPointer(i)->message;
+        juce::MidiMessage& msg = sequence.getEventPointer(i)->message;
         if (msg.isNoteOn()){
             if (activeNotes[msg.getNoteNumber()] == true){
                 // If note is already active it means that no note off was issued before this note on for the same number. Remove this event as we don't allow overlapping events (it could mess things up when storing "notesCurrentlyPlayed"). Also remove matched note off (if any)
                 eventsToRemove.add(i);
-                int noteOffIndex = sequence.getIndexOfMatchingKeyUp(i);
+                int noteOffIndex = getIndexOfMatchingKeyUpInSequence(sequence, i);
                 if (noteOffIndex == -1){
                     eventsToRemove.add(noteOffIndex);
                 }
@@ -988,30 +1012,12 @@ void Clip::removeOverlappingNotesOfSameNumber(juce::MidiMessageSequence& sequenc
     }
 }
 
-void Clip::removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp)
-{
-    // Delete all events in the sequence that have timestamp greater or equal than maxTimestamp
-    juce::SortedSet<int> eventsToRemove = {};
-    for (int i=0; i < sequence.getNumEvents(); i++){
-        juce::MidiMessage msg = sequence.getEventPointer(i)->message;
-        if (msg.getTimeStamp() >= maxTimestamp){
-            eventsToRemove.add(i);
-        }
-    }
-    
-    // Remove the events selected
-    // Note that we use SoretedSet for eventsToRemove so we can iterate backwards and make sure that index positions are always decreasing and not repeated
-    for (int i=(int)eventsToRemove.size() - 1; i >= 0; i--){
-        sequence.deleteEvent(eventsToRemove[i], false);
-    }
-}
-
 void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
 {
     // Add pitch-bend reset message at the beggining if sequence contains pitch bend messages which do not end at 0
     int lastPitchWheelMessage = 8192;
     for (int i=sequence.getNumEvents() - 1; i>=0; i--){
-        juce::MidiMessage msg = sequence.getEventPointer(i)->message;
+        juce::MidiMessage& msg = sequence.getEventPointer(i)->message;
         if (msg.isPitchWheel()){
             lastPitchWheelMessage = msg.getPitchWheelValue();
             break;
@@ -1023,6 +1029,26 @@ void Clip::makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence)
         pitchWheelResetMessage.setTimeStamp(0.0);
         sequence.addEvent(pitchWheelResetMessage);
     }
+}
+
+int Clip::getIndexOfMatchingKeyUpInSequence(juce::MidiMessageSequence& sequence, int index)
+{
+    // This is similar to sequence.getIndexOfMatchingKeyUp(i) but it finds
+    // note off messages which can be before the note on and not only after it
+    
+    if (auto* meh = sequence.getEventPointer(index))
+    {
+        if (auto* noteOff = meh->noteOffObject)
+        {
+            for (int i = 0; i < sequence.getNumEvents(); i++)
+                if (sequence.getEventPointer(i) == noteOff)
+                    return i;
+
+            jassertfalse; // we've somehow got a pointer to a note-off object that isn't in the sequence
+        }
+    }
+
+    return -1;
 }
 
 //==============================================================================

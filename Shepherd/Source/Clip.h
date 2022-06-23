@@ -154,13 +154,13 @@ private:
     void stopClipNowAndClearAllCues();
 
     // Pre-processing of MIDI sequence
-    void preProcessSequence(juce::MidiMessageSequence& sequence);
-    void quantizeSequence(juce::MidiMessageSequence& sequence, double quantizationStep);
     double findNearestQuantizedBeatPosition(double beatPosition, double quantizationStep);
+    void preProcessSequence(juce::MidiMessageSequence& sequence);
+    void updateMatchedNoteOnOffPairs(juce::MidiMessageSequence& sequence);
     void removeUnmatchedNotesFromSequence(juce::MidiMessageSequence& sequence);
     void removeOverlappingNotesOfSameNumber(juce::MidiMessageSequence& sequence);
-    void removeEventsAfterTimestampFromSequence(juce::MidiMessageSequence& sequence, double maxTimestamp);
     void makeSureSequenceResetsPitchBend(juce::MidiMessageSequence& sequence);
+    int getIndexOfMatchingKeyUpInSequence(juce::MidiMessageSequence& sequence, int index);
     
     // Trigger re-creation of sequence if needed
     void timerCallback() override;
@@ -168,13 +168,42 @@ private:
     // Real-time thread state sharing stuff
     void recreateSequenceAndAddToFifo() {
         
+        int quantizationStep = currentQuantizationStep;
+        
         // Create sequence of MIDI messages by reading from SEQUENCE_EVENT elements in the state
         juce::MidiMessageSequence midiSequence;
         for (int i=0; i<state.getNumChildren(); i++){
-            auto child = state.getChild(i);
-            if (child.hasType (IDs::SEQUENCE_EVENT)){
-                for (auto msg: Helpers::eventValueTreeToMidiMessages(child, clipLengthInBeats)) {
-                    midiSequence.addEvent(msg);
+            auto sequenceEvent = state.getChild(i);
+            if (sequenceEvent.hasType (IDs::SEQUENCE_EVENT)){
+                if ((double)sequenceEvent.getProperty(IDs::timestamp) < clipLengthInBeats) {
+                    // If event starts before clip length, this will be rendered as MIDI message in the sequence
+                    
+                    // Quantize the start time
+                    double originalStartTimestamp = sequenceEvent.getProperty(IDs::timestamp);
+                    double quantizedStartTimestamp = findNearestQuantizedBeatPosition(originalStartTimestamp, quantizationStep);
+                    double quantizedEndTimestamp = -1.0;
+                    
+                    // If message is of type "note", we also need to calculate the quantized end time (note off)
+                    // Note that we wrap the end position to be inside the clip length because we are sure that the
+                    // start time of the event was already inside clip length. Another option would be to set the
+                    // timestamp to the clip length itself, but then we would not be able to have notes that start
+                    // in the middle of the clip and finish after the clip has looped
+                    if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
+                        double duration = sequenceEvent.getProperty(IDs::duration);
+                        quantizedEndTimestamp = std::fmod(quantizedStartTimestamp + duration, clipLengthInBeats);
+                    }
+                    
+                    // Set computed properties and render MIDI messages
+                    sequenceEvent.setProperty(IDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
+                    sequenceEvent.setProperty(IDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
+                    for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
+                        midiSequence.addEvent(msg);
+                    }
+                    
+                } else {
+                    // If sequence event has timestamp above clip length, don't even render it as MIDI message
+                    sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
+                    sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
                 }
             }
         }

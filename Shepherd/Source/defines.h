@@ -188,6 +188,8 @@ DECLARE_ID (eventMidiBytes)
 DECLARE_ID (midiNote)
 DECLARE_ID (midiVelocity)
 DECLARE_ID (duration)
+DECLARE_ID (renderedStartTimestamp)
+DECLARE_ID (renderedEndTimestamp)
 
 #undef DECLARE_ID
 }
