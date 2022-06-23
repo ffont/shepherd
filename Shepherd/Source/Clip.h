@@ -116,6 +116,8 @@ private:
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
     juce::CachedValue<double> clipLengthInBeats;
+    juce::CachedValue<bool> wrapEventsAcrossClipLoop;
+    
     // The following members (starting with stateX) have non-CachedValue equivalents below which are the ones really used.
     // The stateX versions are used to copy the values to the state so that these get send to the UI
     juce::CachedValue<bool> stateRecording;
@@ -168,13 +170,15 @@ private:
     // Real-time thread state sharing stuff
     void recreateSequenceAndAddToFifo() {
         
-        int quantizationStep = currentQuantizationStep;
-        
         // Create sequence of MIDI messages by reading from SEQUENCE_EVENT elements in the state
+        double quantizationStep = currentQuantizationStep;
+        
         juce::MidiMessageSequence midiSequence;
         for (int i=0; i<state.getNumChildren(); i++){
             auto sequenceEvent = state.getChild(i);
             if (sequenceEvent.hasType (IDs::SEQUENCE_EVENT)){
+                bool shouldRenderEvent = true;
+                
                 if ((double)sequenceEvent.getProperty(IDs::timestamp) < clipLengthInBeats) {
                     // If event starts before clip length, this will be rendered as MIDI message in the sequence
                     
@@ -190,17 +194,29 @@ private:
                     // in the middle of the clip and finish after the clip has looped
                     if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
                         double duration = sequenceEvent.getProperty(IDs::duration);
-                        quantizedEndTimestamp = std::fmod(quantizedStartTimestamp + duration, clipLengthInBeats);
+                        if (wrapEventsAcrossClipLoop) {
+                            quantizedEndTimestamp = std::fmod(quantizedStartTimestamp + duration, clipLengthInBeats);
+                        } else {
+                            quantizedEndTimestamp = quantizedStartTimestamp + duration;
+                        }
+                        if (quantizedEndTimestamp >= clipLengthInBeats){
+                            // If end timestamp is beyond clip length and wrapEventsAcrossClipLoop is false, do not render event
+                            shouldRenderEvent = false;
+                        }
                     }
-                    
-                    // Set computed properties and render MIDI messages
-                    sequenceEvent.setProperty(IDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
-                    sequenceEvent.setProperty(IDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
-                    for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
-                        midiSequence.addEvent(msg);
+                    if (shouldRenderEvent){
+                        // Set computed properties and render MIDI messages
+                        sequenceEvent.setProperty(IDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
+                        sequenceEvent.setProperty(IDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
+                        for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
+                            midiSequence.addEvent(msg);
+                        }
                     }
-                    
                 } else {
+                    shouldRenderEvent = false;
+                }
+                
+                if (!shouldRenderEvent){
                     // If sequence event has timestamp above clip length, don't even render it as MIDI message
                     sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
                     sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);

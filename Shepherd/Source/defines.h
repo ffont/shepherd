@@ -133,6 +133,7 @@ inline int barCount = 0;
 inline bool metronomeOn = true;
 inline bool inputMonitoring = false;
 inline double clipLengthInBeats = 0.0;
+inline bool wrapEventsAcrossClipLoop = true;
 inline double currentQuantizationStep = 0.0;
 inline double willStartRecordingAt = -1.0;
 inline double willStopRecordingAt = -1.0;
@@ -177,6 +178,7 @@ DECLARE_ID (inputMonitoring)
 DECLARE_ID (hardwareDeviceName)
 DECLARE_ID (clipLengthInBeats)
 DECLARE_ID (currentQuantizationStep)
+DECLARE_ID (wrapEventsAcrossClipLoop)
 DECLARE_ID (playing)
 DECLARE_ID (willPlayAt)
 DECLARE_ID (willStopAt)

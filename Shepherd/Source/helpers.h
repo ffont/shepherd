@@ -56,6 +56,7 @@ namespace Helpers
                 c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
                 c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 c.setProperty (IDs::currentQuantizationStep, Defaults::currentQuantizationStep, nullptr);
+                c.setProperty (IDs::wrapEventsAcrossClipLoop, Defaults::wrapEventsAcrossClipLoop, nullptr);
                 
                 c.setProperty (IDs::recording, Defaults::recording, nullptr);
                 c.setProperty (IDs::willStartRecordingAt, Defaults::willStartRecordingAt, nullptr);
@@ -82,6 +83,8 @@ namespace Helpers
         Helpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(IDs::type, SequenceEventType::midi, nullptr);
         sequenceEvent.setProperty(IDs::timestamp, msg.getTimeStamp(), nullptr);
+        sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
+        sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
         juce::StringArray bytes = {};
         for (int i=0; i<msg.getRawDataSize(); i++){
             bytes.add(juce::String(msg.getRawData()[i]));
@@ -96,6 +99,8 @@ namespace Helpers
         Helpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(IDs::type, SequenceEventType::note, nullptr);
         sequenceEvent.setProperty(IDs::timestamp, timestamp, nullptr);
+        sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
+        sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
         sequenceEvent.setProperty(IDs::midiNote, note, nullptr);
         sequenceEvent.setProperty(IDs::midiVelocity, velocity, nullptr);
         sequenceEvent.setProperty(IDs::duration, duration, nullptr);

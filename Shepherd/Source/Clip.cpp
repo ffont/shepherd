@@ -43,6 +43,7 @@ void Clip::bindState()
     uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
     name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
     clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
+    wrapEventsAcrossClipLoop.referTo(state, IDs::wrapEventsAcrossClipLoop, nullptr, Defaults::wrapEventsAcrossClipLoop);
     
     stateCurrentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, Defaults::currentQuantizationStep);
     stateWillStartRecordingAt.referTo(state, IDs::willStartRecordingAt, nullptr, Defaults::willStartRecordingAt);
@@ -866,10 +867,15 @@ void Clip::addRecordedNotesToSequence()
                     break;
                 }
             }
-        } else if (msg.isAftertouch() || msg.isController() || msg.isChannelPressure() ){
+        } else if (msg.isAftertouch() || msg.isController() || msg.isChannelPressure() || msg.isPitchWheel() ){
             // Save the message as SEQUENCE_EVENT of type "midi"
             state.addChild(Helpers::createSequenceEventFromMidiMessage(msg), -1, nullptr);
         }
+    }
+    
+    if (!isRecording() && recordedNoteOnMessagesPendingToAdd.size() > 0){
+        // If clip is no longer recording and there are still elements in recordedNoteOnMessagesPendingToAdd, clear them
+        recordedNoteOnMessagesPendingToAdd.clear();
     }
 }
 
