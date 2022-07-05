@@ -66,6 +66,8 @@ private:
     int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
     juce::String oscSendHost = "127.0.0.1";
     bool oscSenderIsConnected = false;
+    int stateUpdateID = 0;
+    double lastTimeIsAliveWasSent = 0;
     
     // Midi devices and other midi stuff
     bool midiDeviceAlreadyInitialized(const juce::String& deviceName);

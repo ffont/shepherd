@@ -81,6 +81,7 @@ Sequencer::Sequencer()
     // Send OSC message to frontend indiating that Shepherd is ready to rock
     juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
     sendOscMessage(message);
+    sendOscMessage(juce::OSCMessage("/app_started"));  // For new state synchroniser
     sequencerInitialized = true;
     
     #if !RPI_BUILD
@@ -839,6 +840,14 @@ void Sequencer::timerCallback()
     
     // Update musical context stateX members
     musicalContext->updateStateMemberVersions();
+    
+    // If syncing the state wia OSC, we send "/alive" messages as these are used to determine if the app is up and running
+    if ((juce::Time::getMillisecondCounterHiRes() - lastTimeIsAliveWasSent) > 1000.0){
+        // Every second send "alive" message
+        juce::OSCMessage message = juce::OSCMessage("/alive");
+        sendOscMessage(message);
+        lastTimeIsAliveWasSent = juce::Time::getMillisecondCounterHiRes();
+    }
 }
 
 //==============================================================================
@@ -1181,19 +1190,49 @@ void Sequencer::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasC
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
-    //std::cout << "Changed " << treeWhosePropertyHasChanged[IDs::name].toString() << " " << property.toString() << ": " << treeWhosePropertyHasChanged[property].toString() << std::endl;
+    
+    // Send state update to UI
+    juce::OSCMessage message = juce::OSCMessage("/state_update");
+    message.addString("propertyChanged");
+    message.addInt32(stateUpdateID);
+    message.addString(treeWhosePropertyHasChanged[IDs::uuid].toString());
+    message.addString(treeWhosePropertyHasChanged.getType().toString());
+    message.addString(property.toString());
+    message.addString(treeWhosePropertyHasChanged[property].toString());
+    sendOscMessage(message);
+    stateUpdateID += 1;
 }
 
 void Sequencer::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+    
+    // Send state update to UI
+    juce::OSCMessage message = juce::OSCMessage("/state_update");
+    message.addString("addedChild");
+    message.addInt32(stateUpdateID);
+    message.addString(parentTree[IDs::uuid].toString());
+    message.addString(parentTree.getType().toString());
+    message.addInt32(parentTree.indexOf(childWhichHasBeenAdded));
+    message.addString(childWhichHasBeenAdded.toXmlString(juce::XmlElement::TextFormat().singleLine()));
+    sendOscMessage(message);
+    stateUpdateID += 1;
 }
 
 void Sequencer::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenRemoved, int indexFromWhichChildWasRemoved)
 {
     // We should never call this function from the realtime thread because editing VT might not be RT safe...
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+    
+    // Send state update to UI
+    juce::OSCMessage message = juce::OSCMessage("/state_update");
+    message.addString("removedChild");
+    message.addInt32(stateUpdateID);
+    message.addString(childWhichHasBeenRemoved[IDs::uuid].toString());
+    message.addString(childWhichHasBeenRemoved.getType().toString());
+    sendOscMessage(message);
+    stateUpdateID += 1;
 }
 
 void Sequencer::valueTreeChildOrderChanged (juce::ValueTree& parentTree, int oldIndex, int newIndex)

@@ -4,6 +4,8 @@ import threading
 import time
 import math
 
+from state_synchronizer import ShepherdStateSynchronizer
+
 osc_send_host = "127.0.0.1"
 osc_send_port = 9003
 osc_receive_port = 9004
@@ -30,6 +32,8 @@ class ShepherdInterface(object):
 
     def __init__(self, app):
         self.app = app
+
+        self.sss = ShepherdStateSynchronizer(app, osc_port_send=osc_send_port, osc_port_receive=osc_receive_port, verbose=False)
 
         self.osc_sender = OSCClient(osc_send_host, osc_send_port, encoding='utf8')
 
