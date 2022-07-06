@@ -1,24 +1,16 @@
-from oscpy.client import OSCClient
-from oscpy.server import OSCThreadServer
 import threading
 import time
 import math
 
 from state_synchronizer import ShepherdStateSynchronizer
 
-osc_send_host = "127.0.0.1"
-osc_send_port = 9003
-osc_receive_port = 9004
-
 tracks_state_fps = 4.0
 transport_state_fps = 10.0
+
 
 class ShepherdInterface(object):
 
     app = None
-
-    osc_sender = None
-    osc_server = None
 
     state_transport_check_thread = None
     state_tracks_check_thread = None
@@ -33,19 +25,11 @@ class ShepherdInterface(object):
     def __init__(self, app):
         self.app = app
 
-        self.sss = ShepherdStateSynchronizer(app, osc_port_send=osc_send_port, osc_port_receive=osc_receive_port, verbose=False)
-
-        self.osc_sender = OSCClient(osc_send_host, osc_send_port, encoding='utf8')
-
-        self.osc_server = OSCThreadServer()
-        sock = self.osc_server.listen(address='0.0.0.0', port=osc_receive_port, default=True)
-        self.osc_server.bind(b'/shepherdReady', self.receive_shepherd_ready)
-        self.osc_server.bind(b'/stateFromShepherd', self.receive_state_from_shepherd)
-        self.osc_server.bind(b'/midiCCParameterValuesForDevice', self.receive_midi_cc_values_for_device)
+        self.sss = ShepherdStateSynchronizer(app, verbose=False)
         
         # Send first message notifying backend that controller is ready and start threads that 
         # request periodic state updates
-        self.osc_sender.send_message('/shepherdControllerReady', [])
+        self.sss.send_msg_to_app('/shepherdControllerReady', [])
         self.run_get_state_transport_thread()
         self.run_get_state_tracks_thread()
 
@@ -60,15 +44,15 @@ class ShepherdInterface(object):
     def check_transport_state(self):
         while True:
             time.sleep(1.0/transport_state_fps)
-            self.osc_sender.send_message('/state/transport', [])
+            self.sss.send_msg_to_app('/state/transport', [])
 
     def check_tracks_state(self):
         while True:
             time.sleep(1.0/tracks_state_fps)
-            self.osc_sender.send_message('/state/tracks', [])
+            self.sss.send_msg_to_app('/state/tracks', [])
 
     def request_midi_cc_values_for_device(self, device_name, ccs):
-        self.osc_sender.send_message('/device/getMidiCCParameterValues', [device_name] + ccs)
+        self.sss.send_msg_to_app('/device/getMidiCCParameterValues', [device_name] + ccs)
 
     def sync_state_to_shepherd(self):
         # re-activate all modes to make sure we initialize things in the backend if needed
@@ -215,19 +199,19 @@ class ShepherdInterface(object):
                 self.track_set_input_monitoring(i, i == track_num)
 
     def track_set_input_monitoring(self, track_num, enabled):
-        self.osc_sender.send_message('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
+        self.sss.send_msg_to_app('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
 
     def track_set_active_ui_notes_monitoring(self, track_num):
-        self.osc_sender.send_message('/track/setActiveUiNotesMonitoringTrack', [track_num])
+        self.sss.send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [track_num])
 
     def device_send_all_notes_off(self, device_name):
-        self.osc_sender.send_message('/device/sendAllNotesOff', [device_name])
+        self.sss.send_msg_to_app('/device/sendAllNotesOff', [device_name])
 
     def device_load_preset(self, device_name, bank, preset):
-        self.osc_sender.send_message('/device/loadDevicePreset', [device_name, bank, preset])
+        self.sss.send_msg_to_app('/device/loadDevicePreset', [device_name, bank, preset])
 
     def device_send_midi(self, device_name, msg):
-        self.osc_sender.send_message('/device/sendMidi', [device_name] + msg.bytes())
+        self.sss.send_msg_to_app('/device/sendMidi', [device_name] + msg.bytes())
 
     def device_get_midi_cc_parameter_value(self, device_name, midi_cc_parameter):
         if 'devices' in self.parsed_state:
@@ -237,24 +221,24 @@ class ShepherdInterface(object):
         return 0
         
     def clip_play_stop(self, track_num, clip_num):
-        self.osc_sender.send_message('/clip/playStop', [track_num, clip_num])
+        self.sss.send_msg_to_app('/clip/playStop', [track_num, clip_num])
 
     def clip_record_on_off(self, track_num, clip_num):
-        self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
+        self.sss.send_msg_to_app('/clip/recordOnOff', [track_num, clip_num])
 
     def clip_clear(self, track_num, clip_num):
         if not self.clip_is_empty(track_num, clip_num):
-            self.osc_sender.send_message('/clip/clear', [track_num, clip_num])
+            self.sss.send_msg_to_app('/clip/clear', [track_num, clip_num])
             self.app.add_display_notification("Cleared clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
     def clip_double(self, track_num, clip_num):
         if not self.clip_is_empty(track_num, clip_num):
-            self.osc_sender.send_message('/clip/double', [track_num, clip_num])
+            self.sss.send_msg_to_app('/clip/double', [track_num, clip_num])
             self.app.add_display_notification("Doubled clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
     def clip_quantize(self, track_num, clip_num, quantization_step):
         if not self.clip_is_empty(track_num, clip_num):
-            self.osc_sender.send_message('/clip/quantize', [track_num, clip_num, quantization_step])
+            self.sss.send_msg_to_app('/clip/quantize', [track_num, clip_num, quantization_step])
             quantization_step_labels = {
                 0.25: '16th note',
                 0.5: '8th note',
@@ -265,12 +249,12 @@ class ShepherdInterface(object):
                                                                                                            quantization_step), track_num + 1, clip_num + 1))
     def clip_undo(self, track_num, clip_num):
         if not self.clip_is_empty(track_num, clip_num):
-            self.osc_sender.send_message('/clip/undo', [track_num, clip_num])
+            self.sss.send_msg_to_app('/clip/undo', [track_num, clip_num])
             self.app.add_display_notification("Undo clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
     def clip_set_length(self, track_num, clip_num, new_length):
         if not self.clip_is_empty(track_num, clip_num):
-            self.osc_sender.send_message('/clip/setLength', [track_num, clip_num, new_length])
+            self.sss.send_msg_to_app('/clip/setLength', [track_num, clip_num, new_length])
 
     def clip_is_empty(self, track_num, clip_num):
         if 'tracks' in self.parsed_state:
@@ -334,14 +318,14 @@ class ShepherdInterface(object):
 
 
     def scene_play(self, scene_number):
-        self.osc_sender.send_message('/scene/play', [scene_number])
+        self.sss.send_msg_to_app('/scene/play', [scene_number])
 
     def scene_duplicate(self, scene_number):
-        self.osc_sender.send_message('/scene/duplicate', [scene_number])
+        self.sss.send_msg_to_app('/scene/duplicate', [scene_number])
         self.app.add_display_notification("Duplicated scene: {0}".format(scene_number + 1))
 
     def global_play_stop(self):
-        self.osc_sender.send_message('/transport/playStop', [])
+        self.sss.send_msg_to_app('/transport/playStop', [])
 
     def global_record(self):
         # Stop all clips that are being recorded
@@ -356,29 +340,29 @@ class ShepherdInterface(object):
                         clip_num = i
                         break
                 if clip_num > -1:
-                    self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
+                    self.sss.send_msg_to_app('/clip/recordOnOff', [track_num, clip_num])
             else:
                 for clip_num, clip_state in enumerate(track['clips']):
                     if 'r' in clip_state or 'w' in clip_state:
                         # if clip is recording or cued to record, toggle record so recording/cue are cleared
-                        self.osc_sender.send_message('/clip/recordOnOff', [track_num, clip_num])
+                        self.sss.send_msg_to_app('/clip/recordOnOff', [track_num, clip_num])
 
     def metronome_on_off(self):
-        self.osc_sender.send_message('/metronome/onOff', [])
+        self.sss.send_msg_to_app('/metronome/onOff', [])
         self.app.add_display_notification("Metronome: {0}".format('On' if not self.parsed_state.get('metronomeOn', False) else 'Off'))
 
     def set_push_pads_mapping(self, new_mapping=[]):
         if new_mapping:
-            self.osc_sender.send_message('/settings/pushNotesMapping', new_mapping)
+            self.sss.send_msg_to_app('/settings/pushNotesMapping', new_mapping)
 
     def set_push_encoders_mapping(self, device_name, new_mapping=[]):
         if device_name == "":
             device_name = "-"
         if new_mapping:
-            self.osc_sender.send_message('/settings/pushEncodersMapping', [device_name] + new_mapping)
+            self.sss.send_msg_to_app('/settings/pushEncodersMapping', [device_name] + new_mapping)
 
     def set_fixed_velocity(self, velocity):
-        self.osc_sender.send_message('/settings/fixedVelocity', [velocity])
+        self.sss.send_msg_to_app('/settings/fixedVelocity', [velocity])
         
     def get_buttons_state(self):
         is_playing = self.parsed_state.get('isPlaying', False)
@@ -390,14 +374,14 @@ class ShepherdInterface(object):
         return self.parsed_state.get('bpm', 120)
 
     def set_bpm(self, bpm):
-        self.osc_sender.send_message('/transport/setBpm', [float(bpm)])
+        self.sss.send_msg_to_app('/transport/setBpm', [float(bpm)])
         self.app.add_display_notification("Tempo: {0} bpm".format(bpm))
 
     def get_meter(self):
         return self.parsed_state.get('meter', 4)
 
     def set_meter(self, meter):
-        self.osc_sender.send_message('/transport/setMeter', [int(meter)])
+        self.sss.send_msg_to_app('/transport/setMeter', [int(meter)])
         self.app.add_display_notification("Meter: {0} beats".format(meter))
 
     def get_num_tracks(self):
@@ -426,7 +410,7 @@ class ShepherdInterface(object):
         return self.parsed_state.get('fixedLengthRecordingAmount', 0)
 
     def set_fixed_length_amount(self, fixed_length):
-        self.osc_sender.send_message('/settings/fixedLength', [fixed_length])
+        self.sss.send_msg_to_app('/settings/fixedLength', [fixed_length])
         if fixed_length > 0:
             self.app.add_display_notification("Fixed length bars: {0} ({1} beats)".format(fixed_length, fixed_length * self.get_meter()))
         else:
@@ -436,7 +420,7 @@ class ShepherdInterface(object):
         return self.parsed_state.get('recordAutomaionOn', False)
 
     def set_record_automation_enabled(self):
-        self.osc_sender.send_message('/settings/toggleRecordAutomation', [])
+        self.sss.send_msg_to_app('/settings/toggleRecordAutomation', [])
 
 
     
