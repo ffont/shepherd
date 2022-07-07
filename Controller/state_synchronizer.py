@@ -15,16 +15,18 @@ if USE_WEBSOCKETS:
     import websocket
 
 
-from flask import Flask
+from flask import Flask, render_template
 state_debugger_port = 5100
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
 def state_debugger():
-    if sss_instance is None:
-        return 'No ShepherdStateSynchronizer yet'
+    if sss_instance is None or sss_instance.state_soup is None:
+        state = 'No ShepherdStateSynchronizer yet'
     else:
-        return str(sss_instance.state_soup)
+        
+        state = sss_instance.state_soup
+    return render_template('state_debugger.html', state=state)
 
 
 osc_send_host = "127.0.0.1"
@@ -32,13 +34,12 @@ osc_send_port = 9003
 osc_receive_port = 9004
 
 
-
 class StateDebuggerServerThread(threading.Thread):
 
-    def __init__(self, port, source_state_synchronizer, *args, **kwargs):
+    def __init__(self, port, state_synchronizer, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.port = port
-        self.source_state_synchronizer = source_state_synchronizer
+        self.state_synchronizer = state_synchronizer
 
     def run(self):
         #asyncio.set_event_loop(asyncio.new_event_loop())
@@ -47,7 +48,8 @@ class StateDebuggerServerThread(threading.Thread):
 
 
 sss_instance = None
-volatile_state_refresh_fps = 0  # Shepherd uses no volatile state
+state_request_hz = 10 
+request_volatile_state = False  # Shepherd uses no volatile state
 
 
 def state_update_handler(*values):
@@ -105,10 +107,10 @@ def osc_volatile_state_string_handler(*values):
 
 class OSCReceiverThread(threading.Thread):
 
-    def __init__(self, port, source_state_synchronizer, *args, **kwargs):
+    def __init__(self, port, state_synchronizer, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.port = port
-        self.source_state_synchronizer = source_state_synchronizer
+        self.state_synchronizer = state_synchronizer
 
     def run(self):
         #asyncio.set_event_loop(asyncio.new_event_loop())
@@ -189,10 +191,10 @@ class WSConnectionThread(threading.Thread):
     reconnect_interval = 2
     last_time_tried_wss = True  # Start trying ws connection (instead of wss)
 
-    def __init__(self, port, source_state_synchronizer, *args, **kwargs):
+    def __init__(self, port, state_synchronizer, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.port = port
-        self.source_state_synchronizer = source_state_synchronizer
+        self.state_synchronizer = state_synchronizer
 
     def run(self):
         # Try to establish a connection with the websockets server
@@ -209,7 +211,7 @@ class WSConnectionThread(threading.Thread):
                                     on_message=ws_on_message,
                                     on_error=ws_on_error,
                                     on_close=ws_on_close)
-            self.source_state_synchronizer.ws_connection = ws
+            self.state_synchronizer.ws_connection = ws
             print('* Connecting to WS server: {}'.format(ws_endpoint))
             ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE}, skip_utf8_validation=True)
             print('WS connection lost - will try connecting again in {} seconds'.format(self.reconnect_interval))
@@ -218,18 +220,19 @@ class WSConnectionThread(threading.Thread):
 
 class RequestStateThread(threading.Thread):
 
-    def __init__(self, source_state_synchronizer, *args, **kwargs):
+    def __init__(self, state_synchronizer, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.source_state_synchronizer = source_state_synchronizer
+        self.state_synchronizer = state_synchronizer
 
     def run(self):
         #asyncio.set_event_loop(asyncio.new_event_loop())
         print('* Starting loop to request state')
         while True:
-            time.sleep(1.0/volatile_state_refresh_fps)
-            self.source_state_synchronizer.request_volatile_state()
-            if self.source_state_synchronizer.should_request_full_state:
-                self.source_state_synchronizer.request_full_state()
+            time.sleep(1.0/state_request_hz)
+            if request_volatile_state:
+                self.state_synchronizer.request_volatile_state()
+            if self.state_synchronizer.should_request_full_state:
+                self.state_synchronizer.request_full_state()
 
 
 class ShepherdStateSynchronizer(object):
@@ -275,8 +278,7 @@ class ShepherdStateSynchronizer(object):
         # Start Thread to request state to app
         # This thread will request mostly the volatile state, but will also occasioanally
         # request full state if self.should_request_full_state is True
-        if volatile_state_refresh_fps > 0:
-            RequestStateThread(self).start()
+        RequestStateThread(self).start()
 
         # If state debugger is enabled, start  the server
         if flask_app is not None:
@@ -284,7 +286,6 @@ class ShepherdStateSynchronizer(object):
 
         time.sleep(0.5)  # Give time for threads to start
         self.should_request_full_state = True
-        self.request_full_state()
 
     def send_msg_to_app(self, address, values):
         if self.osc_client is not None:
@@ -318,7 +319,7 @@ class ShepherdStateSynchronizer(object):
     def set_full_state(self, update_id, full_state_raw):
         if self.verbose:
             print("Receiving full state with update id {}".format(update_id))
-        self.state_soup = BeautifulSoup(full_state_raw, "lxml").findAll("source_state")[0]
+        self.state_soup = BeautifulSoup(full_state_raw, "lxml").findAll("session")[0]
         self.full_state_requested = False
         self.should_request_full_state = False
         #self.app.current_state.on_source_state_update()

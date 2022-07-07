@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <title>Shepherd state debugger</title>
+        <script>
+
+            var prettifyXml = function(sourceXml)
+            {
+                var xmlDoc = new DOMParser().parseFromString(sourceXml, 'application/xml');
+                var xsltDoc = new DOMParser().parseFromString([
+                    // describes how we want to modify the XML - indent everything
+                    '<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform">',
+                    '  <xsl:strip-space elements="*"/>',
+                    '  <xsl:template match="para[content-style][not(text())]">', // change to just text() to strip space in text nodes
+                    '    <xsl:value-of select="normalize-space(.)"/>',
+                    '  </xsl:template>',
+                    '  <xsl:template match="node()|@*">',
+                    '    <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>',
+                    '  </xsl:template>',
+                    '  <xsl:output indent="yes"/>',
+                    '</xsl:stylesheet>',
+                ].join('\n'), 'application/xml');
+
+                var xsltProcessor = new XSLTProcessor();    
+                xsltProcessor.importStylesheet(xsltDoc);
+                var resultDoc = xsltProcessor.transformToDocument(xmlDoc);
+                var resultXml = new XMLSerializer().serializeToString(resultDoc);
+                return resultXml;
+            };
+
+            function decodeHtml(html) {
+                var txt = document.createElement("textarea");
+                txt.innerHTML = html;
+                return txt.value;
+            }
+
+            var autoReload = true;
+            var autoReloadTimer = undefined;
+
+            window.addEventListener('DOMContentLoaded', (event) => {
+                var xml = decodeHtml("{{ state }}");
+                if (xml !== ''){
+                    document.getElementById('contents').innerText = prettifyXml(xml); 
+                }
+
+                if (autoReload){
+                    autoReloadTimer = setTimeout(() => {location.reload()}, 500);
+                }
+            });
+
+            function toggleAutoReload() {
+                if (autoReload === true){
+                    clearTimeout(autoReloadTimer);
+                    autoReload = false;
+                } else {
+                    location.reload();
+                }
+
+            }
+
+        </script>
+    </head>
+    <body>
+        <button onclick="toggleAutoReload();">Toggle auto reload</button>
+        <pre id="contents"></pre>
+    </body>
+</html>

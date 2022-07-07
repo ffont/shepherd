@@ -53,6 +53,8 @@
 #define OSC_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
 #define OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"
 
+#define OSC_ADDRESS_GET_STATE "/get_state"
+// The 3 addresses below are legacy and should be removed once new state sharing is fully wokring
 #define OSC_ADDRESS_STATE "/state"
 #define OSC_ADDRESS_STATE_TRACKS "/state/tracks"
 #define OSC_ADDRESS_STATE_TRANSPORT "/state/transport"

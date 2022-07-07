@@ -1100,6 +1100,17 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
             recordAutomationEnabled = !recordAutomationEnabled;
         }
         
+    } else if (address == OSC_ADDRESS_GET_STATE) {
+        jassert(message.size() == 1);
+        juce::String stateType = message[0].getString();
+        if (stateType == "full"){
+            DBG("SENDING FULL STATE");
+            juce::OSCMessage returnMessage = juce::OSCMessage("/full_state");
+            returnMessage.addInt32(stateUpdateID);
+            returnMessage.addString(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
+            DBG(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
+            sendOscMessage(returnMessage);
+        }
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
         if (address == OSC_ADDRESS_STATE_TRACKS){
             jassert(message.size() == 0);

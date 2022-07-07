@@ -56,7 +56,7 @@ class ShepherdInterface(object):
 
     def sync_state_to_shepherd(self):
         # re-activate all modes to make sure we initialize things in the backend if needed
-        print('Synching with Shepherd backend state')
+        print('Synching with Shepherd backend state...')
         for mode in self.app.active_modes:
             mode.activate()
         self.app.midi_cc_mode.initialize()
