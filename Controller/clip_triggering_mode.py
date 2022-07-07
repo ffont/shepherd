@@ -2,7 +2,7 @@ import definitions
 import push2_python
 import time
 
-from display_utils import show_text
+from display_utils import show_text, show_rectangle
 
 
 class ClipTriggeringMode(definitions.ShepherdControllerMode):
@@ -95,6 +95,45 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     # Add track num/clip num
                     show_text(ctx, track_num, y, '{}-{}'.format(track_num + 1, clip_num + 1), height=height, font_color=font_color, background_color=None,
                             font_size_percentage=0.30 if num_clips > 1 else 0.15, center_horizontally=False, center_vertically=False)
+
+                    # Draw clip notes
+                    if clip_length > 0.0:
+                        rendered_notes = self.app.shepherd_interface.get_clip_notes(track_num, clip_num)
+                        all_midinotes = [int(note['midinote']) for note in rendered_notes]
+                        if len(all_midinotes) > 0:
+                            min_midinote = min(all_midinotes)
+                            max_midinote = max(all_midinotes) + 1  # Add 1 to highest note does not fall outside of screen
+                            for note in rendered_notes:
+                                note_percentage =  (int(note['midinote']) - min_midinote) / (max_midinote - min_midinote)
+                                note_height_percentage =  1.0 / (max_midinote - min_midinote)
+                                note_start_percentage = float(note['renderedstarttimestamp']) / clip_length
+                                note_end_percentage = float(note['renderedendtimestamp']) / clip_length
+                                
+                                display_w = push2_python.constants.DISPLAY_LINE_PIXELS
+                                display_h = push2_python.constants.DISPLAY_N_LINES
+                                part_w = (display_w // 8)
+                                part_h = display_h * 0.9
+                                
+                                if note_start_percentage <= note_end_percentage:    
+                                    x0_rel = (part_w * track_num + note_start_percentage * part_w) / display_w
+                                    y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
+                                    width_rel = ((part_w * track_num + note_end_percentage * part_w) / display_w) - x0_rel
+                                    height_rel = note_height_percentage
+                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=definitions.WHITE)
+                                else:
+                                    # Draw "2 rectangles", one from start of note to end of section, and one from start of section to end of note
+                                    x0_rel = (part_w * track_num + note_start_percentage * part_w) / display_w
+                                    y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
+                                    width_rel = ((part_w * track_num + 1.0 * part_w) / display_w) - x0_rel
+                                    height_rel = note_height_percentage
+                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=definitions.WHITE)
+
+                                    x0_rel = (part_w * track_num + 0.0 * part_w) / display_w
+                                    y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
+                                    width_rel = ((part_w * track_num + note_end_percentage * part_w) / display_w) - x0_rel
+                                    height_rel = note_height_percentage
+                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=definitions.WHITE)
+
 
     def activate(self):
         self.update_buttons()

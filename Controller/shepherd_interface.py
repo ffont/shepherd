@@ -298,6 +298,16 @@ class ShepherdInterface(object):
         else:
             return 0.0
 
+    def get_clip_notes(self, track_num, clip_num):
+        if self.sss.state_soup is None:
+            return []
+        else:
+            track = self.sss.state_soup.find_all('track')[track_num]
+            clip = track.find_all('clip')[clip_num]
+            sequence_events = clip.find_all('sequence_event')
+            # type "note" is "1"
+            return [event for event in sequence_events if event['type'] == "1" and float(event['renderedstarttimestamp']) >= 0.0]
+
     def get_track_num_clips(self, track_num):
         if 'tracks' in self.parsed_state:
             try:
