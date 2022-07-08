@@ -1294,7 +1294,7 @@ void Sequencer::randomizeClipsNotes() {
                         int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
                         float midiVelocity = 1.0f;
                         double timestamp = note.first + note.second;
-                        double duration = 0.25;
+                        double duration = juce::Random::getSystemRandom().nextFloat() * 1.5;
                         clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
                     }
                 }

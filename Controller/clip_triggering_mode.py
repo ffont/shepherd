@@ -115,24 +115,34 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                                 part_h = display_h * 0.9
                                 
                                 if note_start_percentage <= note_end_percentage:    
+                                    if (note_start_percentage <= position_percentage <= note_end_percentage + 0.05) and playhead_position != 0.0: 
+                                        color = definitions.WHITE
+                                    else:
+                                        color = track_color + '_darker1'
                                     x0_rel = (part_w * track_num + note_start_percentage * part_w) / display_w
                                     y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
                                     width_rel = ((part_w * track_num + note_end_percentage * part_w) / display_w) - x0_rel
                                     height_rel = note_height_percentage
-                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=definitions.WHITE)
+                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
                                 else:
                                     # Draw "2 rectangles", one from start of note to end of section, and one from start of section to end of note
+
+                                    if (note_start_percentage <= position_percentage or  position_percentage <= note_end_percentage + 0.05) and playhead_position != 0.0: 
+                                        color = definitions.WHITE
+                                    else:
+                                        color = track_color + '_darker1'
+
                                     x0_rel = (part_w * track_num + note_start_percentage * part_w) / display_w
                                     y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
                                     width_rel = ((part_w * track_num + 1.0 * part_w) / display_w) - x0_rel
                                     height_rel = note_height_percentage
-                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=definitions.WHITE)
+                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
 
                                     x0_rel = (part_w * track_num + 0.0 * part_w) / display_w
                                     y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
                                     width_rel = ((part_w * track_num + note_end_percentage * part_w) / display_w) - x0_rel
                                     height_rel = note_height_percentage
-                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=definitions.WHITE)
+                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
 
 
     def activate(self):
