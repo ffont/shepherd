@@ -193,3 +193,4 @@ sudo journalctl -fu shepherd_controller
 Shepherd is released under the **GPLv3** open source software license (see [LICENSE](https://github.com/ffont/shepherd/blob/master/LICENSE) file) with the code being available at  [https://github.com/ffont/shepherd](https://github.com/ffont/shepherd). Source uses the following open source software libraries: 
 
 * [juce](https://juce.com), available under GPLv3 license ([@46ea879](https://github.com/juce-framework/JUCE/tree/46ea879739533ca0cdc689b967edfc5390c46ef7), v6.1.2)
+* [Simple-Web-Server](https://gitlab.com/eidheim/Simple-Web-Server), available under MIT license ([@bdb1057](https://gitlab.com/eidheim/Simple-Web-Server/-/tree/bdb105712bc4cebc993de89b62e382b92102b347))

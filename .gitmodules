@@ -1,3 +1,6 @@
 [submodule "Shepherd/3rdParty/JUCE"]
 	path = Shepherd/3rdParty/JUCE
 	url = https://github.com/juce-framework/JUCE.git
+[submodule "Shepherd/3rdParty/Simple-WebSocket-Server"]
+	path = Shepherd/3rdParty/Simple-WebSocket-Server
+	url = https://gitlab.com/eidheim/Simple-WebSocket-Server.git
