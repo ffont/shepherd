@@ -46,8 +46,8 @@ if USE_STATE_DEBUGGER:
         if sss_instance is None or sss_instance.state_soup is None:
             state = 'No state has been synced yet'
         else:
-            
             state = sss_instance.state_soup.findAll("session")[0]
+            sss_instance.session.pprint()
         return render_template('state_debugger.html', state=state, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
 
 
@@ -461,11 +461,93 @@ class GenericStateSynchronizer(object):
         pass
 
 
+# ----------------
+
+def converted_value_for_attr_name(attr_name, value):
+    if attr_name in ['playheadpositioninbeats', 'bpm', 'countinplayheadpositioninbeats']:
+        return float(value)
+    elif attr_name in ['meter', 'barcount']:
+        return int(value)
+    elif attr_name in ['metronomeon', 'doingcountin', 'isplaying']:
+        return value == '1'
+    return value
+
+
+class BaseShepherdClass(object):
+
+    def __init__(self, soup):
+        for attr_name, value in soup.attrs.items():
+            setattr(self, attr_name, converted_value_for_attr_name(attr_name, value))
+
+
+class Session(BaseShepherdClass):
+    tracks = []
+
+    def __init__(self, *args, **kwargs):
+        self.tracks = []
+        super().__init__(*args, **kwargs)
+
+    def add_track(self, track):
+        self.tracks.append(track)
+
+    def pprint(self):
+        text = 'session {}\n'.format(self.name)
+        for track in self.tracks:
+            text += '  track {}\n'.format(track.name)
+            for clip in track.clips:
+                text += '    clip {}\n'.format(clip.name)
+                for sequence_event in clip.sequence_events:
+                    text += '      sequence_event {}\n'.format(sequence_event.uuid)
+        print(text)
+        
+
+class Track(BaseShepherdClass):
+    clips = []
+    
+    def __init__(self, *args, **kwargs):
+        self.clips = []
+        super().__init__(*args, **kwargs)
+
+    def add_clip(self, clip):
+        self.clips.append(clip)
+
+
+class Clip(BaseShepherdClass):
+    sequence_events = []
+
+    def __init__(self, *args, **kwargs):
+        self.sequence_events = []
+        super().__init__(*args, **kwargs)
+
+    def add_sequence_event(self, sequence_event):
+        self.sequence_events.append(sequence_event)
+
+
+class SequenceEvent(BaseShepherdClass):
+    pass
+
 
 class ShepherdStateSynchronizer(GenericStateSynchronizer):
 
+    session = None
+
     def on_state_update(self):
-        pass
+        # TODO: this should be better updated insread of rebuilt from scratch?
+        self.build_session()
 
     def on_full_state_received(self):
-        pass
+        self.build_session()
+
+    def build_session(self):
+        session_soup = self.state_soup.findAll("session")[0]
+        session = Session(session_soup)
+        for track_soup in session_soup.findAll("track"):
+            track = Track(track_soup)
+            for count, clip_soup in enumerate(track_soup.findAll("clip")):
+                clip = Clip(clip_soup)
+                for sequence_event_soup in clip_soup.findAll("sequence_event"):
+                    sequence_event = SequenceEvent(sequence_event_soup)
+                    clip.add_sequence_event(sequence_event)                
+                track.add_clip(clip)
+            session.add_track(track)
+        self.session = session
