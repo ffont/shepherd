@@ -17,7 +17,9 @@
 class MusicalContext
 {
 public:
-    MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, juce::ValueTree& _state);
+    MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, const juce::ValueTree& _state);
+    
+    juce::ValueTree state;
     void bindState();
     void updateStateMemberVersions();
     
@@ -56,7 +58,6 @@ public:
     void renderMidiStopInSlice(juce::MidiBuffer& bufferToFill);
     
 private:
-    juce::ValueTree state;
     
     double playheadPositionInBeats = Defaults::playheadPosition;
     bool isPlaying = Defaults::isPlaying;

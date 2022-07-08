@@ -8,30 +8,47 @@ import sys
 import ssl
 import traceback
 
-# If USE_WEBSOCKETS is set to True, WebSockets will be used to communicate with app, otherwise OSC 
-# will be used
-USE_WEBSOCKETS = False
-if USE_WEBSOCKETS:
-    import websocket
+# If USE_WEBSOCKETS is set to True, WebSockets will be used to communicate with 
+# app, otherwise OSC will be used
+USE_WEBSOCKETS = True
 
-
-from flask import Flask, render_template
-state_debugger_port = 5100
-flask_app = Flask(__name__)
-
-@flask_app.route('/')
-def state_debugger():
-    if sss_instance is None or sss_instance.state_soup is None:
-        state = 'No ShepherdStateSynchronizer yet'
-    else:
-        
-        state = sss_instance.state_soup
-    return render_template('state_debugger.html', state=state)
-
+# If USE_STATE_DEBUGGER is set to True, current synchronized state will be available 
+# through a localchost server listening at 'state_debugger_port'
+USE_STATE_DEBUGGER = True
 
 osc_send_host = "127.0.0.1"
 osc_send_port = 9003
 osc_receive_port = 9004
+ws_port = 8125 
+state_debugger_port = 5100
+state_request_hz = 10 
+
+sss_instance = None
+state_debugger_server = None
+state_debugger_autoreload_ms = 1000
+
+
+if USE_WEBSOCKETS:
+    import websocket
+
+if USE_STATE_DEBUGGER:
+    from flask import Flask, render_template
+    state_debugger_server = Flask(__name__)
+
+    import logging
+    disable_flask_logging = True
+    if disable_flask_logging:
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+
+    @state_debugger_server.route('/')
+    def state_debugger():
+        if sss_instance is None or sss_instance.state_soup is None:
+            state = 'No state has been synced yet'
+        else:
+            
+            state = sss_instance.state_soup.findAll("session")[0]
+        return render_template('state_debugger.html', state=state, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
 
 
 class StateDebuggerServerThread(threading.Thread):
@@ -42,14 +59,9 @@ class StateDebuggerServerThread(threading.Thread):
         self.state_synchronizer = state_synchronizer
 
     def run(self):
-        #asyncio.set_event_loop(asyncio.new_event_loop())
+        asyncio.set_event_loop(asyncio.new_event_loop())
         print('* Starting state debugger in port {}'.format(self.port))
-        flask_app.run(host='0.0.0.0', port=self.port, debug=True, use_reloader=False)
-
-
-sss_instance = None
-state_request_hz = 10 
-request_volatile_state = False  # Shepherd uses no volatile state
+        state_debugger_server.run(host='0.0.0.0', port=self.port, debug=True, use_reloader=False)
 
 
 def state_update_handler(*values):
@@ -104,7 +116,6 @@ def osc_volatile_state_string_handler(*values):
 
     
 
-
 class OSCReceiverThread(threading.Thread):
 
     def __init__(self, port, state_synchronizer, *args, **kwargs):
@@ -113,7 +124,7 @@ class OSCReceiverThread(threading.Thread):
         self.state_synchronizer = state_synchronizer
 
     def run(self):
-        #asyncio.set_event_loop(asyncio.new_event_loop())
+        asyncio.set_event_loop(asyncio.new_event_loop())
         osc = OSCThreadServer()
         print('* Listening OSC messages in port {}'.format(self.port))
         osc.listen(address='0.0.0.0', port=self.port, default=True)
@@ -201,11 +212,11 @@ class WSConnectionThread(threading.Thread):
         # If it can't be established, tries again every self.reconnect_interval seconds
         # Because we don't know if the server will use wss or not, we alternatively try
         # one or the other
-        #asyncio.set_event_loop(asyncio.new_event_loop())
+        asyncio.set_event_loop(asyncio.new_event_loop())
         while True:
-            try_wss = not self.last_time_tried_wss
+            try_wss = False #not self.last_time_tried_wss  # Force use of WS
             self.last_time_tried_wss = not self.last_time_tried_wss
-            ws_endpoint = "ws{}://localhost:{}/source_coms/".format('s' if try_wss else '', self.port)
+            ws_endpoint = "ws{}://localhost:{}/shepherd_coms/".format('s' if try_wss else '', self.port)
             ws = websocket.WebSocketApp(ws_endpoint,
                                     on_open=ws_on_open,
                                     on_message=ws_on_message,
@@ -225,17 +236,19 @@ class RequestStateThread(threading.Thread):
         self.state_synchronizer = state_synchronizer
 
     def run(self):
-        #asyncio.set_event_loop(asyncio.new_event_loop())
+        asyncio.set_event_loop(asyncio.new_event_loop())
         print('* Starting loop to request state')
         while True:
             time.sleep(1.0/state_request_hz)
-            if request_volatile_state:
+
+            if self.state_synchronizer.should_request_volatile_state:
                 self.state_synchronizer.request_volatile_state()
+
             if self.state_synchronizer.should_request_full_state:
                 self.state_synchronizer.request_full_state()
 
 
-class ShepherdStateSynchronizer(object):
+class GenericStateSynchronizer(object):
 
     osc_client = None
     last_time_app_alive = 0  # Only used when using OSC communication
@@ -246,20 +259,32 @@ class ShepherdStateSynchronizer(object):
     last_update_id = -1
     should_request_full_state = False
     full_state_requested = False
+    last_time_full_state_requested = 0
+    full_state_request_timeout = 5  # Seconds
+
+    should_request_volatile_state = False
+    volatile_state = {}
 
     state_soup = None
-    volatile_state = {}
     app = None
 
     verbose = False
 
-    def __init__(self, app, osc_ip=osc_send_host, osc_port_send=osc_send_port, osc_port_receive=osc_receive_port, ws_port=8125, verbose=True):
+    def __init__(self, 
+                 app, 
+                 osc_ip=osc_send_host, 
+                 osc_port_send=osc_send_port, 
+                 osc_port_receive=osc_receive_port, 
+                 ws_port=ws_port, 
+                 state_debugger_port=state_debugger_port, 
+                 verbose=True):
         self.app = app
         
         global sss_instance
         sss_instance = self
         self.verbose = verbose
         
+        '''
         if not USE_WEBSOCKETS:
             print('* Using OSC to communicate with app')
 
@@ -274,14 +299,32 @@ class ShepherdStateSynchronizer(object):
 
             # Start websockets client to handle communication with app
             WSConnectionThread(ws_port, self).start()
+        '''
+        # NOTE: for now use both OSC and WS at the same time.
+        # WS is only used to receive full state because sending full state
+        # over OSC does not seem to work (state too big)
+
+        print('* Using OSC to communicate with app')
+
+        # Start OSC receiver to receive OSC messages from the app
+        OSCReceiverThread(osc_port_receive, self).start()
+        
+        # Start OSC client to send OSC messages to app
+        self.osc_client = OSCClient(osc_ip, osc_port_send, encoding='utf8')
+        print('* Sending OSC messages in port {}'.format(osc_port_send))
+    
+        print('* Using WebSockets to communicate with app')
+
+        # Start websockets client to handle communication with app
+        WSConnectionThread(ws_port, self).start()
 
         # Start Thread to request state to app
-        # This thread will request mostly the volatile state, but will also occasioanally
-        # request full state if self.should_request_full_state is True
+        # This thread will request the volatile state and the full state
+        # if self.should_request_full_state is True
         RequestStateThread(self).start()
 
         # If state debugger is enabled, start  the server
-        if flask_app is not None:
+        if state_debugger_server is not None:
             StateDebuggerServerThread(state_debugger_port, self).start()
 
         time.sleep(0.5)  # Give time for threads to start
@@ -296,6 +339,7 @@ class ShepherdStateSynchronizer(object):
     def app_has_started(self):
         self.last_update_id = -1
         self.state_soup = None
+        self.full_state_requested = False
         self.should_request_full_state = True
 
     def app_is_alive(self):
@@ -308,9 +352,14 @@ class ShepherdStateSynchronizer(object):
             return not self.ws_connection_ok  # Consider app down if no active WS connection
 
     def request_full_state(self):
+        if ((time.time() - self.last_time_full_state_requested) > self.full_state_request_timeout):
+            # If full state has not returned for a while, ask again
+            self.full_state_requested = False
+
         if not self.full_state_requested and not self.app_may_be_down():
             print('* Requesting full state')
             self.full_state_requested = True
+            self.last_time_full_state_requested = time.time()
             self.send_msg_to_app('/get_state', ["full"])
 
     def request_volatile_state(self):
@@ -319,16 +368,18 @@ class ShepherdStateSynchronizer(object):
     def set_full_state(self, update_id, full_state_raw):
         if self.verbose:
             print("Receiving full state with update id {}".format(update_id))
-        self.state_soup = BeautifulSoup(full_state_raw, "lxml").findAll("session")[0]
+        self.state_soup = BeautifulSoup(full_state_raw, "lxml")
         self.full_state_requested = False
         self.should_request_full_state = False
-        #self.app.current_state.on_source_state_update()
 
-        # Configure some stuff that requires the data paths to be known
-        #configure_recent_queries_sound_usage_log_tmp_base_path_from_source_state(self.state_soup['sourceDataLocation'.lower()], self.state_soup['tmpFilesLocation'.lower()])
+        # Call method for possible callbacks after state is updated
+        self.on_state_update()
+
+        # Call method after ful state is received
+        self.on_full_state_received()
 
     def set_volatile_state_from_string(self, volatile_state_string):
-        # Shepherd uses no volatile state
+        # Implement in subclass if app uses volatile state
         pass
 
     def apply_update(self, update_id, update_type, update_data):
@@ -400,5 +451,21 @@ class ShepherdStateSynchronizer(object):
                 self.should_request_full_state = True
             self.last_update_id = update_id
 
-            #self.app.current_state.on_source_state_update()
+            # Call method for possible callbacks after state is updated
+            self.on_state_update()
 
+    def on_state_update(self):
+        pass
+
+    def on_full_state_received(self):
+        pass
+
+
+
+class ShepherdStateSynchronizer(GenericStateSynchronizer):
+
+    def on_state_update(self):
+        pass
+
+    def on_full_state_received(self):
+        pass

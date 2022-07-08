@@ -89,42 +89,11 @@ private:
     void saveCurrentSessionToFile();
     void loadSessionFromFile(juce::String fileName);
     
-    // WebSockets
-    void initializeWS() {
-        wsServer.setSequencerPointer(this);
-        wsServer.startThread(0);
-    }
-    juce::String serliaizeOSCMessage(const juce::OSCMessage& message)
-    {
-        juce::String actionName = message.getAddressPattern().toString();
-        juce::StringArray actionParameters = {};
-        for (int i=0; i<message.size(); i++){
-            if (message[i].isString()){
-                actionParameters.add(message[i].getString());
-            } else if (message[i].isInt32()){
-                actionParameters.add((juce::String)message[i].getInt32());
-            } else if (message[i].isFloat32()){
-                actionParameters.add((juce::String)message[i].getFloat32());
-            }
-        }
-        juce::String serializedParameters = actionParameters.joinIntoString(SERIALIZATION_SEPARATOR);
-        juce::String actionMessage = actionName + ":" + serializedParameters;
-        return actionMessage;
-    }
-    void sendWSMessage(const juce::OSCMessage& message) {
-        if (wsServer.serverPtr == nullptr){
-            // If ws server is not yet running, don't try to send any message
-            return;
-        }
-        // Takes a OSC message object and serializes in a way that can be sent to WebSockets conencted clients
-        for(auto &a_connection : wsServer.serverPtr->get_connections()){
-            juce::String serializedMessage = serliaizeOSCMessage(message);
-            a_connection->send(serializedMessage.toStdString());
-        }
-    }
+    // OSC & WebSockets
+    void initializeWS();
+    juce::String serliaizeOSCMessage(const juce::OSCMessage& message);
+    void sendWSMessage(const juce::OSCMessage& message);
     WebSocketsServer wsServer;
-    
-    // OSC
     void initializeOSC();
     void oscMessageReceived (const juce::OSCMessage& message) override;
     void sendOscMessage (const juce::OSCMessage& message);
@@ -235,8 +204,8 @@ void WebSocketsServer::run()
     auto &source_coms_endpoint = server.endpoint["^/shepherd_coms/?$"];
     source_coms_endpoint.on_message = [&server, this](std::shared_ptr<WsServer::Connection> /*connection*/, std::shared_ptr<WsServer::InMessage> in_message) {
         juce::String message = juce::String(in_message->string());
-        DBG("RECEIVED WS: " << message);
         if (sequencerPtr != nullptr){
+            // TODO
             //sequencerPtr->processActionFromSerializedMessage(message);
         }
     };

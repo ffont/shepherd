@@ -2,3 +2,6 @@ git+https://github.com/ffont/push2-python
 pycairo
 psutil
 oscpy
+websocket-client
+lxml
+bs4

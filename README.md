@@ -101,6 +101,8 @@ When not running in the Rapsberry Pi, the controller app initializes a Push2 sim
 
 The Shepherd Controller app is based on [push2-python](https://github.com/ffont/push2-python). `push2-python` requires [pyusb](https://github.com/pyusb/pyusb) which is based in [libusb](https://libusb.info/). You'll most probably need to manually install `libusb` for your operative system if `pip install -r requirements.txt` does not do it for you. Moreover, to draw on Push2's screen, Shepherd Controller uses [`pycairo`](https://github.com/pygobject/pycairo) Python package. You'll most probably also need to install [`cairo`](https://www.cairographics.org/) if `pip install -r requirements.txt` does not do it for you (see [this page](https://pycairo.readthedocs.io/en/latest/getting_started.html) for info on that).
 
+**NOTE**: on macOS looks like python version *must* be 3.8 (does not work with 3.9 and have not tested above).
+
 
 ### Running on Raspberry Pi
 

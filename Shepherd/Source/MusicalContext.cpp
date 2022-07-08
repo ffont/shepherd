@@ -10,10 +10,11 @@
 
 #include "MusicalContext.h"
 
-MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, juce::ValueTree& _state): state(_state)
+MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSettingsGetter, const juce::ValueTree& _state): state(_state)
 {
     getGlobalSettings = globalSettingsGetter;
     bindState();
+    updateStateMemberVersions();
 }
 
 void MusicalContext::bindState()

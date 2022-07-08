@@ -70,11 +70,11 @@ Sequencer::Sequencer()
     #endif
     state = Helpers::createDefaultSession(availableHardwareDeviceNames, numEnabledTracks);
     
-    // Initialize musical context
-    musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
-    
     // Add state change listener and bind cached properties to state properties
     bindState();
+    
+    // Initialize musical context
+    musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
     
     // Create tracks
     initializeTracks();
@@ -107,10 +107,6 @@ void Sequencer::bindState()
     fixedLengthRecordingBars.referTo(state, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
     recordAutomationEnabled.referTo(state, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
-    
-    if (musicalContext != nullptr){
-        musicalContext->bindState();
-    }
 }
 
 void Sequencer::saveCurrentSessionToFile()
@@ -131,6 +127,41 @@ void Sequencer::loadSessionFromFile(juce::String sessionName)
         bindState();
     }
     initializeTracks();
+}
+
+void Sequencer::initializeWS() {
+    wsServer.setSequencerPointer(this);
+    wsServer.startThread(0);
+}
+
+juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
+{
+    juce::String actionName = message.getAddressPattern().toString();
+    juce::StringArray actionParameters = {};
+    for (int i=0; i<message.size(); i++){
+        if (message[i].isString()){
+            actionParameters.add(message[i].getString());
+        } else if (message[i].isInt32()){
+            actionParameters.add((juce::String)message[i].getInt32());
+        } else if (message[i].isFloat32()){
+            actionParameters.add((juce::String)message[i].getFloat32());
+        }
+    }
+    juce::String serializedParameters = actionParameters.joinIntoString(SERIALIZATION_SEPARATOR);
+    juce::String actionMessage = actionName + ":" + serializedParameters;
+    return actionMessage;
+}
+
+void Sequencer::sendWSMessage(const juce::OSCMessage& message) {
+    if (wsServer.serverPtr == nullptr){
+        // If ws server is not yet running, don't try to send any message
+        return;
+    }
+    // Takes a OSC message object and serializes in a way that can be sent to WebSockets conencted clients
+    for(auto &a_connection : wsServer.serverPtr->get_connections()){
+        juce::String serializedMessage = serliaizeOSCMessage(message);
+        a_connection->send(serializedMessage.toStdString());
+    }
 }
 
 void Sequencer::initializeOSC()
@@ -1112,8 +1143,9 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
             juce::OSCMessage returnMessage = juce::OSCMessage("/full_state");
             returnMessage.addInt32(stateUpdateID);
             returnMessage.addString(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
-            sendOscMessage(returnMessage);
-            //sendWSMessage(returnMessage);
+            //sendOscMessage(returnMessage);
+            // OSC communication seems not to work with WS becayse state is too big, so we use WS
+            sendWSMessage(returnMessage);
         }
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
         if (address == OSC_ADDRESS_STATE_TRACKS){
