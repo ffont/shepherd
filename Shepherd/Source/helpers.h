@@ -29,6 +29,14 @@ namespace Helpers
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
         session.setProperty (IDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
+        session.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
+        session.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
+        session.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
+        session.setProperty (IDs::countInPlayheadPositionInBeats, Defaults::playheadPosition, nullptr);
+        session.setProperty (IDs::barCount, Defaults::barCount, nullptr);
+        session.setProperty (IDs::bpm, Defaults::bpm, nullptr);
+        session.setProperty (IDs::meter, Defaults::meter, nullptr);
+        session.setProperty (IDs::metronomeOn, Defaults::metronomeOn, nullptr);
         
         for (int tn = 0; tn < MAX_NUM_TRACKS; ++tn)
         {

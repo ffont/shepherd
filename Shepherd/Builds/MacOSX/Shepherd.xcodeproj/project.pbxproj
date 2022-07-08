@@ -404,6 +404,7 @@
 					"JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1",
 					"JUCE_STRICT_REFCOUNTEDPOINTER=1",
 					"JUCE_STANDALONE_APPLICATION=1",
+					"ASIO_STANDALONE=1",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
 					"JUCE_APP_VERSION=1.0.0",
 					"JUCE_APP_VERSION_HEX=0x10000",
@@ -420,6 +421,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../3rdParty/JUCE/modules",
+					"$(SRCROOT)/../../3rdParty/Simple-WebSocket-Server/",
+					"$(SRCROOT)/../../3rdParty/asio/asio/include/",
 					"$(inherited)",
 				);
 				INFOPLIST_FILE = Info-App.plist;
@@ -427,7 +430,9 @@
 				INSTALL_PATH = "$(HOME)/Applications";
 				LLVM_LTO = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../3rdParty/JUCE/modules";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../3rdParty/JUCE/modules $(SRCROOT)/../../3rdParty/Simple-WebSocket-Server/ $(SRCROOT)/../../3rdParty/asio/asio/include/";
+				OTHER_CPLUSPLUSFLAGS = "-DCPPHTTPLIB_OPENSSL_SUPPORT -I/usr/local/opt/openssl/include";
+				OTHER_LDFLAGS = "-L/usr/local/opt/openssl/lib -lssl  -lcrypto";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.Shepherd;
 				PRODUCT_NAME = "Shepherd";
 				USE_HEADERMAP = NO;
@@ -516,6 +521,7 @@
 					"JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1",
 					"JUCE_STRICT_REFCOUNTEDPOINTER=1",
 					"JUCE_STANDALONE_APPLICATION=1",
+					"ASIO_STANDALONE=1",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
 					"JUCE_APP_VERSION=1.0.0",
 					"JUCE_APP_VERSION_HEX=0x10000",
@@ -532,13 +538,17 @@
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../3rdParty/JUCE/modules",
+					"$(SRCROOT)/../../3rdParty/Simple-WebSocket-Server/",
+					"$(SRCROOT)/../../3rdParty/asio/asio/include/",
 					"$(inherited)",
 				);
 				INFOPLIST_FILE = Info-App.plist;
 				INFOPLIST_PREPROCESS = NO;
 				INSTALL_PATH = "$(HOME)/Applications";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../3rdParty/JUCE/modules";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../3rdParty/JUCE/modules $(SRCROOT)/../../3rdParty/Simple-WebSocket-Server/ $(SRCROOT)/../../3rdParty/asio/asio/include/";
+				OTHER_CPLUSPLUSFLAGS = "-DCPPHTTPLIB_OPENSSL_SUPPORT -I/usr/local/opt/openssl/include";
+				OTHER_LDFLAGS = "-L/usr/local/opt/openssl/lib -lssl  -lcrypto";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.Shepherd;
 				PRODUCT_NAME = "Shepherd";
 				USE_HEADERMAP = NO;

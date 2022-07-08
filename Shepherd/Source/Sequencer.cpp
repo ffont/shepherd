@@ -49,8 +49,9 @@ Sequencer::Sequencer()
     initializeMIDIOutputs();  // Better to do it after hardware devices so we init devices needed in hardware devices as well
     notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
     
-    // Init OSC
+    // Init OSC and WebSockets
     initializeOSC();
+    initializeWS();
     
     // Init sine synth with 16 voices (used for testig purposes only)
     #if !RPI_BUILD
@@ -69,11 +70,11 @@ Sequencer::Sequencer()
     #endif
     state = Helpers::createDefaultSession(availableHardwareDeviceNames, numEnabledTracks);
     
-    // Add state change listener and bind cached properties to state properties
-    bindState();
-    
     // Initialize musical context
     musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
+    
+    // Add state change listener and bind cached properties to state properties
+    bindState();
     
     // Create tracks
     initializeTracks();
@@ -92,6 +93,10 @@ Sequencer::Sequencer()
 
 Sequencer::~Sequencer()
 {
+    if (wsServer.serverPtr != nullptr){
+        wsServer.serverPtr->stop();
+    }
+    wsServer.stopThread(5000);  // Give it enough time to stop the websockets server...
 }
 
 void Sequencer::bindState()
@@ -885,7 +890,7 @@ void Sequencer::sendOscMessage (const juce::OSCMessage& message)
         }
     }
     if (oscSenderIsConnected){
-        oscSender.send (message);
+        bool success = oscSender.send (message);
     }
 }
 
@@ -1104,12 +1109,11 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
         jassert(message.size() == 1);
         juce::String stateType = message[0].getString();
         if (stateType == "full"){
-            DBG("SENDING FULL STATE");
             juce::OSCMessage returnMessage = juce::OSCMessage("/full_state");
             returnMessage.addInt32(stateUpdateID);
             returnMessage.addString(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
-            DBG(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
             sendOscMessage(returnMessage);
+            //sendWSMessage(returnMessage);
         }
     } else if (address.startsWith(OSC_ADDRESS_STATE)) {
         if (address == OSC_ADDRESS_STATE_TRACKS){

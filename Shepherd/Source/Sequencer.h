@@ -18,6 +18,38 @@
 #include "Playhead.h"
 #include "Clip.h"
 #include "Track.h"
+#include "server_ws.hpp"
+
+
+class Sequencer; // Forward declaration
+
+using WsServer = SimpleWeb::SocketServer<SimpleWeb::WS>;
+
+
+class WebSocketsServer: public juce::Thread
+{
+public:
+   
+    WebSocketsServer(): juce::Thread ("ShepherdWebsocketsServer")
+    {
+    }
+   
+    ~WebSocketsServer(){
+        if (serverPtr != nullptr){
+            serverPtr.release();
+        }
+    }
+    
+    void setSequencerPointer(Sequencer* _sequencer){
+        sequencerPtr = _sequencer;
+    }
+    
+    inline void run();  // Implemented after ServerInterface is defined
+
+    int assignedPort = -1;
+    Sequencer* sequencerPtr;
+    std::unique_ptr<WsServer> serverPtr;
+};
 
 
 class Sequencer: private juce::Timer,
@@ -57,6 +89,41 @@ private:
     void saveCurrentSessionToFile();
     void loadSessionFromFile(juce::String fileName);
     
+    // WebSockets
+    void initializeWS() {
+        wsServer.setSequencerPointer(this);
+        wsServer.startThread(0);
+    }
+    juce::String serliaizeOSCMessage(const juce::OSCMessage& message)
+    {
+        juce::String actionName = message.getAddressPattern().toString();
+        juce::StringArray actionParameters = {};
+        for (int i=0; i<message.size(); i++){
+            if (message[i].isString()){
+                actionParameters.add(message[i].getString());
+            } else if (message[i].isInt32()){
+                actionParameters.add((juce::String)message[i].getInt32());
+            } else if (message[i].isFloat32()){
+                actionParameters.add((juce::String)message[i].getFloat32());
+            }
+        }
+        juce::String serializedParameters = actionParameters.joinIntoString(SERIALIZATION_SEPARATOR);
+        juce::String actionMessage = actionName + ":" + serializedParameters;
+        return actionMessage;
+    }
+    void sendWSMessage(const juce::OSCMessage& message) {
+        if (wsServer.serverPtr == nullptr){
+            // If ws server is not yet running, don't try to send any message
+            return;
+        }
+        // Takes a OSC message object and serializes in a way that can be sent to WebSockets conencted clients
+        for(auto &a_connection : wsServer.serverPtr->get_connections()){
+            juce::String serializedMessage = serliaizeOSCMessage(message);
+            a_connection->send(serializedMessage.toStdString());
+        }
+    }
+    WebSocketsServer wsServer;
+    
     // OSC
     void initializeOSC();
     void oscMessageReceived (const juce::OSCMessage& message) override;
@@ -66,6 +133,7 @@ private:
     int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
     juce::String oscSendHost = "127.0.0.1";
     bool oscSenderIsConnected = false;
+    
     int stateUpdateID = 0;
     double lastTimeIsAliveWasSent = 0;
     
@@ -157,3 +225,24 @@ private:
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Sequencer)
 };
+
+void WebSocketsServer::run()
+{
+    WsServer server;
+    server.config.port = WEBSOCKETS_SERVER_PORT;  // Use a known port so python UI can connect to it
+    serverPtr.reset(&server);
+    
+    auto &source_coms_endpoint = server.endpoint["^/shepherd_coms/?$"];
+    source_coms_endpoint.on_message = [&server, this](std::shared_ptr<WsServer::Connection> /*connection*/, std::shared_ptr<WsServer::InMessage> in_message) {
+        juce::String message = juce::String(in_message->string());
+        DBG("RECEIVED WS: " << message);
+        if (sequencerPtr != nullptr){
+            //sequencerPtr->processActionFromSerializedMessage(message);
+        }
+    };
+    
+    server.start([this](unsigned short port) {
+        assignedPort = port;
+        DBG("- Started Websockets Server listening at 0.0.0.0:" << port);
+    });
+}
