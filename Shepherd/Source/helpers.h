@@ -37,6 +37,11 @@ namespace Helpers
         session.setProperty (IDs::bpm, Defaults::bpm, nullptr);
         session.setProperty (IDs::meter, Defaults::meter, nullptr);
         session.setProperty (IDs::metronomeOn, Defaults::metronomeOn, nullptr);
+        session.setProperty (IDs::fixedLengthRecordingBars, Defaults::fixedLengthRecordingBars, nullptr);
+        session.setProperty (IDs::recordAutomationEnabled, Defaults::recordAutomationEnabled, nullptr);
+        
+        // Hardcode some needed variables
+        session.setProperty ("notesMonitoringDeviceName", SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME, nullptr);
         
         for (int tn = 0; tn < MAX_NUM_TRACKS; ++tn)
         {
