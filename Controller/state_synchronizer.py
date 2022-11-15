@@ -558,16 +558,10 @@ class BaseShepherdClass(object):
         # Set initial attributes and methods to set these attributes in the backend
         for attr_name, value in soup.attrs.items():
             setattr(self, attr_name, backend_value_to_python_value(attr_name, value))
-            setattr(self, 'bset_{}'.format(attr_name), lambda x, attr_name=attr_name: self.bset(x, attr_name))
-
-    def bset(self, attr_value, attr_name=None):
-        # TODO: only allow to set some selected properties (?)
-
-        # Note that attr_name has a default variable set in the lamda function definition, and this is how we pass attribute name from 'bset_xxx' called function
-        value_to_send = python_value_to_backenbd_value(attr_name, attr_value)
-        uuid = self.uuid
-        print('Setting attribute {} of object {} to value {} with synchronizer {}'.format(attr_name, uuid, value_to_send, self.state_synchronizer))
     
+    def send_msg_to_app(self, address, values):
+        self.state_synchronizer.send_msg_to_app(address, values)
+
 
 class Session(BaseShepherdClass):
     tracks = []
@@ -618,6 +612,9 @@ class Track(BaseShepherdClass):
 
     def add_clip(self, clip):
         self.clips.append(clip)
+
+    def set_input_monitoring(self, track_num, enabled):
+        self.send_msg_to_app('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
 
 
 class Clip(BaseShepherdClass):

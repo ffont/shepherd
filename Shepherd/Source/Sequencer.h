@@ -96,6 +96,7 @@ private:
     WebSocketsServer wsServer;
     void initializeOSC();
     void oscMessageReceived (const juce::OSCMessage& message) override;
+    void processActionMessage (const juce::String action, juce::StringArray parameters);
     void sendOscMessage (const juce::OSCMessage& message);
     juce::OSCSender oscSender;
     int oscReceivePort = OSC_BACKEND_RECEIVE_PORT;
@@ -177,7 +178,8 @@ private:
     // Tracks
     void initializeTracks();
     std::unique_ptr<TrackList> tracks;
-    int activeUiNotesMonitoringTrack = -1;
+    juce::String activeUiNotesMonitoringTrack = "";
+    Track* getTrackWithUUID(juce::String trackUUID);
     
     // Scenes
     void playScene(int sceneN);

@@ -52,8 +52,10 @@ public:
     void clipsResetPlayheadPosition();
     
     Clip* getClipAt(int clipN);
+    Clip* getClipWithUUID(juce::String clipUUID);
     void stopAllPlayingClips(bool now, bool deCue, bool reCue);
     void stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool reCue);
+    void stopAllPlayingClipsExceptFor(juce::String clipUUID, bool now, bool deCue, bool reCue);
     std::vector<int> getCurrentlyPlayingClipsIndex();
     void duplicateClipAt(int clipN);
     
@@ -138,6 +140,15 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
     void newObjectAdded (Track*) override    {}
     void objectRemoved (Track*) override     {}
     void objectOrderChanged() override       {}
+    
+    Track* getObjectWithUUID(const juce::String& uuid) {
+        for (auto* object: objects){
+            if (object->getUUID() == uuid){
+                return object;
+            }
+        }
+        return nullptr;
+    }
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;

@@ -292,6 +292,15 @@ struct ClipList: public drow::ValueTreeObjectList<Clip>
     void objectRemoved (Clip*) override     {}
     void objectOrderChanged() override      {}
     
+    Clip* getObjectWithUUID(const juce::String& uuid) {
+        for (auto* object: objects){
+            if (object->getUUID() == uuid){
+                return object;
+            }
+        }
+        return nullptr;
+    }
+    
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<TrackSettingsStruct()> getTrackSettings;

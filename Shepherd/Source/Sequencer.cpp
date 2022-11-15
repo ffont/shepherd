@@ -497,6 +497,11 @@ void Sequencer::initializeTracks()
                                          });
 }
 
+Track* Sequencer::getTrackWithUUID(juce::String trackUUID)
+{
+    return tracks->getObjectWithUUID(trackUUID);
+}
+
 //==============================================================================
 void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRate)
 {
@@ -801,18 +806,19 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     sendMidiDeviceOutputBuffers();
     
     // 12) -------------------------------------------------------------------------------------------------
-    
-    if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack >= 0) && (activeUiNotesMonitoringTrack < tracks->objects.size())){
-        auto track = tracks->objects[activeUiNotesMonitoringTrack];
-        auto buffer = track->getLastSliceMidiBuffer();
-        if (buffer != nullptr){
-            for (auto event: *buffer){
-                auto msg = event.getMessage();
-                if (msg.isNoteOnOrOff() && msg.getChannel() == track->getMidiOutputChannel()){
-                    monitoringNotesMidiBuffer.addEvent(msg, event.samplePosition);
+    if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack != "")){
+        auto track = getTrackWithUUID(activeUiNotesMonitoringTrack);
+        if (track != nullptr){
+            auto buffer = track->getLastSliceMidiBuffer();
+            if (buffer != nullptr){
+                for (auto event: *buffer){
+                    auto msg = event.getMessage();
+                    if (msg.isNoteOnOrOff() && msg.getChannel() == track->getMidiOutputChannel()){
+                        monitoringNotesMidiBuffer.addEvent(msg, event.samplePosition);
+                    }
                 }
+                notesMonitoringMidiOutput->sendBlockOfMessagesNow(monitoringNotesMidiBuffer);
             }
-            notesMonitoringMidiOutput->sendBlockOfMessagesNow(monitoringNotesMidiBuffer);
         }
     }
     
@@ -927,6 +933,9 @@ void Sequencer::sendOscMessage (const juce::OSCMessage& message)
 
 void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
 {
+    // This is the "old" implementation. New implementation uses UUIDs instead of absolute
+    // track/clip/etc indexes and is implemented in processActionMessage. When ready, this function
+    // should "redirect" to processActionMessage
     const juce::String address = message.getAddressPattern().toString();
     
     if (address.startsWith(OSC_ADDRESS_CLIP)) {
@@ -939,7 +948,7 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
                 auto clip = track->getClipAt(clipNum);
                 if (address == OSC_ADDRESS_CLIP_PLAY){
                     if (!clip->isPlaying()){
-                        track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
+                        track->stopAllPlayingClipsExceptFor(clip->getUUID(), false, true, false);
                         clip->togglePlayStop();
                     }
                 } else if (address == OSC_ADDRESS_CLIP_STOP){
@@ -948,12 +957,12 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
                     }
                 } else if (address == OSC_ADDRESS_CLIP_PLAY_STOP){
                     if (!clip->isPlaying()){
-                        track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
+                        track->stopAllPlayingClipsExceptFor(clip->getUUID(), false, true, false);
                     }
                     clip->togglePlayStop();
                 } else if (address == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
                     if (!clip->isPlaying()){
-                        track->stopAllPlayingClipsExceptFor(clipNum, false, true, false);
+                        track->stopAllPlayingClipsExceptFor(clip->getUUID(), false, true, false);
                     }
                     clip->toggleRecord();
                 } else if (address == OSC_ADDRESS_CLIP_CLEAR){
@@ -984,7 +993,7 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
             bool trueFalse = message[1].getInt32() == 1;
             track->setInputMonitoring(trueFalse);
         } else if (address == OSC_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK){
-            activeUiNotesMonitoringTrack = trackNum;
+            activeUiNotesMonitoringTrack = track->getUUID();
         }
         
     } else if (address.startsWith(OSC_ADDRESS_DEVICE)) {
@@ -1219,6 +1228,311 @@ void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
         
     } else if (address == OSC_ADDRESS_SHEPHERD_CONTROLLER_READY) {
         jassert(message.size() == 0);
+        // Set midi in push connection to false so the method to initialize midi in is retrieggered at next timer call
+        // This is to prevent issues caused by the order in which frontend and backend are started
+        midiInPushIsConnected = false;
+        
+        // Also in dev mode trigger reload ui
+        #if !RPI_BUILD
+        juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 2000);
+        sendActionMessage(ACTION_UPDATE_DEVUI_RELOAD_BROWSER);
+        #endif
+    }
+}
+
+void Sequencer::processActionMessage (const juce::String action, juce::StringArray parameters)
+{
+    if (action.startsWith(OSC_ADDRESS_CLIP)) {
+        jassert(parameters.size() >= 2);
+        juce::String trackUUID = parameters[0];
+        juce::String clipUUID = parameters[1];
+        auto* track = getTrackWithUUID(trackUUID);
+        if (track != nullptr){
+            auto* clip = track->getClipWithUUID(clipUUID);
+            if (clip != nullptr){
+                if (action == OSC_ADDRESS_CLIP_PLAY){
+                    if (!clip->isPlaying()){
+                        track->stopAllPlayingClipsExceptFor(clipUUID, false, true, false);
+                        clip->togglePlayStop();
+                    }
+                } else if (action == OSC_ADDRESS_CLIP_STOP){
+                    if (clip->isPlaying()){
+                        clip->togglePlayStop();
+                    }
+                } else if (action == OSC_ADDRESS_CLIP_PLAY_STOP){
+                    if (!clip->isPlaying()){
+                        track->stopAllPlayingClipsExceptFor(clipUUID, false, true, false);
+                    }
+                    clip->togglePlayStop();
+                } else if (action == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
+                    if (!clip->isPlaying()){
+                        track->stopAllPlayingClipsExceptFor(clipUUID, false, true, false);
+                    }
+                    clip->toggleRecord();
+                } else if (action == OSC_ADDRESS_CLIP_CLEAR){
+                    clip->clearClip();
+                } else if (action == OSC_ADDRESS_CLIP_DOUBLE){
+                    clip->doubleSequence();
+                } else if (action == OSC_ADDRESS_CLIP_UNDO){
+                    clip->undo();
+                } else if (action == OSC_ADDRESS_CLIP_QUANTIZE){
+                    jassert(parameters.size() == 3);
+                    double quantizationStep = (double)parameters[2].getFloatValue();
+                    clip->quantizeSequence(quantizationStep);
+                } else if (action == OSC_ADDRESS_CLIP_SET_LENGTH){
+                    jassert(parameters.size() == 3);
+                    double newLength = (double)parameters[2].getFloatValue();
+                    clip->setClipLength(newLength);
+                }
+            }
+        }
+        
+    } else if (action.startsWith(OSC_ADDRESS_TRACK)) {
+        jassert(parameters.size() >= 1);
+        juce::String trackUUID = parameters[0];
+        auto* track = getTrackWithUUID(trackUUID);
+        if (track != nullptr){
+            if (action == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
+                jassert(parameters.size() == 2);
+                bool trueFalse = parameters[1].getIntValue() == 1;
+                track->setInputMonitoring(trueFalse);
+            } else if (action == OSC_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK){
+                activeUiNotesMonitoringTrack = trackUUID;
+            }
+        }
+               
+    } else if (action.startsWith(OSC_ADDRESS_DEVICE)) {
+        jassert(parameters.size() >= 1);
+        juce::String deviceName = parameters[0];
+        auto device = getHardwareDeviceByName(deviceName);
+        if (device == nullptr) return;
+        if (action == OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE){
+             device->sendAllNotesOff();
+        } else if (action == OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
+            jassert(parameters.size() == 3);
+            int bank = parameters[1].getIntValue();
+            int preset = parameters[2].getIntValue();
+            device->loadPreset(bank, preset);
+        } else if (action == OSC_ADDRESS_DEVICE_SEND_MIDI){
+            jassert(parameters.size() == 4);
+            juce::MidiMessage msg = juce::MidiMessage(parameters[1].getIntValue(), parameters[2].getIntValue(), parameters[3].getIntValue());
+            device->sendMidi(msg);
+        } else if (action ==  OSC_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS){
+            jassert(parameters.size() > 1);
+            for (int i=1; i<parameters.size(); i=i+2){
+                int index = parameters[i].getIntValue();
+                int value = parameters[i + 1].getIntValue();
+                device->setMidiCCParameterValue(index, value, false);
+                // Don't notify controller about the cc value change as the change is most probably comming from the controller itself
+            }
+        } else if (action ==  OSC_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS){
+            jassert(parameters.size() > 1);
+            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
+            returnMessage.addString(device->getShortName());
+            for (int i=1; i<parameters.size(); i++){
+                int index = parameters[i].getIntValue();
+                int value = device->getMidiCCParameterValue(index);
+                returnMessage.addInt32(index);
+                returnMessage.addInt32(value);
+            }
+            sendOscMessage(returnMessage);
+        }
+    
+    } else if (action.startsWith(OSC_ADDRESS_SCENE)) {
+        jassert(parameters.size() == 1);
+        int sceneNum = parameters[0].getIntValue();
+        if (action == OSC_ADDRESS_SCENE_PLAY){
+            playScene(sceneNum);
+        } else if (action == OSC_ADDRESS_SCENE_DUPLICATE){
+            duplicateScene(sceneNum);
+        }
+         
+    } else if (action.startsWith(OSC_ADDRESS_TRANSPORT)) {
+        if (action == OSC_ADDRESS_TRANSPORT_PLAY_STOP){
+            jassert(parameters.size() == 0);
+            if (musicalContext->playheadIsPlaying()){
+                // If it is playing, stop it
+                shouldToggleIsPlaying = true;
+            } else{
+                // If it is not playing, check if there are record-armed clips and, if so, do count-in before playing
+                bool recordCuedClipsFound = false;
+                for (auto track: tracks->objects){
+                    if (track->hasClipsCuedToRecord()){
+                        recordCuedClipsFound = true;
+                        break;
+                    }
+                }
+                if (recordCuedClipsFound){
+                    musicalContext->setPlayheadIsDoingCountIn(true);
+                } else {
+                    shouldToggleIsPlaying = true;
+                }
+            }
+        } else if (action == OSC_ADDRESS_TRANSPORT_SET_BPM){
+            jassert(parameters.size() == 1);
+            float newBpm = parameters[0].getFloatValue();
+            if (newBpm > 0.0 && newBpm < 400.0){
+                nextBpm = (double)newBpm;
+            }
+        } else if (action == OSC_ADDRESS_TRANSPORT_SET_METER){
+            jassert(parameters.size() == 1);
+            int newMeter = parameters[0].getIntValue();
+            if (newMeter > 0 && !musicalContext->playheadIsDoingCountIn()){
+                // Don't allow chaning meter while doing count in, this could lead to severe disaster
+                nextMeter = newMeter;
+            }
+        }
+        
+    } else if (action.startsWith(OSC_ADDRESS_METRONOME)) {
+        if (action == OSC_ADDRESS_METRONOME_ON){
+            jassert(parameters.size() == 0);
+            musicalContext->setMetronome(true);
+        } else if (action == OSC_ADDRESS_METRONOME_OFF){
+            jassert(parameters.size() == 0);
+            musicalContext->setMetronome(false);
+        } else if (action == OSC_ADDRESS_METRONOME_ON_OFF){
+            jassert(parameters.size() == 0);
+            musicalContext->toggleMetronome();
+        }
+        
+    } else if (action.startsWith(OSC_ADDRESS_SETTINGS)) {
+        if (action == OSC_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
+            jassert(parameters.size() == 64);
+            for (int i=0; i<64; i++){
+                pushPadsNoteMapping[i] = parameters[i].getIntValue();
+            }
+        } else if (action == OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING){
+            jassert(parameters.size() == 9);
+            juce::String deviceName = parameters[0];
+            pushEncodersCCMappingHardwareDeviceShortName = deviceName;
+            for (int i=1; i<9; i++){
+                pushEncodersCCMapping[i - 1] = parameters[i].getIntValue();
+            }
+            
+            // Send the currently stored values for these controls to the controller
+            // The Controller needs these values to display current cc parameter values on the display
+            auto device = getHardwareDeviceByName(deviceName);
+            if (device != nullptr){
+                juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
+                returnMessage.addString(device->getShortName());
+                for (int i=0; i<8; i++){
+                    int index = pushEncodersCCMapping[i];
+                    if (index > -1){
+                        int value = device->getMidiCCParameterValue(index);
+                        returnMessage.addInt32(index);
+                        returnMessage.addInt32(value);
+                    }
+                }
+                sendOscMessage(returnMessage);
+            }
+
+        } else if (action == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
+            jassert(parameters.size() == 1);
+            fixedVelocity = parameters[0].getIntValue();
+        } else if (action == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
+            jassert(parameters.size() == 1);
+            fixedLengthRecordingBars = parameters[0].getIntValue();
+            
+            // If there are empty clips cued to record and playhead is stopped, also update their length
+            for (int track_num=0; track_num<tracks->objects.size(); track_num++){
+                auto track = tracks->objects[track_num];
+                for (int clip_num=0; clip_num<track->getNumberOfClips(); clip_num++){
+                    auto clip = track->getClipAt(clip_num);
+                    if (!clip->hasSequenceEvents() && clip->isCuedToStartRecording() && !clip->isRecording() && !clip->isPlaying()){
+                        clip->setClipLengthToGlobalFixedLength();
+                    }
+                }
+            }
+            
+            
+        } else if (action == OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
+            jassert(parameters.size() == 0);
+            recordAutomationEnabled = !recordAutomationEnabled;
+        }
+        
+    } else if (action == OSC_ADDRESS_GET_STATE) {
+        jassert(parameters.size() == 1);
+        juce::String stateType = parameters[0];
+        if (stateType == "full"){
+            juce::OSCMessage returnMessage = juce::OSCMessage("/full_state");
+            returnMessage.addInt32(stateUpdateID);
+            returnMessage.addString(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
+            //sendOscMessage(returnMessage);
+            // OSC communication seems not to work with WS becayse state is too big, so we use WS
+            sendWSMessage(returnMessage);
+        }
+    } else if (action.startsWith(OSC_ADDRESS_STATE)) {
+        if (action == OSC_ADDRESS_STATE_TRACKS){
+            jassert(parameters.size() == 0);
+            
+            juce::StringArray stateAsStringParts = {};
+            stateAsStringParts.add("tracks");
+            stateAsStringParts.add((juce::String)tracks->objects.size());
+            for (auto track: tracks->objects){
+                stateAsStringParts.add("t");
+                stateAsStringParts.add((juce::String)track->getNumberOfClips());
+                stateAsStringParts.add(track->isEnabled() ? "1":"0");
+                stateAsStringParts.add(track->inputMonitoringEnabled() ? "1":"0");
+                if (track->getHardwareDevice() != nullptr){
+                    stateAsStringParts.add(track->getHardwareDevice()->getShortName());
+                } else {
+                    stateAsStringParts.add("NoDevice");
+                }
+                for (int i=0; i<track->getNumberOfClips(); i++){
+                    stateAsStringParts.add(track->getClipAt(i)->getStatus());
+                }
+            }
+            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_STATE_FROM_SHEPHERD);
+            returnMessage.addString(stateAsStringParts.joinIntoString(","));
+            sendOscMessage(returnMessage);
+            
+            #if !RPI_BUILD
+            sendActionMessage(juce::String(ACTION_UPDATE_DEVUI_STATE_TRACKS) + ":" + stateAsStringParts.joinIntoString(","));
+            #endif
+            
+        } else if (action == OSC_ADDRESS_STATE_TRANSPORT){
+            jassert(parameters.size() == 0);
+            
+            juce::StringArray stateAsStringParts = {};
+            stateAsStringParts.add("transport");
+            stateAsStringParts.add(musicalContext->playheadIsPlaying() ? "p":"s");
+            stateAsStringParts.add(juce::String(musicalContext->getBpm(), 2));
+            if (musicalContext->playheadIsDoingCountIn()){
+                stateAsStringParts.add(juce::String(-1 * (musicalContext->getMeter() - musicalContext->getCountInPlayheadPositionInBeats()), 3));
+            } else {
+                stateAsStringParts.add(juce::String(musicalContext->getPlayheadPositionInBeats(), 3));
+            }
+            stateAsStringParts.add(musicalContext->metronomeIsOn() ? "p":"s");
+            juce::StringArray clipsPlayheadStateParts = {};
+            for (int track_num=0; track_num<tracks->objects.size(); track_num++){
+                auto track = tracks->objects[track_num];
+                for (int clip_num=0; clip_num<track->getNumberOfClips(); clip_num++){
+                    double clipPlayheadPosition = track->getClipAt(clip_num)->getPlayheadPosition();
+                    if (clipPlayheadPosition > 0.0){
+                        clipsPlayheadStateParts.add(juce::String(track_num));
+                        clipsPlayheadStateParts.add(juce::String(clip_num));
+                        clipsPlayheadStateParts.add(juce::String(clipPlayheadPosition, 3));
+                    }
+                }
+            }
+            stateAsStringParts.add(clipsPlayheadStateParts.joinIntoString(":"));
+            stateAsStringParts.add(juce::String(fixedLengthRecordingBars));
+            stateAsStringParts.add(juce::String(musicalContext->getMeter()));
+            stateAsStringParts.add(juce::String(recordAutomationEnabled ? "1":"0"));
+            stateAsStringParts.add(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
+            
+            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_STATE_FROM_SHEPHERD);
+            returnMessage.addString(stateAsStringParts.joinIntoString(","));
+            sendOscMessage(returnMessage);
+            
+            #if !RPI_BUILD
+            sendActionMessage(juce::String(ACTION_UPDATE_DEVUI_STATE_TRNSPORT) + ":" + stateAsStringParts.joinIntoString(","));
+            #endif
+            
+        }
+        
+    } else if (action == OSC_ADDRESS_SHEPHERD_CONTROLLER_READY) {
+        jassert(parameters.size() == 0);
         // Set midi in push connection to false so the method to initialize midi in is retrieggered at next timer call
         // This is to prevent issues caused by the order in which frontend and backend are started
         midiInPushIsConnected = false;

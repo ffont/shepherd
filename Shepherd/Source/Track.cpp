@@ -168,6 +168,12 @@ Clip* Track::getClipAt(int clipN)
     return clips->objects[clipN];
 }
 
+Clip* Track::getClipWithUUID(juce::String clipUUID)
+{
+    return clips->getObjectWithUUID(clipUUID);
+}
+
+
 /** Stop all track clips that are currently playing
     @param now             stop clips immediately, otherwise wait until next quatized step
     @param deCue         de-cue all clips cued to play or record but that did not yet start playing or recording
@@ -214,6 +220,24 @@ void Track::stopAllPlayingClipsExceptFor(int clipN, bool now, bool deCue, bool r
             if (reCue && wasPlaying && !clip->hasZeroLength()){
                 clip->playAt(0.0);
             }
+        }
+    }
+}
+
+/** Stop all track clips that are currently playing
+    @param clipUUID  do not stop this clip
+    @param now             stop clips immediately, otherwise wait until next quatized step
+    @param deCue         de-cue all clips cued to play or record but that did not yet start playing or recording
+    @param reCue         re-cue all non-empty clips that where stopped so that they start playing again at next 0.0 global beat position
+*/
+void Track::stopAllPlayingClipsExceptFor(juce::String clipUUID, bool now, bool deCue, bool reCue)
+{
+
+    for (int i=0; i<clips->objects.size(); i++){
+        auto clip = clips->objects[i];
+        if (clip->getUUID() == clipUUID){
+            stopAllPlayingClipsExceptFor(i, now, deCue, reCue);
+            return;
         }
     }
 }
