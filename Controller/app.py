@@ -335,7 +335,7 @@ class ShepherdControllerApp(object):
         if self.notes_midi_in is None and time.time() - self.last_attempt_configuring_notes_in > 2:
             self.last_attempt_configuring_notes_in = time.time()
             try:
-                self.init_notes_midi_in(device_name=self.shepherd_interface.parsed_state['notesMidiInDeviceName'])
+                self.init_notes_midi_in(device_name=self.shepherd_interface.session.notesmonitoringdevicename)
             except Exception as e:
                 print('Can\'t get information about which notes midi in device to configure: {}'.format(str(e)))
 

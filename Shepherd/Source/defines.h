@@ -54,14 +54,9 @@
 #define OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"
 
 #define OSC_ADDRESS_GET_STATE "/get_state"
-// The 3 addresses below are legacy and should be removed once new state sharing is fully wokring
-#define OSC_ADDRESS_STATE "/state"
-#define OSC_ADDRESS_STATE_TRACKS "/state/tracks"
-#define OSC_ADDRESS_STATE_TRANSPORT "/state/transport"
 
 #define OSC_ADDRESS_SHEPHERD_CONTROLLER_READY "/shepherdControllerReady"
 
-#define OSC_ADDRESS_STATE_FROM_SHEPHERD "/stateFromShepherd"
 #define OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE "/midiCCParameterValuesForDevice"
 #define OSC_ADDRESS_SHEPHERD_READY "/shepherdReady"
 
@@ -79,18 +74,6 @@
 
 #define MAX_NUM_SCENES 8  // In the future we want to support more scenes but then we need to implement some sort of scrolling in UI
 #define MAX_NUM_TRACKS 8  // In the future we want to support more tracks but then we need to implement some sort of scrolling in UI
-
-#define CLIP_STATUS_PLAYING "p"
-#define CLIP_STATUS_STOPPED "s"
-#define CLIP_STATUS_CUED_TO_PLAY "c"
-#define CLIP_STATUS_CUED_TO_STOP "C"
-#define CLIP_STATUS_RECORDING "r"
-#define CLIP_STATUS_CUED_TO_RECORD "w"
-#define CLIP_STATUS_CUED_TO_STOP_RECORDING "W"
-#define CLIP_STATUS_NO_RECORDING "n"
-#define CLIP_STATUS_IS_EMPTY "E"
-#define CLIP_STATUS_IS_NOT_EMPTY "e"
-
 
 #define MIDI_SUSTAIN_PEDAL_CC 64
 #define MIDI_BANK_CHANGE_CC 0

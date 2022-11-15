@@ -18,8 +18,6 @@ class ShepherdInterface(object):
     last_received_tracks_raw_state = ""
     parsed_state = {}
 
-    should_sync_state_with_backend = False
-
     showing_countin_message = False
 
     def __init__(self, app):
@@ -30,29 +28,11 @@ class ShepherdInterface(object):
         # Send first message notifying backend that controller is ready and start threads that 
         # request periodic state updates
         self.sss.send_msg_to_app('/shepherdControllerReady', [])
-        self.run_get_state_transport_thread()
-        self.run_get_state_tracks_thread()
 
-    def run_get_state_transport_thread(self):
-        self.state_transport_check_thread = threading.Thread(target=self.check_transport_state)
-        self.state_transport_check_thread.start()
-
-    def run_get_state_tracks_thread(self):
-        self.state_tracks_check_thread = threading.Thread(target=self.check_tracks_state)
-        self.state_tracks_check_thread.start()
-
-    def check_transport_state(self):
-        while True:
-            time.sleep(1.0/transport_state_fps)
-            self.sss.send_msg_to_app('/state/transport', [])
-
-    def check_tracks_state(self):
-        while True:
-            time.sleep(1.0/tracks_state_fps)
-            self.sss.send_msg_to_app('/state/tracks', [])
-
-    def request_midi_cc_values_for_device(self, device_name, ccs):
-        self.sss.send_msg_to_app('/device/getMidiCCParameterValues', [device_name] + ccs)
+    @property
+    def session(self):
+        # Will return None if no session state is loaded
+        return self.sss.session
 
     def sync_state_to_shepherd(self):
         # re-activate all modes to make sure we initialize things in the backend if needed
@@ -61,10 +41,9 @@ class ShepherdInterface(object):
             mode.activate()
         self.app.midi_cc_mode.initialize()
         self.app.notes_midi_in = None
-        self.should_sync_state_with_backend = False
 
     def receive_shepherd_ready(self):
-        self.should_sync_state_with_backend = True
+        self.sync_state_to_shepherd()
 
     def receive_midi_cc_values_for_device(self, *values):
         device_name = values[0].decode("utf-8")        
@@ -78,131 +57,20 @@ class ShepherdInterface(object):
             for i in range(1, len(values) - 1):
                 self.parsed_state['devices'][device_name]['midi_cc'][int(values[i])] = int(values[i + 1])
         
-    def receive_state_from_shepherd(self, values):
-        if not self.parsed_state:
-            # If this is the first time receiving state, schedule full sync
-            self.should_sync_state_with_backend = True
-
-        state = values.decode("utf-8")
-        if state.startswith("transport"):
-            parts = state.split(',')
-            old_is_playing = self.parsed_state.get('isPlaying', False)
-            old_is_recording = self.parsed_state.get('isRecording', False)
-            old_metronome_on = self.parsed_state.get('metronomeOn', False)
-            old_record_automation_on = self.parsed_state.get('recordAutomaionOn', False)
-            self.parsed_state['isPlaying'] = parts[1] == "p"
-            if 'tracks' in self.parsed_state:
-                is_recording = False
-                for track_state in self.parsed_state['tracks']:
-                    track_clips = track_state['clips']
-                    for clip in track_clips:
-                        if 'r' in clip or 'w' in clip or 'W' in clip:
-                            is_recording = True
-                            break
-                self.parsed_state['isRecording'] = is_recording
-            else:
-                self.parsed_state['isRecording'] = False
-            self.parsed_state['bpm'] = float(parts[2])
-            self.parsed_state['playhead'] = float(parts[3])
-            if self.parsed_state['playhead'] < 0.0:
-                self.showing_countin_message = True
-                self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(-1 * self.parsed_state['playhead'])))
-            else:
-                if self.showing_countin_message:
-                    self.app.clear_display_notification()
-                    self.showing_countin_message = False
-
-            self.parsed_state['metronomeOn'] = parts[4] == "p"
-
-            # Initialize clip playheads matrix to 0s
-            clipPlayheads = []
-            for track_num in range(0, self.get_num_tracks()):
-                track_clip_playheads = []
-                for clip_num in range(0, self.get_track_num_clips(track_num)):
-                    track_clip_playheads.append(0.0)
-                clipPlayheads.append(track_clip_playheads)
-            # Fill matrix with info from state
-            if clipPlayheads:
-                clip_playheads_state_info_parts = parts[5].split(':')
-                if len(clip_playheads_state_info_parts) > 1:
-                    for i in range(0, len(clip_playheads_state_info_parts), 3):
-                        track_num = int(clip_playheads_state_info_parts[i])
-                        clip_num = int(clip_playheads_state_info_parts[i + 1])
-                        playhead = float(clip_playheads_state_info_parts[i + 2])
-                        clipPlayheads[track_num][clip_num] = playhead
-                self.parsed_state['clipPlayheads'] = clipPlayheads
-            
-            self.parsed_state['fixedLengthRecordingAmount'] = int(parts[6])
-            self.parsed_state['meter'] = int(parts[7])
-            self.parsed_state['recordAutomaionOn'] = parts[8] == "1"
-            self.parsed_state['notesMidiInDeviceName'] = parts[9]
-
-            if old_is_playing != self.parsed_state['isPlaying'] or \
-                old_is_recording != self.parsed_state['isRecording'] or \
-                    old_metronome_on != self.parsed_state['metronomeOn'] or \
-                        old_record_automation_on != self.parsed_state['recordAutomaionOn']:
-                self.app.buttons_need_update = True
-
-        elif state.startswith("tracks"):
-            old_num_tracks = self.parsed_state.get('numTracks', 0)
-            if state != self.last_received_tracks_raw_state:
-                parts = state.split(',')
-                self.parsed_state['numTracks'] = int(parts[1])
-                tracks_state = []
-                current_track_clips_state = []
-                in_track = False
-                for part in parts:
-                    if part == "t":
-                        in_track = True
-                        if current_track_clips_state:
-                            tracks_state.append({
-                                    'numClips': int(current_track_clips_state[0]),
-                                    'enabled': current_track_clips_state[1] == "1",
-                                    'inputMonitoring': current_track_clips_state[2] == "1",
-                                    'deviceShortName': current_track_clips_state[3],
-                                    'clips': current_track_clips_state[4:]
-                                }) 
-                        current_track_clips_state = []
-                    else:
-                        if in_track:
-                            current_track_clips_state.append(part)
-                if current_track_clips_state:
-                    tracks_state.append({
-                        'numClips': int(current_track_clips_state[0]),
-                        'enabled': current_track_clips_state[1] == "1",
-                        'inputMonitoring': current_track_clips_state[2] == "1",
-                        'deviceShortName': current_track_clips_state[3],
-                        'clips': current_track_clips_state[4:]
-                    })  # Add last one
-
-                self.parsed_state['tracks'] = tracks_state
-                self.app.pads_need_update = True
-                self.last_received_tracks_raw_state = state
-
-            if old_num_tracks != self.parsed_state.get('numTracks', 0):
-                try:
-                    self.app.midi_cc_mode.initialize()
-                except AttributeError:
-                    # Mode has not yet been created in app...
-                    pass
-
-        if 'tracks' in self.parsed_state and 'bpm' in self.parsed_state and self.should_sync_state_with_backend:
-            # Once full state has been received from backend, sync back to it
-            # We need to first receive full state because some of the things to set up (like current tracks with direct monitoring)
-            # depend on an intepretation of backend state plus the frontend state
-            self.sync_state_to_shepherd()
-
     def track_select(self, track_num):
-        num_tracks = self.parsed_state.get('numTracks', -1)
+        if not self.session: return
+        num_tracks = self.get_num_tracks()
         if num_tracks > -1:
             for i in range(0, num_tracks):
-                self.track_set_input_monitoring(i, i == track_num)
+                self.session.tracks[i].set_input_monitoring(i==track_num)
 
     def track_set_input_monitoring(self, track_num, enabled):
-        self.sss.send_msg_to_app('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
+        if not self.session: return
+        self.session.tracks[track_num].set_input_monitoring(enabled)
 
     def track_set_active_ui_notes_monitoring(self, track_num):
-        self.sss.send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [track_num])
+        if not self.session: return
+        self.session.tracks[track_num].set_active_ui_notes_monitoring()
 
     def device_send_all_notes_off(self, device_name):
         self.sss.send_msg_to_app('/device/sendAllNotesOff', [device_name])
@@ -221,24 +89,32 @@ class ShepherdInterface(object):
         return 0
         
     def clip_play_stop(self, track_num, clip_num):
-        self.sss.send_msg_to_app('/clip/playStop', [track_num, clip_num])
+        if not self.session: return
+        self.session.tracks[track_num].clips[clip_num].play_stop()
 
     def clip_record_on_off(self, track_num, clip_num):
-        self.sss.send_msg_to_app('/clip/recordOnOff', [track_num, clip_num])
+        if not self.session: return
+        self.session.tracks[track_num].clips[clip_num].record_on_off()
 
     def clip_clear(self, track_num, clip_num):
-        if not self.clip_is_empty(track_num, clip_num):
-            self.sss.send_msg_to_app('/clip/clear', [track_num, clip_num])
+        if not self.session: return
+        clip = self.session.tracks[track_num].clips[clip_num]
+        if not clip.is_empty():
+            clip.clear()
             self.app.add_display_notification("Cleared clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
     def clip_double(self, track_num, clip_num):
-        if not self.clip_is_empty(track_num, clip_num):
-            self.sss.send_msg_to_app('/clip/double', [track_num, clip_num])
+        if not self.session: return
+        clip = self.session.tracks[track_num].clips[clip_num]
+        if not clip.is_empty():
+            clip.double()
             self.app.add_display_notification("Doubled clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
     def clip_quantize(self, track_num, clip_num, quantization_step):
-        if not self.clip_is_empty(track_num, clip_num):
-            self.sss.send_msg_to_app('/clip/quantize', [track_num, clip_num, quantization_step])
+        if not self.session: return
+        clip = self.session.tracks[track_num].clips[clip_num]
+        if not clip.is_empty():
+            clip.quantize(quantization_step)
             quantization_step_labels = {
                 0.25: '16th note',
                 0.5: '8th note',
@@ -248,117 +124,95 @@ class ShepherdInterface(object):
             self.app.add_display_notification("Quantized clip to {0}: {1}-{2}".format(quantization_step_labels.get(quantization_step,
                                                                                                            quantization_step), track_num + 1, clip_num + 1))
     def clip_undo(self, track_num, clip_num):
-        if not self.clip_is_empty(track_num, clip_num):
-            self.sss.send_msg_to_app('/clip/undo', [track_num, clip_num])
+        if not self.session: return
+        clip = self.session.tracks[track_num].clips[clip_num]
+        if not clip.is_empty():
+            clip.undo()
             self.app.add_display_notification("Undo clip: {0}-{1}".format(track_num + 1, clip_num + 1))
 
     def clip_set_length(self, track_num, clip_num, new_length):
-        if not self.clip_is_empty(track_num, clip_num):
-            self.sss.send_msg_to_app('/clip/setLength', [track_num, clip_num, new_length])
+        if not self.session: return
+        clip = self.session.tracks[track_num].clips[clip_num]
+        if not clip.is_empty():
+            clip.set_length(new_length)
 
     def clip_is_empty(self, track_num, clip_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return 'E' in self.parsed_state['tracks'][track_num]['clips'][clip_num]
-            except IndexError:
-                return True
-        else:
-            return True
+        if self.session:
+            return self.session.tracks[track_num].clips[clip_num].is_empty()
+        return True
 
     def get_clip_state(self, track_num, clip_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return self.parsed_state['tracks'][track_num]['clips'][clip_num]
-            except IndexError:
-                return 'snE|0.000|0.0'
-        else:
-            return 'snE|0.000|0.0'
+        if self.session:
+            return self.session.tracks[track_num].clips[clip_num].get_status()
+        return 'snE|0.000|0.0'
 
     def get_clip_length(self, track_num, clip_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return float(self.parsed_state['tracks'][track_num]['clips'][clip_num].split('|')[1])
-            except IndexError:
-                return 0.0
-        else:
-            return 0.0
+        if self.session:
+            return self.session.tracks[track_num].clips[clip_num].cliplengthinbeats
+        return 0.0
 
     def get_clip_quantization_step(self, track_num, clip_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return float(self.parsed_state['tracks'][track_num]['clips'][clip_num].split('|')[2])
-            except IndexError:
-                return 0.0
-        else:
-            return 0.0
+        if self.session:
+            return self.session.tracks[track_num].clips[clip_num].currentquantizationstep
+        return 0.0
 
     def get_clip_playhead(self, track_num, clip_num):
-        if 'clipPlayheads' in self.parsed_state:
-            return self.parsed_state['clipPlayheads'][track_num][clip_num]
-        else:
-            return 0.0
+        if self.session:
+            return self.session.tracks[track_num].clips[clip_num].playheadpositioninbeats
+        return 0.0
 
     def get_clip_notes(self, track_num, clip_num):
-        if self.sss.state_soup is None:
-            return []
-        else:
-            track = self.sss.state_soup.find_all('track')[track_num]
-            clip = track.find_all('clip')[clip_num]
-            sequence_events = clip.find_all('sequence_event')
+        if self.session:
+            clip = self.session.tracks[track_num].clips[clip_num]
             # type "note" is "1"
-            return [event for event in sequence_events if event['type'] == "1" and float(event['renderedstarttimestamp']) >= 0.0]
+            return [event for event in clip.sequence_events if event.type == "1" and event.renderedstarttimestamp >= 0.0]
+        return []
 
     def get_track_num_clips(self, track_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return self.parsed_state['tracks'][track_num]['numClips']
-            except IndexError:
-                return 0
-        else:
-            return 0
+        if self.session:
+            return len(self.session.tracks[track_num].clips)
+        return 0
 
     def is_track_enabled(self, track_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return self.parsed_state['tracks'][track_num]['enabled']
-            except IndexError:
-                return False
-        else:
-            return False
-
-
+        if self.session:
+            return self.session.tracks[track_num].enabled
+        return False
+    
     def scene_play(self, scene_number):
-        self.sss.send_msg_to_app('/scene/play', [scene_number])
+        self.session.scene_play(scene_number)
 
     def scene_duplicate(self, scene_number):
-        self.sss.send_msg_to_app('/scene/duplicate', [scene_number])
+        self.session.scene_duplicate(scene_number)
         self.app.add_display_notification("Duplicated scene: {0}".format(scene_number + 1))
 
     def global_play_stop(self):
-        self.sss.send_msg_to_app('/transport/playStop', [])
+        self.session.global_play_stop()
 
     def global_record(self):
         # Stop all clips that are being recorded
         # If the currently played clip in currently selected track is not recording, start recording it
-        selected_trak_num = self.app.track_selection_mode.selected_track
-        for track_num, track in enumerate(self.parsed_state['tracks']):
-            if track_num == selected_trak_num:
-                clip_num = -1
-                for i, clip_state in enumerate(track['clips']):
-                    if 'p' in clip_state or 'w' in clip_state:
-                        # clip is playing or cued to record, toggle recording on that clip
-                        clip_num = i
-                        break
-                if clip_num > -1:
-                    self.sss.send_msg_to_app('/clip/recordOnOff', [track_num, clip_num])
-            else:
-                for clip_num, clip_state in enumerate(track['clips']):
-                    if 'r' in clip_state or 'w' in clip_state:
-                        # if clip is recording or cued to record, toggle record so recording/cue are cleared
-                        self.sss.send_msg_to_app('/clip/recordOnOff', [track_num, clip_num])
+        if self.session:
+            selected_trak_num = self.app.track_selection_mode.selected_track
+            for track_num, track in enumerate(self.session.tracks):
+                if track_num == selected_trak_num:
+                    clip_num = -1
+                    for i, clip in enumerate(track.clips):
+                        clip_state = clip.get_status()
+                        if 'p' in clip_state or 'w' in clip_state:
+                            # clip is playing or cued to record, toggle recording on that clip
+                            clip_num = i
+                            break
+                    if clip_num > -1:
+                        clip.record_on_off()
+                else:
+                    for clip_num, clip in enumerate(track.clips):
+                        clip_state = clip.get_status()
+                        if 'r' in clip_state or 'w' in clip_state:
+                            # if clip is recording or cued to record, toggle record so recording/cue are cleared
+                            clip.record_on_off()
 
     def metronome_on_off(self):
-        self.sss.send_msg_to_app('/metronome/onOff', [])
+        self.session.metronome_on_off()
         self.app.add_display_notification("Metronome: {0}".format('On' if not self.parsed_state.get('metronomeOn', False) else 'Off'))
 
     def set_push_pads_mapping(self, new_mapping=[]):
@@ -375,62 +229,69 @@ class ShepherdInterface(object):
         self.sss.send_msg_to_app('/settings/fixedVelocity', [velocity])
         
     def get_buttons_state(self):
-        is_playing = self.parsed_state.get('isPlaying', False)
-        is_recording = self.parsed_state.get('isRecording', False)
-        metronome_on = self.parsed_state.get('metronomeOn', False)
-        return is_playing, is_recording, metronome_on
+        if self.session:
+            is_playing = self.session.isplaying
+            is_recording = False
+            for track in self.session.tracks:
+                for clip in track.clips:
+                    clip_state = clip.get_status()
+                    if 'r' in clip_state or 'w' in clip_state or 'W' in clip_state:
+                        is_recording = True
+                        break
+            metronome_on = self.session.metronomeon
+            return is_playing, is_recording, metronome_on
+        return False, False, False
 
     def get_bpm(self):
-        return self.parsed_state.get('bpm', 120)
+        if self.session:
+            return self.session.bpm
+        return 0
 
     def set_bpm(self, bpm):
-        self.sss.send_msg_to_app('/transport/setBpm', [float(bpm)])
+        self.session.set_bpm(float(bpm))
         self.app.add_display_notification("Tempo: {0} bpm".format(bpm))
 
     def get_meter(self):
-        return self.parsed_state.get('meter', 4)
+        if self.session:
+            self.session.meter
+        return 0
 
     def set_meter(self, meter):
-        self.sss.send_msg_to_app('/transport/setMeter', [int(meter)])
+        self.session.set_meter(int(meter))
         self.app.add_display_notification("Meter: {0} beats".format(meter))
 
     def get_num_tracks(self):
-        # return self.parsed_state.get('numTracks', 0)
-        return len(self.parsed_state.get('tracks', []))
-
+        if self.session:
+            return len(self.session.tracks)
+        return 0
+        
     def get_track_is_input_monitoring(self, track_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return self.parsed_state['tracks'][track_num]['inputMonitoring']
-            except IndexError:
-                return False
-        else:
-            return False
+        if self.session:
+            return self.session.tracks[track_num].inputmonitoring
+        return False
 
     def get_track_device_short_name(self, track_num):
-        if 'tracks' in self.parsed_state:
-            try:
-                return self.parsed_state['tracks'][track_num]['deviceShortName']
-            except IndexError:
-                return ""
-        else:
-            return ""
+        if self.session:
+            return self.session.tracks[track_num].hardwaredevicename
+        return "-"
 
     def get_fixed_length_amount(self):
-        return self.parsed_state.get('fixedLengthRecordingAmount', 0)
+        if self.session:
+            return self.session.fixedlengthrecordingbars
+        return 0
 
     def set_fixed_length_amount(self, fixed_length):
-        self.sss.send_msg_to_app('/settings/fixedLength', [fixed_length])
+        self.session.set_fix_length_recording_bars(fixed_length)
         if fixed_length > 0:
             self.app.add_display_notification("Fixed length bars: {0} ({1} beats)".format(fixed_length, fixed_length * self.get_meter()))
         else:
             self.app.add_display_notification("No fixed length recording")
 
     def get_record_automation_enabled(self):
-        return self.parsed_state.get('recordAutomaionOn', False)
+        if self.session:
+            self.session.recordautomationenabled
+        return False
 
     def set_record_automation_enabled(self):
-        self.sss.send_msg_to_app('/settings/toggleRecordAutomation', [])
-
-
-    
+        self.session.set_record_automation_on_off()
+        

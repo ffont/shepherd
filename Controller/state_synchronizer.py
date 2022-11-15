@@ -143,7 +143,6 @@ class OSCReceiverThread(threading.Thread):
 
         # Legacy methods
         osc.bind(b'/shepherdReady', lambda *values: sss_instance.app.shepherd_interface.receive_shepherd_ready())
-        osc.bind(b'/stateFromShepherd', lambda *values: sss_instance.app.shepherd_interface.receive_state_from_shepherd(*values))
         osc.bind(b'/midiCCParameterValuesForDevice', lambda *values: sss_instance.app.shepherd_interface.receive_midi_cc_values_for_device(*values))
         
 
@@ -488,6 +487,8 @@ parameters_types = {
     'doingcountin': bool, 
     'duration': float,
     'enabled': bool,
+    'fixedlengthrecordingbars': int,
+    'fixedlengthrecordingbars': int,    
     'hardwaredevicename': str,
     'inputmonitoring': bool,
     'isplaying': bool,
@@ -496,9 +497,11 @@ parameters_types = {
     'midinote':int, 
     'midivelocity': float,  # . 0.0-1.0
     'name': str,
+    'notesmonitoringdevicename': str,
     'order': int,
     'playheadpositioninbeats': float,
     'playing': bool,
+    'recordautomationenabled': bool,
     'recording': bool,
     'renderedendtimestamp': float,
     'renderedstarttimestamp': float,
@@ -531,7 +534,8 @@ def backend_value_to_python_value(attr_name, value):
         raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
 
 
-def python_value_to_backenbd_value(attr_name, value):
+def python_value_to_backend_value(attr_name, value):
+    # TODO: is htis needed?
     attr_type = parameters_types.get(attr_name, None)
     try:
         if attr_type == float:
@@ -543,7 +547,7 @@ def python_value_to_backenbd_value(attr_name, value):
         elif attr_type == str:
             return value
         elif attr_type == None:
-            print('WARNING: don\' know how to python_value_to_backenbd_value parameter {} of received value type {}'.format(attr_name, type(value)))
+            print('WARNING: don\' know how to python_value_to_backend_value parameter {} of received value type {}'.format(attr_name, type(value)))
             return value
     except Exception as e:
         raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
@@ -601,6 +605,30 @@ class Session(BaseShepherdClass):
 
     def pprint(self, include_attributes=False):
         print(self.render_session(include_attributes=include_attributes))
+
+    def scene_play(self, scene_number):
+        self.send_msg_to_app('/scene/play', [scene_number])
+
+    def scene_duplicate(self, scene_number):
+        self.send_msg_to_app('/scene/duplicate', [scene_number])
+
+    def global_play_stop(self):
+        self.send_msg_to_app('/transport/playStop', [])
+
+    def metronome_on_off(self):
+        self.send_msg_to_app('/metronome/onOff', [])
+
+    def set_bpm(self, new_bpm):
+        self.send_msg_to_app('/transport/setBpm', [new_bpm])
+    
+    def set_meter(self, new_meter):
+        self.send_msg_to_app('/transport/setMeter', [new_meter])
+
+    def set_fix_length_recording_bars(self, new_fixed_length_recording_bars):
+        self.send_msg_to_app('/settings/fixedLength', [new_fixed_length_recording_bars])
+
+    def set_record_automation_on_off(self):
+        self.send_msg_to_app('/settings/toggleRecordAutomation', [])
         
 
 class Track(BaseShepherdClass):
@@ -613,8 +641,11 @@ class Track(BaseShepherdClass):
     def add_clip(self, clip):
         self.clips.append(clip)
 
-    def set_input_monitoring(self, track_num, enabled):
-        self.send_msg_to_app('/track/setInputMonitoring', [track_num, 1 if enabled else 0])
+    def set_input_monitoring(self, enabled):
+        self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
+
+    def set_active_ui_notes_monitoring(self):
+        self.send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [self.uuid])
 
 
 class Clip(BaseShepherdClass):
@@ -622,10 +653,72 @@ class Clip(BaseShepherdClass):
 
     def __init__(self, *args, **kwargs):
         self.sequence_events = []
+        self.track = kwargs['owning_track']  # Save a reference to the owning track
+        del kwargs['owning_track']
         super().__init__(*args, **kwargs)
 
     def add_sequence_event(self, sequence_event):
         self.sequence_events.append(sequence_event)
+
+    def play_stop(self):
+        self.send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
+
+    def get_status(self):
+        CLIP_STATUS_PLAYING = "p"
+        CLIP_STATUS_STOPPED = "s"
+        CLIP_STATUS_CUED_TO_PLAY = "c"
+        CLIP_STATUS_CUED_TO_STOP = "C"
+        CLIP_STATUS_RECORDING = "r"
+        CLIP_STATUS_CUED_TO_RECORD = "w"
+        CLIP_STATUS_CUED_TO_STOP_RECORDING = "W"
+        CLIP_STATUS_NO_RECORDING = "n"
+        CLIP_STATUS_IS_EMPTY = "E"
+        CLIP_STATUS_IS_NOT_EMPTY = "e"
+
+        if self.willstartrecordingat >= 0.0:
+            record_status = CLIP_STATUS_CUED_TO_RECORD
+        elif self.willstoprecordingat >= 0.0:
+            record_status = CLIP_STATUS_CUED_TO_STOP_RECORDING
+        elif self.recording:
+            record_status = CLIP_STATUS_RECORDING
+        else:
+            record_status = CLIP_STATUS_NO_RECORDING
+
+        if self.willplayat >= 0.0:
+            play_status = CLIP_STATUS_CUED_TO_PLAY
+        elif self.willstopat >= 0.0:
+            play_status = CLIP_STATUS_CUED_TO_STOP
+        elif self.playing:
+            play_status = CLIP_STATUS_PLAYING
+        else:
+            play_status = CLIP_STATUS_STOPPED
+    
+        if self.cliplengthinbeats == 0.0:
+            empty_status = CLIP_STATUS_IS_EMPTY
+        else:
+            empty_status = CLIP_STATUS_IS_NOT_EMPTY
+        return f'{play_status}{record_status}{empty_status}|{self.cliplengthinbeats:.3f}|{self.currentquantizationstep}'
+
+    def is_empty(self):
+        return 'E' in self.get_status()
+
+    def record_on_off(self):
+        self.send_msg_to_app('/clip/recordOnOff', [self.track.uuid, self.uuid])
+
+    def clear(self):
+        self.send_msg_to_app('/clip/clear', [self.track.uuid, self.uuid])
+
+    def double(self):
+        self.send_msg_to_app('/clip/double', [self.track.uuid, self.uuid])
+
+    def quantize(self, quantization_step):
+        self.send_msg_to_app('/clip/quantize', [self.track.uuid, self.uuid, quantization_step])
+
+    def undo(self):
+        self.send_msg_to_app('/clip/undo', [self.track.uuid, self.uuid])
+
+    def set_length(self, new_length):
+        self.send_msg_to_app('/clip/setLength', [self.track.uuid, self.uuid, new_length])
 
 
 class SequenceEvent(BaseShepherdClass):
@@ -636,6 +729,7 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
 
     session = None
     elements_uuids_map = {}
+    showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface (see on_state_update below)
 
     def add_element_to_uuid_map(self, element):
         self.elements_uuids_map[element.uuid] = element
@@ -649,7 +743,7 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
             # If a soup object is passed, then only update the attributes of that object (which should exist in the current session tree)
             session_tree_element = self.get_element_with_uuid(soup_object['uuid'])
             if hasattr(session_tree_element, attribute_changed):
-                setattr(session_tree_element, attribute_changed, soup_object[attribute_changed])
+                setattr(session_tree_element, attribute_changed, backend_value_to_python_value(attribute_changed, soup_object[attribute_changed]))
             else:
                 raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(attribute_changed, session_tree_element.uuid))
             # If we are trying to update an attribute that does not exist (or an element that does not exist), this will raise an error
@@ -657,6 +751,16 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
         else:
             # If no soup object is passed, then rebuild the whole session tree
             self.build_session()
+
+        # TODO: the code below is app-specific code that should not be implemented here but with some sort of property listener somehwere in app or shepherd interface
+        if attribute_changed == 'playheadpositioninbeats' or attribute_changed == 'countinplayheadpositioninbeats':
+            if self.session.doingcountin:
+                self.showing_countin_message = True
+                self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(-1 * self.parsed_state['countinplayheadpositioninbeats'])))
+            else:
+                if self.showing_countin_message:
+                    self.app.clear_display_notification()
+                    self.showing_countin_message = False
 
     def on_full_state_received(self):
         self.build_session()
@@ -670,7 +774,7 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
             track = Track(track_soup, self)
             self.add_element_to_uuid_map(track)
             for count, clip_soup in enumerate(track_soup.findAll("clip")):
-                clip = Clip(clip_soup, self)
+                clip = Clip(clip_soup, self, owning_track=track)
                 self.add_element_to_uuid_map(clip)
                 for sequence_event_soup in clip_soup.findAll("sequence_event"):
                     sequence_event = SequenceEvent(sequence_event_soup, self)

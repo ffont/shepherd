@@ -50,6 +50,7 @@ namespace Helpers
             Helpers::createUuidProperty (t);
             t.setProperty (IDs::enabled, tn < numEnabledTracks, nullptr);
             t.setProperty (IDs::order, tn, nullptr);
+            t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
             if (tn < numEnabledTracks){
                 // Track is enabled (not deleted), add name and hardware device to it
                 const juce::String trackName ("Track " + juce::String (tn + 1));

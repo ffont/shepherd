@@ -101,7 +101,6 @@ public:
     bool hasZeroLength();
     bool hasSequenceEvents();
     int getNumSequenceEvents();
-    juce::String getStatus();
     
 protected:
     

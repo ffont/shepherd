@@ -317,41 +317,6 @@ bool Clip::hasJustStoppedRecording()
     }
 }
 
-juce::String Clip::getStatus()
-{
-    juce::String playStatus = "";
-    juce::String recordStatus = "";
-    juce::String emptyStatus = "";
-    
-    if (isCuedToStartRecording()) {
-        recordStatus = CLIP_STATUS_CUED_TO_RECORD;
-    } else if (isCuedToStopRecording()) {
-        recordStatus = CLIP_STATUS_CUED_TO_STOP_RECORDING;
-    } else if (isRecording()) {
-        recordStatus = CLIP_STATUS_RECORDING;
-    } else {
-        recordStatus = CLIP_STATUS_NO_RECORDING;
-    }
-    
-    if (isCuedToPlay()) {
-        playStatus = CLIP_STATUS_CUED_TO_PLAY;
-    } else if (isCuedToStop()) {
-        playStatus = CLIP_STATUS_CUED_TO_STOP;
-    } else if (isPlaying()) {
-        playStatus = CLIP_STATUS_PLAYING;
-    } else {
-        playStatus = CLIP_STATUS_STOPPED;
-    }
-    
-    if (hasZeroLength()){
-        emptyStatus = CLIP_STATUS_IS_EMPTY;
-    } else {
-        emptyStatus = CLIP_STATUS_IS_NOT_EMPTY;
-    }
-    
-    return playStatus + recordStatus + emptyStatus + "|" + juce::String(clipLengthInBeats, 3) + "|" + juce::String(currentQuantizationStep);
-}
-
 void Clip::clearAllCues()
 {
     clearPlayCue();

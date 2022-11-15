@@ -86,7 +86,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     else:
                         position_percentage = 0.0
                     if clip_length > 0.0:
-                        text = '{}\n({})'.format(playhead_position, clip_length)
+                        text = '{:.1f}\n({})'.format(playhead_position, clip_length)
                     else:
                         text = '{}'.format(playhead_position)
                     show_text(ctx, track_num, y, text, height=height, font_color=font_color, background_color=background_color,
@@ -99,15 +99,15 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     # Draw clip notes
                     if clip_length > 0.0:
                         rendered_notes = self.app.shepherd_interface.get_clip_notes(track_num, clip_num)
-                        all_midinotes = [int(note['midinote']) for note in rendered_notes]
+                        all_midinotes = [int(note.midinote) for note in rendered_notes]
                         if len(all_midinotes) > 0:
                             min_midinote = min(all_midinotes)
                             max_midinote = max(all_midinotes) + 1  # Add 1 to highest note does not fall outside of screen
                             for note in rendered_notes:
-                                note_percentage =  (int(note['midinote']) - min_midinote) / (max_midinote - min_midinote)
+                                note_percentage =  (int(note.midinote) - min_midinote) / (max_midinote - min_midinote)
                                 note_height_percentage =  1.0 / (max_midinote - min_midinote)
-                                note_start_percentage = float(note['renderedstarttimestamp']) / clip_length
-                                note_end_percentage = float(note['renderedendtimestamp']) / clip_length
+                                note_start_percentage = float(note.renderedstarttimestamp) / clip_length
+                                note_end_percentage = float(note.renderedendtimestamp) / clip_length
                                 
                                 display_w = push2_python.constants.DISPLAY_LINE_PIXELS
                                 display_h = push2_python.constants.DISPLAY_N_LINES
