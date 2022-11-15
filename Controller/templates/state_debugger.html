@@ -37,11 +37,15 @@
             var autoReloadTimer = undefined;
 
             window.addEventListener('DOMContentLoaded', (event) => {
+                {% if xml %}
                 var xml = decodeHtml("{{ state }}");
                 if (xml !== ''){
                     document.getElementById('contents').innerText = prettifyXml(xml); 
                 }
+                {% else %}
+                    document.getElementById('contents').innerText = `{{ state }}`; 
 
+                {% endif %}
                 if (autoReload){
                     autoReloadTimer = setTimeout(() => {location.reload()}, {{state_debugger_autoreload_ms}});
                 }

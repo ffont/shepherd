@@ -41,14 +41,21 @@ if USE_STATE_DEBUGGER:
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
 
-    @state_debugger_server.route('/')
-    def state_debugger():
+    @state_debugger_server.route('/raw')
+    def state_debugger_raw():
         if sss_instance is None or sss_instance.state_soup is None:
             state = 'No state has been synced yet'
         else:
             state = sss_instance.state_soup.findAll("session")[0]
-            sss_instance.session.pprint()
-        return render_template('state_debugger.html', state=state, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
+        return render_template('state_debugger.html', state=state, xml=True, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
+
+    @state_debugger_server.route('/python')
+    def state_debugger_python():
+        if sss_instance is None or sss_instance.state_soup is None:
+            state = 'No state has been synced yet'
+        else:
+            state = sss_instance.session.render_session(include_attributes=True)
+        return render_template('state_debugger.html', state=state, xml=False, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
 
 
 class StateDebuggerServerThread(threading.Thread):
@@ -398,6 +405,9 @@ class GenericStateSynchronizer(object):
                     pass
                 elif len(results) == 1:
                     results[0][property_name] = new_value
+
+                    # Call method for possible callbacks after state is updated
+                    self.on_state_update(soup_object=results[0], attribute_changed=property_name)
                 else:
                     # Should never return more than one, request a full state as there will be sync issues
                     if self.verbose:
@@ -424,6 +434,9 @@ class GenericStateSynchronizer(object):
                     if child_soup.name == "sound":
                         for sound_sample_element in child_soup.findAll("sound_sample"):
                             log_sound_used(sound_sample_element)
+
+                    # Call method for possible callbacks after state is updated
+                    self.on_state_update()
                     
                 else:
                     # Should never return more than one, request a full state as there will be sync issues
@@ -440,6 +453,9 @@ class GenericStateSynchronizer(object):
                     pass
                 elif len(results) == 1:
                     results[0].decompose()
+                    
+                    # Call method for possible callbacks after state is updated
+                    self.on_state_update()
                 else:
                     # Should never return more than one, request a full state as there will be sync issues
                     if self.verbose:
@@ -451,10 +467,9 @@ class GenericStateSynchronizer(object):
                 self.should_request_full_state = True
             self.last_update_id = update_id
 
-            # Call method for possible callbacks after state is updated
-            self.on_state_update()
+            
 
-    def on_state_update(self):
+    def on_state_update(self, soup_object=None):
         pass
 
     def on_full_state_received(self):
@@ -463,22 +478,96 @@ class GenericStateSynchronizer(object):
 
 # ----------------
 
-def converted_value_for_attr_name(attr_name, value):
-    if attr_name in ['playheadpositioninbeats', 'bpm', 'countinplayheadpositioninbeats']:
-        return float(value)
-    elif attr_name in ['meter', 'barcount']:
-        return int(value)
-    elif attr_name in ['metronomeon', 'doingcountin', 'isplaying']:
-        return value == '1'
-    return value
+parameters_types = {
+    'barcount': int,
+    'bpm': float,
+    'cliplengthinbeats': float,
+    'countinplayheadpositioninbeats': float,
+    'currentquantizationstep': float,
+    'doingcountin': bool,
+    'doingcountin': bool, 
+    'duration': float,
+    'enabled': bool,
+    'hardwaredevicename': str,
+    'inputmonitoring': bool,
+    'isplaying': bool,
+    'meter': int,
+    'metronomeon': bool, 
+    'midinote':int, 
+    'midivelocity': float,  # . 0.0-1.0
+    'name': str,
+    'order': int,
+    'playheadpositioninbeats': float,
+    'playing': bool,
+    'recording': bool,
+    'renderedendtimestamp': float,
+    'renderedstarttimestamp': float,
+    'timestamp': float,
+    'type': int, # SequenceEventType {midi, note}
+    'uuid': str,
+    'willplayat': float,
+    'willstartrecordingat': float,
+    'willstopat': float,
+    'willstoprecordingat': float,
+    'wrapeventsacrosscliploop': bool,
+}
+
+
+def backend_value_to_python_value(attr_name, value):
+    attr_type = parameters_types.get(attr_name, None)
+    try:
+        if attr_type == float:
+            return float(value)
+        elif attr_type == int:
+            return int(value)
+        elif attr_type == bool:
+            return value == '1'
+        elif attr_type == str:
+            return value
+        elif attr_type == None:
+            print('WARNING: unknown parameter {} of received type {}'.format(attr_name, type(value)))
+            return value
+    except Exception as e:
+        raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
+
+
+def python_value_to_backenbd_value(attr_name, value):
+    attr_type = parameters_types.get(attr_name, None)
+    try:
+        if attr_type == float:
+            return str(value)
+        elif attr_type == int:
+            return str(value)
+        elif attr_type == bool:
+            return '1' if value else '0'
+        elif attr_type == str:
+            return value
+        elif attr_type == None:
+            print('WARNING: don\' know how to python_value_to_backenbd_value parameter {} of received value type {}'.format(attr_name, type(value)))
+            return value
+    except Exception as e:
+        raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
 
 
 class BaseShepherdClass(object):
 
-    def __init__(self, soup):
-        for attr_name, value in soup.attrs.items():
-            setattr(self, attr_name, converted_value_for_attr_name(attr_name, value))
+    def __init__(self, soup, state_synchronizer):
+        # Set state syncronizer (will be used to be able to send messages to backend)
+        self.state_synchronizer = state_synchronizer
 
+        # Set initial attributes and methods to set these attributes in the backend
+        for attr_name, value in soup.attrs.items():
+            setattr(self, attr_name, backend_value_to_python_value(attr_name, value))
+            setattr(self, 'bset_{}'.format(attr_name), lambda x, attr_name=attr_name: self.bset(x, attr_name))
+
+    def bset(self, attr_value, attr_name=None):
+        # TODO: only allow to set some selected properties (?)
+
+        # Note that attr_name has a default variable set in the lamda function definition, and this is how we pass attribute name from 'bset_xxx' called function
+        value_to_send = python_value_to_backenbd_value(attr_name, attr_value)
+        uuid = self.uuid
+        print('Setting attribute {} of object {} to value {} with synchronizer {}'.format(attr_name, uuid, value_to_send, self.state_synchronizer))
+    
 
 class Session(BaseShepherdClass):
     tracks = []
@@ -490,15 +579,34 @@ class Session(BaseShepherdClass):
     def add_track(self, track):
         self.tracks.append(track)
 
-    def pprint(self):
-        text = 'session {}\n'.format(self.name)
+    def render_object_attributes(self, obj, num_spaces_offset=0):
+        text = ''
+        for attr_name in dir(obj):
+            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer':
+                text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(obj, attr_name))
+        return text
+
+    def render_session(self, include_attributes=False):
+        text = '------------------------------------------------\n'
+        text += 'SESSION {} ({})\n'.format(self.name, self.uuid)
+        if include_attributes:
+            text += self.render_object_attributes(self)
         for track in self.tracks:
-            text += '  track {}\n'.format(track.name)
+            text += '  * TRACK {} ({})\n'.format(track.name, self.uuid)
+            if include_attributes:
+                text += self.render_object_attributes(track, num_spaces_offset=4)
             for clip in track.clips:
-                text += '    clip {}\n'.format(clip.name)
+                text += '    * CLIP {} ({})\n'.format(clip.name, self.uuid)
+                if include_attributes:
+                    text += self.render_object_attributes(clip, num_spaces_offset=6)
                 for sequence_event in clip.sequence_events:
-                    text += '      sequence_event {}\n'.format(sequence_event.uuid)
-        print(text)
+                    text += '      * SEQUENCE_EVENT {}\n'.format(sequence_event.uuid)
+                    if include_attributes:
+                        text += self.render_object_attributes(sequence_event, num_spaces_offset=8)
+        return text
+
+    def pprint(self, include_attributes=False):
+        print(self.render_session(include_attributes=include_attributes))
         
 
 class Track(BaseShepherdClass):
@@ -530,24 +638,47 @@ class SequenceEvent(BaseShepherdClass):
 class ShepherdStateSynchronizer(GenericStateSynchronizer):
 
     session = None
+    elements_uuids_map = {}
 
-    def on_state_update(self):
-        # TODO: this should be better updated insread of rebuilt from scratch?
-        self.build_session()
+    def add_element_to_uuid_map(self, element):
+        self.elements_uuids_map[element.uuid] = element
+
+    def get_element_with_uuid(self, uuid):
+        return self.elements_uuids_map[uuid]
+
+    def on_state_update(self, soup_object=None, attribute_changed=None):
+
+        if soup_object is not None:
+            # If a soup object is passed, then only update the attributes of that object (which should exist in the current session tree)
+            session_tree_element = self.get_element_with_uuid(soup_object['uuid'])
+            if hasattr(session_tree_element, attribute_changed):
+                setattr(session_tree_element, attribute_changed, soup_object[attribute_changed])
+            else:
+                raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(attribute_changed, session_tree_element.uuid))
+            # If we are trying to update an attribute that does not exist (or an element that does not exist), this will raise an error
+            # This is to be expected as we should never get here trying to update an attribute/element that does not exist
+        else:
+            # If no soup object is passed, then rebuild the whole session tree
+            self.build_session()
 
     def on_full_state_received(self):
         self.build_session()
 
     def build_session(self):
+        self.elements_uuids_map = {}
         session_soup = self.state_soup.findAll("session")[0]
-        session = Session(session_soup)
+        session = Session(session_soup, self)
+        self.add_element_to_uuid_map(session)
         for track_soup in session_soup.findAll("track"):
-            track = Track(track_soup)
+            track = Track(track_soup, self)
+            self.add_element_to_uuid_map(track)
             for count, clip_soup in enumerate(track_soup.findAll("clip")):
-                clip = Clip(clip_soup)
+                clip = Clip(clip_soup, self)
+                self.add_element_to_uuid_map(clip)
                 for sequence_event_soup in clip_soup.findAll("sequence_event"):
-                    sequence_event = SequenceEvent(sequence_event_soup)
-                    clip.add_sequence_event(sequence_event)                
+                    sequence_event = SequenceEvent(sequence_event_soup, self)
+                    clip.add_sequence_event(sequence_event)
+                    self.add_element_to_uuid_map(sequence_event)
                 track.add_clip(clip)
             session.add_track(track)
         self.session = session
