@@ -201,6 +201,7 @@ def ws_on_open(ws):
     print("* WS connection opened")
     if sss_instance is not None:
         sss_instance.ws_connection_ok = True
+        sss_instance.app_has_started()
 
 
 class WSConnectionThread(threading.Thread):
@@ -487,8 +488,8 @@ parameters_types = {
     'doingcountin': bool, 
     'duration': float,
     'enabled': bool,
-    'fixedlengthrecordingbars': int,
     'fixedlengthrecordingbars': int,    
+    'fixedvelocity': bool,
     'hardwaredevicename': str,
     'inputmonitoring': bool,
     'isplaying': bool,
@@ -580,7 +581,7 @@ class Session(BaseShepherdClass):
     def render_object_attributes(self, obj, num_spaces_offset=0):
         text = ''
         for attr_name in dir(obj):
-            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer':
+            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer' and attr_name != 'track':
                 text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(obj, attr_name))
         return text
 
@@ -590,11 +591,11 @@ class Session(BaseShepherdClass):
         if include_attributes:
             text += self.render_object_attributes(self)
         for track in self.tracks:
-            text += '  * TRACK {} ({})\n'.format(track.name, self.uuid)
+            text += '  * TRACK {} ({})\n'.format(track.name, track.uuid)
             if include_attributes:
                 text += self.render_object_attributes(track, num_spaces_offset=4)
             for clip in track.clips:
-                text += '    * CLIP {} ({})\n'.format(clip.name, self.uuid)
+                text += '    * CLIP {} ({}) {}\n'.format(clip.name, clip.uuid, clip.get_status())
                 if include_attributes:
                     text += self.render_object_attributes(clip, num_spaces_offset=6)
                 for sequence_event in clip.sequence_events:
@@ -756,14 +757,24 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
         if attribute_changed == 'playheadpositioninbeats' or attribute_changed == 'countinplayheadpositioninbeats':
             if self.session.doingcountin:
                 self.showing_countin_message = True
-                self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(-1 * self.parsed_state['countinplayheadpositioninbeats'])))
+                import math
+                self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(4 - self.session.countinplayheadpositioninbeats)))
             else:
                 if self.showing_countin_message:
                     self.app.clear_display_notification()
                     self.showing_countin_message = False
 
+        # Trigger re-activation of modes in case pads need to be updated
+        # TODO: this should be optimized, and the different modes should "subscribe" to object changes so they know when they need to update
+        if self.app.shepherd_interface is not None:
+            self.app.shepherd_interface.reactivate_modes()
+
     def on_full_state_received(self):
         self.build_session()
+
+        # Trigger re-activation of modes in case pads need to be updated
+        if self.app.shepherd_interface is not None:
+            self.app.shepherd_interface.receive_shepherd_ready()
 
     def build_session(self):
         self.elements_uuids_map = {}

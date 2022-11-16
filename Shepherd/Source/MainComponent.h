@@ -54,10 +54,6 @@ public:
     
         if (actionName == ACTION_UPDATE_DEVUI_RELOAD_BROWSER) {
             devUiComponent.reloadBrowser();
-        } else if (actionName == ACTION_UPDATE_DEVUI_STATE_TRNSPORT) {
-            devUiComponent.setStateTransport(actionData);
-        } else if (actionName == ACTION_UPDATE_DEVUI_STATE_TRACKS) {
-            devUiComponent.setStateTracks(actionData);
         }
     }
 

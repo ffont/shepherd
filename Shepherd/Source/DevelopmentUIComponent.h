@@ -31,7 +31,6 @@ public:
         addAndMakeVisible (reloadBrowserButton);
         
         toggleStateVisualizer.onClick = [this] {
-            showState = !showState;
             resized();
         };
         toggleStateVisualizer.setButtonText("Toggle view state");
@@ -56,10 +55,6 @@ public:
         addAndMakeVisible(browser);
         browser.goToURL(DEV_UI_SIMULATOR_URL);
         
-        addAndMakeVisible(stateVisualizer);
-        stateVisualizer.setMultiLine(true, true);
-        stateVisualizer.setReadOnly(true);
-        
         setSize(10, 10);  // Will be reset later
         
         finishedInitialization = true;
@@ -67,31 +62,6 @@ public:
 
     ~DevelopmentUIComponent() override
     {
-    }
-    
-    void updateStateInVisualizer()
-    {
-        stateVisualizer.setText(
-            stateTransport + "\n\n" + stateTracks
-        );
-    }
-    
-    void setStateTransport(const juce::String &state)
-    {
-        stateTransport = state;
-        updateStateInVisualizer();
-    }
-    
-    void setStateTracks(const juce::String &state)
-    {
-        stateTracks = state;
-        updateStateInVisualizer();
-    }
-    
-    void setXmlState(const juce::String &state)
-    {
-        xmlState = state;
-        updateStateInVisualizer();
     }
     
     void reloadBrowser()
@@ -111,18 +81,9 @@ public:
         debugStateButton.setBounds(205, 5, 80, 20);
         randomizeClipsContentButton.setBounds(290, 5, 120, 20);
         browser.setBounds(0, 30, browserWidth, browserHeight);
-        if (showState){
-            stateVisualizer.setBounds(0, 30 + browserHeight, browserWidth, stateVisualizerHeight);
-            setSize(browserWidth, 30 + browserHeight + stateVisualizerHeight);
-            if (finishedInitialization){
-                getParentComponent()->setSize(browserWidth, 30 + browserHeight + stateVisualizerHeight);
-            }
-        } else {
-            stateVisualizer.setBounds(0, 0, 0, 0);
-            setSize(browserWidth, 30 + browserHeight);
-            if (finishedInitialization){
-                getParentComponent()->setSize(browserWidth, 30 + browserHeight);
-            }
+        setSize(browserWidth, 30 + browserHeight);
+        if (finishedInitialization){
+            getParentComponent()->setSize(browserWidth, 30 + browserHeight);
         }
     }
 
@@ -130,7 +91,6 @@ private:
     
     int browserWidth = 920;
     int browserHeight = 760;
-    int stateVisualizerHeight = 170;
     
     juce::String stateTransport = "";
     juce::String stateTracks = "";
@@ -141,11 +101,9 @@ private:
     juce::TextButton reloadBrowserButton;
     juce::TextButton randomizeClipsContentButton;
     juce::TextButton toggleStateVisualizer;
-    juce::TextEditor stateVisualizer;
     
     Sequencer* sequencer;
-    
-    bool showState = true;
+
     bool finishedInitialization = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DevelopmentUIComponent)

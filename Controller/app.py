@@ -46,6 +46,7 @@ class ShepherdControllerApp(object):
     # other state vars
     active_modes = []
     previously_active_mode_for_xor_group = {}
+    active_modes_need_reactivate = False
     pads_need_update = True
     buttons_need_update = True
 
@@ -338,6 +339,12 @@ class ShepherdControllerApp(object):
                 self.init_notes_midi_in(device_name=self.shepherd_interface.session.notesmonitoringdevicename)
             except Exception as e:
                 print('Can\'t get information about which notes midi in device to configure: {}'.format(str(e)))
+
+        # If active modes need to be reactivated, do it
+        if self.active_modes_need_reactivate:
+            for mode in self.active_modes:
+                mode.activate()
+            self.active_modes_need_reactivate = False
 
         # Call dalyed actions in active modes
         for mode in self.active_modes:

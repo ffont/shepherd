@@ -37,6 +37,7 @@ namespace Helpers
         session.setProperty (IDs::bpm, Defaults::bpm, nullptr);
         session.setProperty (IDs::meter, Defaults::meter, nullptr);
         session.setProperty (IDs::metronomeOn, Defaults::metronomeOn, nullptr);
+        session.setProperty (IDs::fixedVelocity, Defaults::fixedVelocity, nullptr);
         session.setProperty (IDs::fixedLengthRecordingBars, Defaults::fixedLengthRecordingBars, nullptr);
         session.setProperty (IDs::recordAutomationEnabled, Defaults::recordAutomationEnabled, nullptr);
         
@@ -67,6 +68,7 @@ namespace Helpers
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
+                c.setProperty (IDs::enabled, Defaults::enabled, nullptr);
                 c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
                 c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 c.setProperty (IDs::currentQuantizationStep, Defaults::currentQuantizationStep, nullptr);

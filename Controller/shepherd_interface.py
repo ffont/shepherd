@@ -34,16 +34,13 @@ class ShepherdInterface(object):
         # Will return None if no session state is loaded
         return self.sss.session
 
-    def sync_state_to_shepherd(self):
-        # re-activate all modes to make sure we initialize things in the backend if needed
-        print('Synching with Shepherd backend state...')
-        for mode in self.app.active_modes:
-            mode.activate()
-        self.app.midi_cc_mode.initialize()
-        self.app.notes_midi_in = None
+    def reactivate_modes(self):
+        self.app.active_modes_need_reactivate = True
 
     def receive_shepherd_ready(self):
-        self.sync_state_to_shepherd()
+        self.reactivate_modes()
+        self.app.midi_cc_mode.initialize()
+        #self.app.notes_midi_in = None # This used to be here in previous controller implementation, not sure if it is needed
 
     def receive_midi_cc_values_for_device(self, *values):
         device_name = values[0].decode("utf-8")        
@@ -165,7 +162,7 @@ class ShepherdInterface(object):
         if self.session:
             clip = self.session.tracks[track_num].clips[clip_num]
             # type "note" is "1"
-            return [event for event in clip.sequence_events if event.type == "1" and event.renderedstarttimestamp >= 0.0]
+            return [event for event in clip.sequence_events if event.type == 1 and event.renderedstarttimestamp >= 0.0]
         return []
 
     def get_track_num_clips(self, track_num):
@@ -289,7 +286,7 @@ class ShepherdInterface(object):
 
     def get_record_automation_enabled(self):
         if self.session:
-            self.session.recordautomationenabled
+            return self.session.recordautomationenabled
         return False
 
     def set_record_automation_enabled(self):
