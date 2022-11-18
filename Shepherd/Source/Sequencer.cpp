@@ -972,38 +972,7 @@ void Sequencer::duplicateScene(int sceneN)
 
 void Sequencer::processMessageFromController (const juce::String action, juce::StringArray parameters)
 {
-    if (action == ACTION_ADDRESS_GENERIC) {
-        juce::var parsedJson = juce::JSON::parse(parameters[0]);  // parameters[0] is expected to be a JSON object
-        juce::String action = parsedJson["action"].toString();
-        juce::var parameters = parsedJson["parameters"];
-        
-        if (action == ACTION_ADDRESS_CLIP_SET_SEQUENCE) {
-            juce::String trackUUID = parameters["trackUUID"].toString();
-            juce::String clipUUID = parameters["clipUUID"].toString();
-            auto* track = getTrackWithUUID(trackUUID);
-            if (track != nullptr){
-                auto* clip = track->getClipWithUUID(clipUUID);
-                if (clip != nullptr){
-                    // Remove all existing notes from sequence and set length to new clip length
-                    clip->clearClipSequence();
-                    clip->setClipLength((double)parameters["clipLength"]);
-                    
-                    // Add new sequence events to the sequence
-                    juce::Array<juce::var>* sequenceEvents = parameters["sequenceEvents"].getArray();
-                    for (juce::var eventData: *sequenceEvents){
-                        if ((int)eventData["type"] == SequenceEventType::note){
-                            double timestamp = (double)eventData["timestamp"];
-                            int midiNote = (int)eventData["midiNote"];
-                            float midiVelocity = (float)eventData["midiVelocity"];
-                            double duration = (double)eventData["duration"];
-                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
-                        }
-                    }
-                }
-            }
-        }
-        
-    } else if (action.startsWith(ACTION_ADDRESS_CLIP)) {
+    if (action.startsWith(ACTION_ADDRESS_CLIP)) {
         jassert(parameters.size() >= 2);
         juce::String trackUUID = parameters[0];
         juce::String clipUUID = parameters[1];
@@ -1044,6 +1013,85 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                     jassert(parameters.size() == 3);
                     double newLength = (double)parameters[2].getFloatValue();
                     clip->setClipLength(newLength);
+                } else if (action == ACTION_ADDRESS_CLIP_SET_SEQUENCE) {
+                    // New sequence data is passed in JSON format, eg:
+                    /*{
+                       "clipLength": 6,
+                       "sequenceEvents": [
+                         {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},
+                         {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42},
+                         ...
+                       ]
+                    }*/
+                    juce::var sequenceData = juce::JSON::parse(parameters[2]);
+                    // Remove all existing notes from sequence and set length to new clip length
+                    clip->clearClipSequence();
+                    clip->setClipLength((double)sequenceData["clipLength"]);
+                    // Add new sequence events to the sequence
+                    juce::Array<juce::var>* sequenceEvents = sequenceData["sequenceEvents"].getArray();
+                    for (juce::var eventData: *sequenceEvents){
+                        if ((int)eventData["type"] == SequenceEventType::note){
+                            double timestamp = (double)eventData["timestamp"];
+                            int midiNote = (int)eventData["midiNote"];
+                            float midiVelocity = (float)eventData["midiVelocity"];
+                            double duration = (double)eventData["duration"];
+                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                        } else {
+                            // TODO: implement creating events of types MIDI (and possibly others?)
+                            // use helper Helpers::createSequenceEventFromMidiMessage, and will also need
+                            // a helper to first transform from bytes passed from JSON to MidiMessage
+                        }
+                    }
+                } else if (action == ACTION_ADDRESS_CLIP_EDIT_SEQUENCE) {
+                    // New sequence data is passed in JSON format, eg:
+                    /*{
+                       "action": "removeEvent" | "editEvent" | "addEvent",  // One of these three options
+                       "eventUUID":  "356cbbdjgf...", // Used by "removeEvent" and "editEvent" only
+                       "eventData": {
+                            "type": 1,
+                            "midiNote": 79,
+                            "midiVelocity": 1.0,
+                            ... // All the event properties that should be updated or "added" (in case of a new event)
+                        }
+                    }*/
+                    juce::var editSequenceData = juce::JSON::parse(parameters[2]);
+                    juce::String editAction = editSequenceData["action"].toString();
+                    if (editAction == "removeEvent"){
+                        clip->removeSequenceEventWithUUID(editSequenceData["eventUUID"]);
+                    } else if (editAction == "editEvent"){
+                        juce::ValueTree sequenceEvent = clip->getSequenceEventWithUUID(editSequenceData["eventUUID"]);
+                        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note){
+                            juce::var eventData = editSequenceData["eventData"];
+                            if (eventData.hasProperty("midiNote")) {
+                                sequenceEvent.setProperty(IDs::midiNote, (int)eventData["midiNote"], nullptr);
+                            }
+                            if (eventData.hasProperty("midiVelocity")) {
+                                sequenceEvent.setProperty(IDs::midiVelocity, (float)eventData["midiVelocity"], nullptr);
+                            }
+                            if (eventData.hasProperty("timestamp")) {
+                                sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
+                            }
+                            if (eventData.hasProperty("duration")) {
+                                sequenceEvent.setProperty(IDs::duration, (double)eventData["duration"], nullptr);
+                            }
+                        } else {
+                            // TODO: implement editing events other than note
+                        }
+                    } else if (editAction == "addEvent") {
+                        // Create new sequence event
+                        juce::var eventData = editSequenceData["eventData"];
+                        if ((int)eventData["type"] == SequenceEventType::note){
+                            double timestamp = (double)eventData["timestamp"];
+                            int midiNote = (int)eventData["midiNote"];
+                            float midiVelocity = (float)eventData["midiVelocity"];
+                            double duration = (double)eventData["duration"];
+                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                        } else {
+                            // TODO: implement creating events of types MIDI (and possibly others?)
+                            // use helper Helpers::createSequenceEventFromMidiMessage, and will also need
+                            // a helper to first transform from bytes passed from JSON to MidiMessage
+                        }
+                    }
                 }
             }
         }

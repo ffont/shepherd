@@ -7,6 +7,7 @@ import time
 import sys
 import ssl
 import traceback
+import json
 
 # If USE_WEBSOCKETS is set to True, WebSockets will be used to communicate with 
 # app, otherwise OSC will be used
@@ -671,6 +672,68 @@ class Clip(BaseShepherdClass):
 
     def set_length(self, new_length):
         self.send_msg_to_app('/clip/setLength', [self.track.uuid, self.uuid, new_length])
+
+    def set_sequence(self, new_sequence):
+        '''new_sequence must be passed as a dictionary with this form:
+        {
+            "clipLength": 6,
+            "sequenceEvents": [
+                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},
+                {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42},
+                ...
+            ]
+        }
+        '''
+        self.send_msg_to_app("/clip/setSequence", [self.track.uuid, self.uuid, json.dumps(new_sequence)])
+
+    def edit_sequence(self, edit_sequence_data):
+        '''edit_sequence_data should be a dictionary with this form:
+        {
+            "action": "removeEvent" | "editEvent" | "addEvent",  // One of these three options
+            "eventUUID":  "356cbbdjgf...", // Used by "removeEvent" and "editEvent" only
+            "eventProperties": {
+                "type": 1,
+                "midiNote": 79,
+                "midiVelocity": 1.0,
+                ... // All the event properties that should be updated or "added" (in case of a new event)
+        }
+        Note that there are more specialized methods that will call "edit_sequence" and will have easier interface
+        '''
+        self.send_msg_to_app("/clip/editSequence", [self.track.uuid, self.uuid, json.dumps(edit_sequence_data)])
+
+    def remove_sequence_event(self, event_uuid):
+        self.edit_sequence({
+            'action': 'removeEvent',
+            'eventUUID': event_uuid, 
+        })
+
+    def add_sequence_note_event(self, midi_note, midi_velocity, timestamp, duration):
+        self.edit_sequence({
+            'action': 'addEvent',
+            'eventData': {
+                'type': 1,  # type 1 = midi note
+                'midiNote': midi_note, 
+                'midiVelocity': midi_velocity,  # 0.0 to 1.0 
+                'timestamp': timestamp, 
+                'duration': duration,
+            }, 
+        })
+
+    def edit_sequence_note_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None):
+        event_data = {}
+        if midi_note is not None:
+            event_data['midiNote'] = midi_note
+        if midi_velocity is not None:
+            event_data['midiVelocity'] = midi_velocity
+        if timestamp is not None:
+            event_data['timestamp'] = timestamp
+        if duration is not None:
+            event_data['duration'] = duration
+        self.edit_sequence({
+            'action': 'editEvent',
+            'eventUUID': event_uuid,
+            'eventData': event_data, 
+        })
 
 
 class SequenceEvent(BaseShepherdClass):

@@ -35,6 +35,7 @@
 #define ACTION_ADDRESS_CLIP_UNDO "/clip/undo"
 #define ACTION_ADDRESS_CLIP_SET_LENGTH "/clip/setLength"
 #define ACTION_ADDRESS_CLIP_SET_SEQUENCE "/clip/setSequence"
+#define ACTION_ADDRESS_CLIP_EDIT_SEQUENCE "/clip/editSequence"
 
 #define ACTION_ADDRESS_TRACK "/track"
 #define ACTION_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"

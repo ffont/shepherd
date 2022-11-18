@@ -103,6 +103,9 @@ public:
     bool hasSequenceEvents();
     int getNumSequenceEvents();
     
+    juce::ValueTree getSequenceEventWithUUID(const juce::String& uuid);
+    void removeSequenceEventWithUUID(const juce::String& uuid);
+    
 protected:
     
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override;

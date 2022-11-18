@@ -1026,6 +1026,25 @@ int Clip::getIndexOfMatchingKeyUpInSequence(juce::MidiMessageSequence& sequence,
     return -1;
 }
 
+juce::ValueTree Clip::getSequenceEventWithUUID(const juce::String& uuid)
+{
+    for (int i=state.getNumChildren() - 1; i>=0; i--){
+        auto child = state.getChild(i);
+        if (child.hasType (IDs::SEQUENCE_EVENT) && child.getProperty(IDs::uuid) == uuid){
+            return child;
+        }
+    }
+    return juce::ValueTree();
+}
+
+void Clip::removeSequenceEventWithUUID(const juce::String& uuid)
+{
+    auto sequenceEvent = getSequenceEventWithUUID(uuid);
+    if (sequenceEvent.isValid()){
+        state.removeChild(sequenceEvent, nullptr);
+    }
+}
+
 //==============================================================================
 
 void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)

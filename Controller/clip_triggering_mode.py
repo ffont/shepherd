@@ -1,7 +1,6 @@
 import definitions
 import push2_python
 import time
-import json
 import random
 
 from display_utils import show_text, show_rectangle
@@ -247,8 +246,8 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         elif button_name in self.upper_row_buttons:
             track_num = self.upper_row_buttons.index(button_name)
             track = self.app.shepherd_interface.session.tracks[track_num]
-            clip_from_selected_scene = track.clips[self.selected_scene]
-            if not clip_from_selected_scene.is_empty():
+            clip = track.clips[self.selected_scene]  # clip from the selected scene
+            if not clip.is_empty():
                 # Randomize notes of clip X
                 # NOTE: this is added here to have a way of quickly testing changing clip contents from the 
                 # controller. A proper interaction should be thought         
@@ -260,16 +259,11 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     random_sequence.append(
                         {'type': 1, 'midiNote': random.randint(64, 85), 'midiVelocity': 1.0, 'timestamp': timestamp, 'duration': duration}
                     )
-                serializedAction = json.dumps({
-                    'action': "/clip/setSequence",
-                    'parameters': {
-                        'trackUUID': track.uuid,
-                        'clipUUID': clip_from_selected_scene.uuid,
+                clip.set_sequence({
                         'clipLength': new_clip_length,
                         'sequenceEvents': random_sequence,
-                    }
                 })
-                self.app.shepherd_interface.sss.send_msg_to_app('/action', [serializedAction])
+
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         track_num = pad_ij[1]
