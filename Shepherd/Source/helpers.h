@@ -68,7 +68,6 @@ namespace Helpers
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
-                c.setProperty (IDs::enabled, Defaults::enabled, nullptr);
                 c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
                 c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 c.setProperty (IDs::currentQuantizationStep, Defaults::currentQuantizationStep, nullptr);

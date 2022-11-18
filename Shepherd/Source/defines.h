@@ -17,6 +17,8 @@
 #define OSC_CONRTOLLER_RECEIVE_PORT 9004
 #define WEBSOCKETS_SERVER_PORT 8125
 
+#define ACTION_ADDRESS_GENERIC "/action"
+
 #define ACTION_ADDRESS_TRANSPORT "/transport"
 #define ACTION_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
 #define ACTION_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
@@ -32,6 +34,7 @@
 #define ACTION_ADDRESS_CLIP_QUANTIZE "/clip/quantize"
 #define ACTION_ADDRESS_CLIP_UNDO "/clip/undo"
 #define ACTION_ADDRESS_CLIP_SET_LENGTH "/clip/setLength"
+#define ACTION_ADDRESS_CLIP_SET_SEQUENCE "/clip/setSequence"
 
 #define ACTION_ADDRESS_TRACK "/track"
 #define ACTION_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"

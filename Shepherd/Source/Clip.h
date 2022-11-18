@@ -80,6 +80,7 @@ public:
     
     void setClipLength(double newLength);
     void setClipLengthToGlobalFixedLength();
+    void clearClipSequence();
     void clearClip();
     void doubleSequence();
     void quantizeSequence(double quantizationStep);

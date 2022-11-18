@@ -972,7 +972,38 @@ void Sequencer::duplicateScene(int sceneN)
 
 void Sequencer::processMessageFromController (const juce::String action, juce::StringArray parameters)
 {
-    if (action.startsWith(ACTION_ADDRESS_CLIP)) {
+    if (action == ACTION_ADDRESS_GENERIC) {
+        juce::var parsedJson = juce::JSON::parse(parameters[0]);  // parameters[0] is expected to be a JSON object
+        juce::String action = parsedJson["action"].toString();
+        juce::var parameters = parsedJson["parameters"];
+        
+        if (action == ACTION_ADDRESS_CLIP_SET_SEQUENCE) {
+            juce::String trackUUID = parameters["trackUUID"].toString();
+            juce::String clipUUID = parameters["clipUUID"].toString();
+            auto* track = getTrackWithUUID(trackUUID);
+            if (track != nullptr){
+                auto* clip = track->getClipWithUUID(clipUUID);
+                if (clip != nullptr){
+                    // Remove all existing notes from sequence and set length to new clip length
+                    clip->clearClipSequence();
+                    clip->setClipLength((double)parameters["clipLength"]);
+                    
+                    // Add new sequence events to the sequence
+                    juce::Array<juce::var>* sequenceEvents = parameters["sequenceEvents"].getArray();
+                    for (juce::var eventData: *sequenceEvents){
+                        if ((int)eventData["type"] == SequenceEventType::note){
+                            double timestamp = (double)eventData["timestamp"];
+                            int midiNote = (int)eventData["midiNote"];
+                            float midiVelocity = (float)eventData["midiVelocity"];
+                            double duration = (double)eventData["duration"];
+                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                        }
+                    }
+                }
+            }
+        }
+        
+    } else if (action.startsWith(ACTION_ADDRESS_CLIP)) {
         jassert(parameters.size() >= 2);
         juce::String trackUUID = parameters[0];
         juce::String clipUUID = parameters[1];
@@ -1284,7 +1315,6 @@ void Sequencer::randomizeClipsNotes() {
                 // First remove all notes from clip
                 for (int j=0; j<clip->state.getNumChildren(); j++){
                     auto child = clip->state.getChild(j);
-                    clip->state.setProperty(IDs::enabled, false, nullptr);
                     if (child.hasType (IDs::SEQUENCE_EVENT)){
                         clip->state.removeChild(child, nullptr);
                     }
@@ -1293,7 +1323,6 @@ void Sequencer::randomizeClipsNotes() {
                 
                 // Then for 50% of the clips, add new random content
                 if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
-                    clip->state.setProperty(IDs::enabled, true, nullptr);
                     double clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
                     clip->setClipLength(clipLengthInBeats);
                     std::vector<std::pair<int, float>> noteOnTimes = {};

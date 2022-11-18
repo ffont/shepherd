@@ -354,24 +354,28 @@ void Clip::setClipLengthToGlobalFixedLength()
     setClipLength(newLength);
 }
 
-void Clip::clearClip()
+
+void Clip::clearClipSequence()
 {
-    // NOTE: this should NOT be called from RT thread
-    
     // Removes all sequence events from VT
-    for (int i=0; i<state.getNumChildren(); i++){
+    for (int i=state.getNumChildren() - 1; i>=0; i--){
         auto child = state.getChild(i);
         if (child.hasType (IDs::SEQUENCE_EVENT)){
             state.removeChild(i, nullptr);
-            i = i-1;
         }
     }
     
+    // Send note off messages for notes being played
+    shouldSendRemainingNotesOff = true;
+}
+
+void Clip::clearClip()
+{
+    // NOTE: this should NOT be called from RT thread
+    clearClipSequence();
+    
     // Also sets new length to 0.0 (and this will strigger stopping the clip and clearing queues)
     setClipLength(0.0);
-    
-    // Stops playing the clip and clears all cues (?)
-    shouldSendRemainingNotesOff = true;
 }
 
 void Clip::doubleSequence()
