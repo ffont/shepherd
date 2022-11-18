@@ -178,12 +178,14 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         self.set_button_color_if_pressed(self.undo_button, animation=definitions.DEFAULT_ANIMATION)
         self.set_button_color(self.duplicate_button)
 
-        for count, track in enumerate(self.app.shepherd_interface.session.tracks):
-            clip_from_selected_scene = track.clips[self.selected_scene]
-            if not clip_from_selected_scene.is_empty():
-                self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.WHITE)
-            else:
-                self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.OFF_BTN_COLOR)
+        if not self.app.is_mode_active(self.app.settings_mode):
+            # If settings mode is active, don't update the upper buttons as these are also used by settings
+            for count, track in enumerate(self.app.shepherd_interface.session.tracks):
+                clip_from_selected_scene = track.clips[self.selected_scene]
+                if not clip_from_selected_scene.is_empty():
+                    self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.WHITE)
+                else:
+                    self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.OFF_BTN_COLOR)
             
     def update_pads(self):
         color_matrix = []
