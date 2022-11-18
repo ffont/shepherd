@@ -42,16 +42,8 @@ if USE_STATE_DEBUGGER:
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
 
-    @state_debugger_server.route('/raw')
-    def state_debugger_raw():
-        if sss_instance is None or sss_instance.state_soup is None:
-            state = 'No state has been synced yet'
-        else:
-            state = sss_instance.state_soup.findAll("session")[0]
-        return render_template('state_debugger.html', state=state, xml=True, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
-
-    @state_debugger_server.route('/python')
-    def state_debugger_python():
+    @state_debugger_server.route('/')
+    def state_debugger():
         if sss_instance is None or sss_instance.state_soup is None:
             state = 'No state has been synced yet'
         else:
@@ -304,7 +296,6 @@ class GenericStateSynchronizer(object):
 
     def app_has_started(self):
         self.last_update_id = -1
-        self.state_soup = None
         self.full_state_requested = False
         self.should_request_full_state = True
 
@@ -331,100 +322,25 @@ class GenericStateSynchronizer(object):
     def set_full_state(self, update_id, full_state_raw):
         if self.verbose:
             print("Receiving full state with update id {}".format(update_id))
-        self.state_soup = BeautifulSoup(full_state_raw, "lxml")
+        full_state_soup = BeautifulSoup(full_state_raw, "lxml")
         self.full_state_requested = False
         self.should_request_full_state = False
-
-        # Call method for possible callbacks after state is updated
-        self.on_state_update()
-
-        # Call method after ful state is received
-        self.on_full_state_received()
+        self.on_full_state_received(full_state_soup)
 
     def apply_update(self, update_id, update_type, update_data):
-        if self.state_soup is not None:
-            if self.verbose:
-                print("Applying state update {} - {}".format(update_id, update_type))
+        if self.verbose:
+            print("Applying state update {} - {}".format(update_id, update_type))
+        self.on_state_update(update_type, update_data)
 
-            if update_type == "propertyChanged":
-                tree_uuid = update_data[0]
-                tree_type = update_data[1].lower()
-                property_name = update_data[2].lower()
-                new_value = update_data[3]
-                results = self.state_soup.findAll(tree_type, {"uuid" : tree_uuid})
-                if len(results) == 0:
-                    # Found 0 results, initial state is not ready yet so we ignore
-                    pass
-                elif len(results) == 1:
-                    results[0][property_name] = new_value
-
-                    # Call method for possible callbacks after state is updated
-                    self.on_state_update(soup_object=results[0], attribute_changed=property_name)
-                else:
-                    # Should never return more than one, request a full state as there will be sync issues
-                    if self.verbose:
-                        print('Unexpected number of results ({})'.format(len(results)))
-                    self.should_request_full_state = True
-            
-            elif update_type == "addedChild":
-                parent_tree_uuid = update_data[0]
-                parent_tree_type = update_data[1].lower()
-                index_in_parent_childs = int(update_data[2])
-                # Only compute child_soup later, if parent is found
-                results = self.state_soup.findAll(parent_tree_type, {"uuid" : parent_tree_uuid})
-                if len(results) == 0:
-                    # Found 0 results, initial state is not ready yet so we ignore
-                    pass
-                elif len(results) == 1:
-                    child_soup =  next(BeautifulSoup(update_data[3], "lxml").find("body").children)
-                    if index_in_parent_childs == -1:
-                        results[0].append(child_soup)
-                    else:
-                        results[0].insert(index_in_parent_childs, child_soup)
-
-                    # If the new child added is of type sound, add all corresponding sound samples to the sound usage log
-                    if child_soup.name == "sound":
-                        for sound_sample_element in child_soup.findAll("sound_sample"):
-                            log_sound_used(sound_sample_element)
-
-                    # Call method for possible callbacks after state is updated
-                    self.on_state_update()
-                    
-                else:
-                    # Should never return more than one, request a full state as there will be sync issues
-                    if self.verbose:
-                        print('Unexpected number of results ({})'.format(len(results)))
-                    self.should_request_full_state = True
-            
-            elif update_type == "removedChild":
-                child_to_remove_tree_uuid = update_data[0]
-                child_to_remove_tree_type = update_data[1].lower()
-                results = self.state_soup.findAll(child_to_remove_tree_type, {"uuid" : child_to_remove_tree_uuid})
-                if len(results) == 0:
-                    # Found 0 results, initial state is not ready yet so we ignore
-                    pass
-                elif len(results) == 1:
-                    results[0].decompose()
-                    
-                    # Call method for possible callbacks after state is updated
-                    self.on_state_update()
-                else:
-                    # Should never return more than one, request a full state as there will be sync issues
-                    if self.verbose:
-                        print('Unexpected number of results ({})'.format(len(results)))
-                    self.should_request_full_state = True
-            
-            # Check if update ID is correct and trigger request of full state if there are possible sync errors
-            if self.last_update_id != -1 and self.last_update_id + 1 != update_id:
-                self.should_request_full_state = True
-            self.last_update_id = update_id
-
-            
-
+        # Check if update ID is correct and trigger request of full state if there are possible sync errors
+        if self.last_update_id != -1 and self.last_update_id + 1 != update_id:
+            self.should_request_full_state = True
+        self.last_update_id = update_id
+    
     def on_state_update(self, soup_object=None):
         pass
 
-    def on_full_state_received(self):
+    def on_full_state_received(self, full_state_soup):
         pass
 
 
@@ -508,8 +424,11 @@ class Session(BaseShepherdClass):
         self.tracks = []
         super().__init__(*args, **kwargs)
 
-    def add_track(self, track):
-        self.tracks.append(track)
+    def add_track(self, track, position=None):
+        if position is None:
+            self.tracks.append(track)
+        else:
+            self.tracks.insert(position, track)
 
     def render_object_attributes(self, obj, num_spaces_offset=0):
         text = ''
@@ -572,8 +491,11 @@ class Track(BaseShepherdClass):
         self.clips = []
         super().__init__(*args, **kwargs)
 
-    def add_clip(self, clip):
-        self.clips.append(clip)
+    def add_clip(self, clip, position=None):
+        if position is None:
+            self.clips.append(clip)
+        else:
+            self.clips.insert(position, clip)
 
     def set_input_monitoring(self, enabled):
         self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
@@ -591,8 +513,11 @@ class Clip(BaseShepherdClass):
         del kwargs['owning_track']
         super().__init__(*args, **kwargs)
 
-    def add_sequence_event(self, sequence_event):
-        self.sequence_events.append(sequence_event)
+    def add_sequence_event(self, sequence_event, position=None):
+        if position is None:
+            self.sequence_events.append(sequence_event)
+        else:
+            self.sequence_events.insert(position, sequence_event)
 
     def play_stop(self):
         self.send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
@@ -727,53 +652,112 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
     elements_uuids_map = {}
     showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface (see on_state_update below)
 
+    def __init__(self, *args, **kwargs):
+        self.clip = kwargs['owning_clip']  # Save a reference to the owning clip
+        del kwargs['owning_clip']
+        super().__init__(*args, **kwargs)
+
     def add_element_to_uuid_map(self, element):
         self.elements_uuids_map[element.uuid] = element
+
+    def remove_element_from_uuid_map(self, uuid):
+        del self.elements_uuids_map[uuid]
 
     def get_element_with_uuid(self, uuid):
         return self.elements_uuids_map[uuid]
 
-    def on_state_update(self, soup_object=None, attribute_changed=None):
+    def on_state_update(self, update_type, update_data):
 
-        if soup_object is not None:
-            # If a soup object is passed, then only update the attributes of that object (which should exist in the current session tree)
-            session_tree_element = self.get_element_with_uuid(soup_object['uuid'])
-            if hasattr(session_tree_element, attribute_changed):
-                setattr(session_tree_element, attribute_changed, backend_value_to_python_value(attribute_changed, soup_object[attribute_changed]))
-            else:
-                raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(attribute_changed, session_tree_element.uuid))
-            # If we are trying to update an attribute that does not exist (or an element that does not exist), this will raise an error
-            # This is to be expected as we should never get here trying to update an attribute/element that does not exist
+        if self.session is None:
+            # If we don't have a session built, request new full state and ignore current state update
+            self.should_request_full_state = True
         else:
-            # If no soup object is passed, then rebuild the whole session tree
-            self.build_session()
+            if update_type == "propertyChanged":
+                tree_uuid = update_data[0]
+                try:
+                    session_tree_element = self.get_element_with_uuid(tree_uuid)
+                    property_name = update_data[2].lower()
+                    new_value = update_data[3]
+                    if hasattr(session_tree_element, property_name):
+                        setattr(session_tree_element, property_name, backend_value_to_python_value(property_name, new_value))
+                    else:
+                        raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(property_name, session_tree_element.uuid))
+                    # If we are trying to update an attribute that does not exist (or an element that does not exist), this will raise an error
+                    # This is to be expected as we should never get here trying to update an attribute/element that does not exist
 
-        # TODO: the code below is app-specific code that should not be implemented here but with some sort of property listener somehwere in app or shepherd interface
-        if attribute_changed == 'playheadpositioninbeats' or attribute_changed == 'countinplayheadpositioninbeats':
-            if self.session.doingcountin:
-                self.showing_countin_message = True
-                import math
-                self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(4 - self.session.countinplayheadpositioninbeats)))
-            else:
-                if self.showing_countin_message:
-                    self.app.clear_display_notification()
-                    self.showing_countin_message = False
+                    # TODO: the code below is app-specific code that should not be implemented here but with some sort of property listener somehwere in app or shepherd interface
+                    if property_name == 'playheadpositioninbeats' or property_name == 'countinplayheadpositioninbeats':
+                        if self.session.doingcountin:
+                            self.showing_countin_message = True
+                            import math
+                            self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(4 - self.session.countinplayheadpositioninbeats)))
+                        else:
+                            if self.showing_countin_message:
+                                self.app.clear_display_notification()
+                                self.showing_countin_message = False
+
+                except KeyError:
+                    print('WARNING: triying to update property of object that does not exist: {}'.format(update_data))
+                    self.should_request_full_state = True
+
+            elif update_type == "addedChild":
+                parent_tree_uuid = update_data[0]
+                try:
+                    session_tree_element = self.get_element_with_uuid(parent_tree_uuid)
+                    index_in_parent_childs = int(update_data[2])
+                    child_soup =  next(BeautifulSoup(update_data[3], "lxml").find("body").children)
+                    if child_soup['type'] == 'TRACK':
+                        track = Track(child_soup, self)
+                        session_tree_element.add_track(track, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(track)
+                    elif child_soup['type'] == 'CLIP':
+                        clip = Clip(child_soup, self)
+                        session_tree_element.add_clip(trclipack, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(clip)
+                    elif child_soup['type'] == 'SEQUENCE_EVENT':
+                        sequence_event = SequenceEvent(child_soup, self)
+                        session_tree_element.add_sequence_event(sequence_event, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(sequence_event)
+                    else:
+                        print('WARNING: trying to add child of a type that can\'t be handled: {}'.format(child_soup))
+
+                except KeyError:
+                    print('WARNING: triying to add child to parent that does not exist: {}'.format(update_data))
+                    self.should_request_full_state = True
+            
+            elif update_type == "removedChild":
+                child_to_remove_tree_uuid = update_data[0]
+                try:
+                    session_tree_element = self.get_element_with_uuid(child_to_remove_tree_uuid)
+                    if session_tree_element['type'] == 'TRACK':
+                        self.session.remove_track(XXX)
+                    elif session_tree_element['type'] == 'CLIP':
+                        session_tree_element.track.remove_clip(XXX)
+                    elif child_soup['type'] == 'SEQUENCE_EVENT':
+                        session_tree_element.clip.remove_sequence_element(XXX)
+                    else:
+                        print('WARNING: Trying to remove element of a type that can\'t be handled: {}'.format(session_tree_element))
+                    
+                    self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
+                except KeyError:
+                    print('WARNING: triying to remove child with uuid that does not exist: {}'.format(update_data))
+                    self.should_request_full_state = True
 
         # Trigger re-activation of modes in case pads need to be updated
         # TODO: this should be optimized, and the different modes should "subscribe" to object changes so they know when they need to update
         if self.app.shepherd_interface is not None:
             self.app.shepherd_interface.reactivate_modes()
 
-    def on_full_state_received(self):
-        self.build_session()
+    def on_full_state_received(self, full_state_soup):
+        self.build_session(full_state_soup)
 
         # Trigger re-activation of modes in case pads need to be updated
         if self.app.shepherd_interface is not None:
             self.app.shepherd_interface.receive_shepherd_ready()
 
-    def build_session(self):
+    def build_session(self, full_state_soup):
         self.elements_uuids_map = {}
-        session_soup = self.state_soup.findAll("session")[0]
+        session_soup = full_state_soup.findAll("session")[0]
         session = Session(session_soup, self)
         self.add_element_to_uuid_map(session)
         for track_soup in session_soup.findAll("track"):
@@ -783,7 +767,7 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
                 clip = Clip(clip_soup, self, owning_track=track)
                 self.add_element_to_uuid_map(clip)
                 for sequence_event_soup in clip_soup.findAll("sequence_event"):
-                    sequence_event = SequenceEvent(sequence_event_soup, self)
+                    sequence_event = SequenceEvent(sequence_event_soup, self, owning_clip=clip)
                     clip.add_sequence_event(sequence_event)
                     self.add_element_to_uuid_map(sequence_event)
                 track.add_clip(clip)
