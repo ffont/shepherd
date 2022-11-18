@@ -44,7 +44,7 @@ if USE_STATE_DEBUGGER:
 
     @state_debugger_server.route('/')
     def state_debugger():
-        if sss_instance is None or sss_instance.state_soup is None:
+        if sss_instance is None or sss_instance.session is None:
             state = 'No state has been synced yet'
         else:
             state = sss_instance.session.render_session(include_attributes=True)
@@ -334,6 +334,7 @@ class GenericStateSynchronizer(object):
 
         # Check if update ID is correct and trigger request of full state if there are possible sync errors
         if self.last_update_id != -1 and self.last_update_id + 1 != update_id:
+            print('WARNING: last_update_id does not match with recieved update ({} vs {})'.format(self.last_update_id + 1, update_id))
             self.should_request_full_state = True
         self.last_update_id = update_id
     
@@ -375,7 +376,7 @@ parameters_types = {
     'renderedendtimestamp': float,
     'renderedstarttimestamp': float,
     'timestamp': float,
-    'type': int, # SequenceEventType {midi, note}
+    'type': int, # SequenceEventType {midi=0, note=1}
     'uuid': str,
     'willplayat': float,
     'willstartrecordingat': float,
@@ -430,10 +431,13 @@ class Session(BaseShepherdClass):
         else:
             self.tracks.insert(position, track)
 
+    def remove_track_with_uuid(self, track_uuid):
+        self.tracks = [track for track in self.tracks if track.uuid != track_uuid]
+
     def render_object_attributes(self, obj, num_spaces_offset=0):
         text = ''
         for attr_name in dir(obj):
-            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer' and attr_name != 'track':
+            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer' and attr_name != 'track' and attr_name != 'clip':
                 text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(obj, attr_name))
         return text
 
@@ -497,6 +501,9 @@ class Track(BaseShepherdClass):
         else:
             self.clips.insert(position, clip)
 
+    def remove_clip_with_uuid(self, clip_uuid):
+        self.clips = [clip for clip in self.clips if clip.uuid != clip_uuid]
+
     def set_input_monitoring(self, enabled):
         self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
 
@@ -518,6 +525,9 @@ class Clip(BaseShepherdClass):
             self.sequence_events.append(sequence_event)
         else:
             self.sequence_events.insert(position, sequence_event)
+
+    def remove_sequence_event_with_uuid(self, sequence_event_uuid):
+        self.sequence_events = [sequence_event for sequence_event in self.sequence_events if sequence_event.uuid != sequence_event_uuid]
 
     def play_stop(self):
         self.send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
@@ -643,19 +653,38 @@ class Clip(BaseShepherdClass):
 
 
 class SequenceEvent(BaseShepherdClass):
-    pass
+    
+    def __init__(self, *args, **kwargs):
+        self.clip = kwargs['owning_clip']  # Save a reference to the owning clip
+        del kwargs['owning_clip']
+        super().__init__(*args, **kwargs)
 
+    def is_type_note(self):
+        return self.type == 1
+
+    def is_type_midi(self):
+        return self.type == 0
+
+    def set_timestamp(self, timestamp):
+        self.clip.edit_sequence_note_event(self.uuid, timestamp=timestamp)
+
+    def set_midi_note(self, midi_note):
+        if self.is_type_note():
+            self.clip.edit_sequence_note_event(self.uuid, midi_note=midi_note)
+
+    def set_midi_velocity(self, midi_velocity):
+        if self.is_type_note():
+            self.clip.edit_sequence_note_event(self.uuid, midi_velocity=midi_velocity)
+
+    def set_duration(self, duration):
+        if self.is_type_note():
+            self.clip.edit_sequence_note_event(self.uuid, duration=duration)
 
 class ShepherdStateSynchronizer(GenericStateSynchronizer):
 
     session = None
     elements_uuids_map = {}
     showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface (see on_state_update below)
-
-    def __init__(self, *args, **kwargs):
-        self.clip = kwargs['owning_clip']  # Save a reference to the owning clip
-        del kwargs['owning_clip']
-        super().__init__(*args, **kwargs)
 
     def add_element_to_uuid_map(self, element):
         self.elements_uuids_map[element.uuid] = element
@@ -696,8 +725,8 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
                                 self.app.clear_display_notification()
                                 self.showing_countin_message = False
 
-                except KeyError:
-                    print('WARNING: triying to update property of object that does not exist: {}'.format(update_data))
+                except KeyError as e:
+                    print('WARNING: triying to update property of object that does not exist: {} ({})'.format(update_data, e))
                     self.should_request_full_state = True
 
             elif update_type == "addedChild":
@@ -706,41 +735,41 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
                     session_tree_element = self.get_element_with_uuid(parent_tree_uuid)
                     index_in_parent_childs = int(update_data[2])
                     child_soup =  next(BeautifulSoup(update_data[3], "lxml").find("body").children)
-                    if child_soup['type'] == 'TRACK':
+                    if child_soup.name == 'TRACK'.lower():
                         track = Track(child_soup, self)
                         session_tree_element.add_track(track, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(track)
-                    elif child_soup['type'] == 'CLIP':
-                        clip = Clip(child_soup, self)
-                        session_tree_element.add_clip(trclipack, position=index_in_parent_childs)
+                    elif child_soup.name == 'CLIP'.lower():
+                        clip = Clip(child_soup, self, owning_track=session_tree_element)
+                        session_tree_element.add_clip(clip, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(clip)
-                    elif child_soup['type'] == 'SEQUENCE_EVENT':
-                        sequence_event = SequenceEvent(child_soup, self)
+                    elif child_soup.name == 'SEQUENCE_EVENT'.lower():
+                        sequence_event = SequenceEvent(child_soup, self, owning_clip=session_tree_element)
                         session_tree_element.add_sequence_event(sequence_event, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(sequence_event)
                     else:
                         print('WARNING: trying to add child of a type that can\'t be handled: {}'.format(child_soup))
 
-                except KeyError:
-                    print('WARNING: triying to add child to parent that does not exist: {}'.format(update_data))
+                except KeyError as e:
+                    print('WARNING: triying to add child to parent that does not exist: {} ({})'.format(update_data, e))
                     self.should_request_full_state = True
+                    raise e
             
             elif update_type == "removedChild":
                 child_to_remove_tree_uuid = update_data[0]
                 try:
                     session_tree_element = self.get_element_with_uuid(child_to_remove_tree_uuid)
-                    if session_tree_element['type'] == 'TRACK':
-                        self.session.remove_track(XXX)
-                    elif session_tree_element['type'] == 'CLIP':
-                        session_tree_element.track.remove_clip(XXX)
-                    elif child_soup['type'] == 'SEQUENCE_EVENT':
-                        session_tree_element.clip.remove_sequence_element(XXX)
+                    if isinstance(session_tree_element, Track):
+                        self.session.remove_track_with_uuid(child_to_remove_tree_uuid)
+                    elif isinstance(session_tree_element, Clip):
+                        session_tree_element.track.remove_clip_with_uuid(child_to_remove_tree_uuid)
+                    elif isinstance(session_tree_element, SequenceEvent):
+                        session_tree_element.clip.remove_sequence_event_with_uuid(child_to_remove_tree_uuid)
                     else:
                         print('WARNING: Trying to remove element of a type that can\'t be handled: {}'.format(session_tree_element))
-                    
                     self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
-                except KeyError:
-                    print('WARNING: triying to remove child with uuid that does not exist: {}'.format(update_data))
+                except KeyError as e:
+                    print('WARNING: triying to remove child with uuid that does not exist: {} ({})'.format(update_data, e))
                     self.should_request_full_state = True
 
         # Trigger re-activation of modes in case pads need to be updated
