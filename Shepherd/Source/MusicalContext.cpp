@@ -20,11 +20,17 @@ MusicalContext::MusicalContext(std::function<GlobalSettingsStruct()> globalSetti
 void MusicalContext::bindState()
 {
     // Bind cached values to state
+    // For variables that have a "state" version and a non-cached version, also assign the non-cached one so it is loaded from state
     statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    playheadPositionInBeats = statePlayheadPositionInBeats;
     stateIsPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
+    isPlaying = stateIsPlaying;
     stateDoingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
+    doingCountIn = stateDoingCountIn;
     stateCountInPlayheadPositionInBeats.referTo(state, IDs::countInPlayheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    countInPlayheadPositionInBeats = stateCountInPlayheadPositionInBeats;
     stateBarCount.referTo(state, IDs::barCount, nullptr, Defaults::barCount);
+    barCount = stateBarCount;
     
     bpm.referTo(state, IDs::bpm, nullptr, Defaults::bpm);
     meter.referTo(state, IDs::meter, nullptr, Defaults::meter);

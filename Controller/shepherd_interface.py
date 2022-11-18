@@ -253,7 +253,7 @@ class ShepherdInterface(object):
 
     def get_meter(self):
         if self.session:
-            self.session.meter
+            return self.session.meter
         return 0
 
     def set_meter(self, meter):

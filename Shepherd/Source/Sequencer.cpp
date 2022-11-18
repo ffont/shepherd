@@ -87,10 +87,8 @@ Sequencer::Sequencer()
     sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
     sequencerInitialized = true;
     
-    #if !RPI_BUILD
-    // Randomly create clips so that we have testing material
-    randomizeClipsNotes();
-    #endif
+    // Load first preset (if any)
+    loadSessionFromFile("0");
 }
 
 Sequencer::~Sequencer()
@@ -111,24 +109,78 @@ void Sequencer::bindState()
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
 }
 
-void Sequencer::saveCurrentSessionToFile()
+void Sequencer::saveCurrentSessionToFile(juce::String filePath)
 {
-    juce::File saveOutputFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + state.getProperty(IDs::name).toString()).withFileExtension("xml");
-    if (auto xml = std::unique_ptr<juce::XmlElement> (state.createXml()))
-        xml->writeTo(saveOutputFile);
+    juce::File outputFile;
+    if (juce::File::isAbsolutePath(filePath)){
+        // File path is an absolute path to a file where to save the session
+        outputFile = juce::File(filePath);
+    } else {
+        // File path is the name of the file only, save it in the default location
+        outputFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + filePath).withFileExtension("xml");
+    }
+    
+    // Remove things from state playhead positions, play/recording state and other things which are "voaltile"
+    juce::ValueTree savedState = state.createCopy();
+    savedState.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
+    savedState.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
+    savedState.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
+    savedState.setProperty (IDs::countInPlayheadPositionInBeats, Defaults::playheadPosition, nullptr);
+    savedState.setProperty (IDs::barCount, Defaults::barCount, nullptr);
+    for (auto t: savedState) {
+        if (t.hasType(IDs::TRACK)) {
+            for (auto c: t) {
+                if (c.hasType(IDs::CLIP)) {
+                    c.setProperty (IDs::recording, Defaults::recording, nullptr);
+                    c.setProperty (IDs::willStartRecordingAt, Defaults::willStartRecordingAt, nullptr);
+                    c.setProperty (IDs::willStopRecordingAt, Defaults::willStopRecordingAt, nullptr);
+                    c.setProperty (IDs::playing, Defaults::playing, nullptr);
+                    c.setProperty (IDs::willPlayAt, Defaults::willPlayAt, nullptr);
+                    c.setProperty (IDs::willStopAt, Defaults::willStopAt, nullptr);
+                    c.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
+                    for (auto se: c) {
+                        if (se.hasType(IDs::SEQUENCE_EVENT)) {
+                            // Do nothing...
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (auto xml = std::unique_ptr<juce::XmlElement> (savedState.createXml()))
+        xml->writeTo(outputFile);
 }
 
-void Sequencer::loadSessionFromFile(juce::String sessionName)
+void Sequencer::loadSessionFromFile(juce::String filePath)
 {
-    // TODO: This should be run when the RT thread is not trying to access state or objects, we should use some sort of flag to prevent that
-    juce::File filePath = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + sessionName).withFileExtension("xml");
-    if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (filePath))){
-        juce::ValueTree loadedState = juce::ValueTree::fromXml (*xml);
-        // TODO: remove things like playhead positions, play/recording state and other things which are "voaltile"
-        state = loadedState;
-        bindState();
+    juce::File sessionFile;
+    if (juce::File::isAbsolutePath(filePath)){
+        // File path is an absolute path to a file where to save the session
+        sessionFile = juce::File(filePath);
+    } else {
+        // File path is the name of the file only, save it in the default location
+        sessionFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + filePath).withFileExtension("xml");
     }
-    initializeTracks();
+    if (sessionFile.existsAsFile()){
+        if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (sessionFile))){
+            // Stop playback (give some sleep time so the RT thread has time to be executed and clips set to stop (with note offs sent)
+            if (musicalContext->playheadIsPlaying()){ shouldToggleIsPlaying = true; }
+            juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
+
+            juce::ValueTree loadedState = juce::ValueTree::fromXml (*xml);  // Load new state into VT
+            state.removeListener(this);  // Remove existing state VT listener
+            state = loadedState; // Then set the new state
+            
+            // Then bind the state and init corresponding objects
+            bindState();
+            musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
+            initializeTracks();
+            
+            // Notify controller
+            sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));
+        }
+    }
 }
 
 juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
@@ -607,7 +659,6 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     int sliceNumSamples = bufferToFill.numSamples;
     
     // 2) -------------------------------------------------------------------------------------------------
-    
     if (!sequencerInitialized){
         return;
     }
@@ -1205,7 +1256,17 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
         }
         
     } else if (action.startsWith(ACTION_ADDRESS_SETTINGS)) {
-        if (action == ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
+        if (action == ACTION_ADDRESS_SETTINGS_LOAD_SESSION) {
+            jassert(parameters.size() == 1);
+            juce::String filePath = parameters[0];
+            loadSessionFromFile(filePath);
+            
+        } else if (action == ACTION_ADDRESS_SETTINGS_SAVE_SESSION){
+            jassert(parameters.size() == 1);
+            juce::String filePath = parameters[0];
+            saveCurrentSessionToFile(filePath);
+            
+        } else if (action == ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
             jassert(parameters.size() == 64);
             for (int i=0; i<64; i++){
                 pushPadsNoteMapping[i] = parameters[i].getIntValue();
@@ -1352,41 +1413,4 @@ void Sequencer::valueTreeParentChanged (juce::ValueTree& treeWhoseParentHasChang
 
 void Sequencer::debugState() {
     DBG(state.toXmlString());
-}
-
-void Sequencer::randomizeClipsNotes() {
-    for (auto track: tracks->objects){
-        if (track->isEnabled()){
-            for (int i=0; i<MAX_NUM_SCENES; i++){
-                auto clip = track->getClipAt(i);
-                
-                // First remove all notes from clip
-                for (int j=0; j<clip->state.getNumChildren(); j++){
-                    auto child = clip->state.getChild(j);
-                    if (child.hasType (IDs::SEQUENCE_EVENT)){
-                        clip->state.removeChild(child, nullptr);
-                    }
-                    clip->setClipLength(0.0); // This will trigger stopping the clip
-                }
-                
-                // Then for 50% of the clips, add new random content
-                if (juce::Random::getSystemRandom().nextInt (juce::Range<int> (0, 10)) > 5){
-                    double clipLengthInBeats = (double)juce::Random::getSystemRandom().nextInt (juce::Range<int> (5, 13));
-                    clip->setClipLength(clipLengthInBeats);
-                    std::vector<std::pair<int, float>> noteOnTimes = {};
-                    for (int j=0; j<clipLengthInBeats - 0.5; j++){
-                        noteOnTimes.push_back({j, juce::Random::getSystemRandom().nextFloat() * 0.5});
-                    };
-                    for (auto note: noteOnTimes) {
-                        // NOTE: don't care about the channel here because it is re-written when filling midi buffer
-                        int midiNote = juce::Random::getSystemRandom().nextInt (juce::Range<int> (64, 85));
-                        float midiVelocity = 1.0f;
-                        double timestamp = note.first + note.second;
-                        double duration = juce::Random::getSystemRandom().nextFloat() * 1.5;
-                        clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
-                    }
-                }
-            }
-        }
-    }
 }

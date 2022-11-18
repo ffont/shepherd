@@ -19,7 +19,9 @@ class SettingsMode(definitions.ShepherdControllerMode):
     # - Velocity curve
     # - Channel aftertouch range
 
-    # MIDI settings
+    # Various settings
+    # - Save session
+    # - Load session
     # - Rerun MIDI initial configuration
 
     # About panel
@@ -33,6 +35,9 @@ class SettingsMode(definitions.ShepherdControllerMode):
     current_page = 0
     n_pages = 3
     encoders_state = {}
+
+    current_preset_save_number = 0
+    current_preset_load_number = 0
 
     buttons_used = [
         push2_python.constants.BUTTON_UPPER_ROW_1,
@@ -61,7 +66,6 @@ class SettingsMode(definitions.ShepherdControllerMode):
             }
 
     def activate(self):
-        self.current_page = 0
         self.update_buttons()
 
     def deactivate(self):
@@ -85,10 +89,10 @@ class SettingsMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
 
-        elif self.current_page == 1: # MIDI settings
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.GREEN, animation=definitions.DEFAULT_ANIMATION)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.OFF_BTN_COLOR)
-            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.OFF_BTN_COLOR)
+        elif self.current_page == 1: # Various settings
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.GREEN, animation=definitions.DEFAULT_ANIMATION)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.OFF_BTN_COLOR)
@@ -157,8 +161,14 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     show_title(ctx, part_x, h, 'pAT CURVE')
                     show_value(ctx, part_x, h, self.app.melodic_mode.poly_at_curve_bending, color)
 
-            elif self.current_page == 1:  # MIDI settings
-                if i == 0:  # Re-send MIDI connection established (to push, not MIDI in/out device)
+            elif self.current_page == 1:  # Various settings
+                if i == 0:  # Save session
+                    show_title(ctx, part_x, h, 'SAVE SESSION')
+                    show_value(ctx, part_x, h, self.current_preset_save_number, color)
+                if i == 1:  # Load session
+                    show_title(ctx, part_x, h, 'LOAD SESSION')
+                    show_value(ctx, part_x, h, self.current_preset_load_number, color)
+                if i == 2:  # Re-send MIDI connection established (to push, not MIDI in/out device)
                     show_title(ctx, part_x, h, 'RESET MIDI')
 
             elif self.current_page == 2:  # About
@@ -247,8 +257,16 @@ class SettingsMode(definitions.ShepherdControllerMode):
             elif encoder_name == push2_python.constants.ENCODER_TRACK6_ENCODER:
                 self.app.melodic_mode.set_poly_at_curve_bending(self.app.melodic_mode.poly_at_curve_bending + increment)
 
-        elif self.current_page == 2:  # About
-            pass
+        elif self.current_page == 1:  # Various settings
+            if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
+                self.current_preset_save_number += increment
+                if self.current_preset_save_number < 0:
+                    self.current_preset_save_number = 0
+
+            elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
+                self.current_preset_load_number += increment
+                if self.current_preset_load_number < 0:
+                    self.current_preset_load_number = 0
 
         return True  # Always return True because encoder should not be used in any other mode if this is first active
 
@@ -268,8 +286,16 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 self.app.melodic_mode.set_lumi_pressure_mode()
                 return True
 
-        elif self.current_page == 1:  # MIDI settings
+        elif self.current_page == 1:  # Various settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
+                self.app.shepherd_interface.session.save(str(self.current_preset_save_number))
+                self.app.add_display_notification("Saved session in slot: {}".format(self.current_preset_save_number))
+                return True
+            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_2:
+                self.app.shepherd_interface.session.load(str(self.current_preset_load_number))
+                self.app.add_display_notification("Loaded session from slot: {}".format(self.current_preset_load_number))
+                return True
+            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
                 self.app.on_midi_push_connection_established()
                 return True
 

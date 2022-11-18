@@ -44,14 +44,6 @@ public:
         debugStateButton.setButtonText("Debug state");
         addAndMakeVisible (debugStateButton);
         
-        randomizeClipsContentButton.onClick = [this] {
-            if (sequencer != nullptr){
-                sequencer->randomizeClipsNotes();
-            }
-        };
-        randomizeClipsContentButton.setButtonText("Randomize clips notes");
-        addAndMakeVisible (randomizeClipsContentButton);
-        
         addAndMakeVisible(browser);
         browser.goToURL(DEV_UI_SIMULATOR_URL);
         
@@ -79,7 +71,6 @@ public:
         reloadBrowserButton.setBounds(5, 5, 70, 20);
         toggleStateVisualizer.setBounds(80, 5, 120, 20);
         debugStateButton.setBounds(205, 5, 80, 20);
-        randomizeClipsContentButton.setBounds(290, 5, 120, 20);
         browser.setBounds(0, 30, browserWidth, browserHeight);
         setSize(browserWidth, 30 + browserHeight);
         if (finishedInitialization){
@@ -99,7 +90,6 @@ private:
     juce::WebBrowserComponent browser;
     juce::TextButton debugStateButton;
     juce::TextButton reloadBrowserButton;
-    juce::TextButton randomizeClipsContentButton;
     juce::TextButton toggleStateVisualizer;
     
     Sequencer* sequencer;

@@ -8,6 +8,7 @@ import sys
 import ssl
 import traceback
 import json
+import math
 
 # If USE_WEBSOCKETS is set to True, WebSockets will be used to communicate with 
 # app, otherwise OSC will be used
@@ -463,6 +464,12 @@ class Session(BaseShepherdClass):
     def pprint(self, include_attributes=False):
         print(self.render_session(include_attributes=include_attributes))
 
+    def save(self, save_session_name):
+        self.send_msg_to_app('/settings/save', [save_session_name])
+
+    def load(self, load_session_name):
+        self.send_msg_to_app('/settings/load', [load_session_name])
+
     def scene_play(self, scene_number):
         self.send_msg_to_app('/scene/play', [scene_number])
 
@@ -718,7 +725,6 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
                     if property_name == 'playheadpositioninbeats' or property_name == 'countinplayheadpositioninbeats':
                         if self.session.doingcountin:
                             self.showing_countin_message = True
-                            import math
                             self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(4 - self.session.countinplayheadpositioninbeats)))
                         else:
                             if self.showing_countin_message:

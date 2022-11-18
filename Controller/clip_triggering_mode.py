@@ -94,13 +94,13 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     background_color = track_color
                     font_color = track_color + '_darker1'
                     if clip_length > 0.0:
-                        position_percentage = playhead_position/clip_length
+                        position_percentage = min(playhead_position, clip_length)/clip_length
                     else:
                         position_percentage = 0.0
                     if clip_length > 0.0:
                         text = '{:.1f}\n({})'.format(playhead_position, clip_length)
                     else:
-                        text = '{}'.format(playhead_position)
+                        text = '{:.1f}'.format(playhead_position)
                     show_text(ctx, track_num, y, text, height=height, font_color=font_color, background_color=background_color,
                             font_size_percentage=0.35 if num_clips > 1 else 0.2, rectangle_width_percentage=position_percentage, center_horizontally=True)
                     

@@ -55,6 +55,7 @@ public:
     
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
+    void stopAsyncTimer(){stopTimer();};
     
     void prepareSlice();
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages);
@@ -246,7 +247,7 @@ private:
     Fifo<ClipSequence::Ptr, 20> clipSequenceObjectsFifo;
     ReleasePool<ClipSequence> clipSequenceObjectsReleasePool; // ReleasePool<ClipSequence::Ptr> ?
     ClipSequence::Ptr clipSequenceForRTThread = new ClipSequence();
-    bool sequenceNeedsUpdate = false;
+    bool sequenceNeedsUpdate = true;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Clip)
 };
@@ -288,6 +289,7 @@ struct ClipList: public drow::ValueTreeObjectList<Clip>
 
     void deleteObject (Clip* c) override
     {
+        c->stopAsyncTimer();
         delete c;
     }
 

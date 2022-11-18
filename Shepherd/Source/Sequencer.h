@@ -68,7 +68,6 @@ public:
     
     // Some public functions used for testing
     void debugState();
-    void randomizeClipsNotes();
     
     // Public method for receiving WS messages
     void wsMessageReceived  (const juce::String& serializedMessage);
@@ -89,8 +88,8 @@ private:
     bool sequencerInitialized = false;
     
     // Save/load
-    void saveCurrentSessionToFile();
-    void loadSessionFromFile(juce::String fileName);
+    void saveCurrentSessionToFile(juce::String filePath);
+    void loadSessionFromFile(juce::String filePath);
     
     // Communication with controller
     WebSocketsServer wsServer;

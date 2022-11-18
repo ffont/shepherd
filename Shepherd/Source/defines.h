@@ -58,6 +58,8 @@
 #define ACTION_ADDRESS_METRONOME_ON_OFF "/metronome/onOff"
 
 #define ACTION_ADDRESS_SETTINGS "/settings"
+#define ACTION_ADDRESS_SETTINGS_LOAD_SESSION "/settings/load"
+#define ACTION_ADDRESS_SETTINGS_SAVE_SESSION "/settings/save"
 #define ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
 #define ACTION_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
 #define ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"

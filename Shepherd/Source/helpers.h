@@ -76,11 +76,9 @@ namespace Helpers
                 c.setProperty (IDs::recording, Defaults::recording, nullptr);
                 c.setProperty (IDs::willStartRecordingAt, Defaults::willStartRecordingAt, nullptr);
                 c.setProperty (IDs::willStopRecordingAt, Defaults::willStopRecordingAt, nullptr);
-                
                 c.setProperty (IDs::playing, Defaults::playing, nullptr);
                 c.setProperty (IDs::willPlayAt, Defaults::willPlayAt, nullptr);
                 c.setProperty (IDs::willStopAt, Defaults::willStopAt, nullptr);
-                
                 c.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
 
                 t.addChild (c, -1, nullptr);

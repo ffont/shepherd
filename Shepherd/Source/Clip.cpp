@@ -45,10 +45,15 @@ void Clip::bindState()
     clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
     wrapEventsAcrossClipLoop.referTo(state, IDs::wrapEventsAcrossClipLoop, nullptr, Defaults::wrapEventsAcrossClipLoop);
     
-    stateCurrentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, Defaults::currentQuantizationStep);
+    // For variables that have a "state" version and a non-cached version, also assign the non-cached one so it is loaded from state
+    stateCurrentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, state.getProperty(IDs::currentQuantizationStep));
+    currentQuantizationStep = stateCurrentQuantizationStep;
     stateWillStartRecordingAt.referTo(state, IDs::willStartRecordingAt, nullptr, Defaults::willStartRecordingAt);
+    willStartRecordingAt = stateWillStartRecordingAt;
     stateWillStopRecordingAt.referTo(state, IDs::willStopRecordingAt, nullptr, Defaults::willStopRecordingAt);
+    willStopRecordingAt = stateWillStopRecordingAt;
     stateRecording.referTo(state, IDs::recording, nullptr, Defaults::recording);
+    recording = stateRecording;
     
     state.addListener(this);
 }
@@ -71,11 +76,11 @@ void Clip::updateStateMemberVersions()
 }
 
 void Clip::timerCallback(){
-    
+        
     // Add pending recorded notes to the sequence
     addRecordedNotesToSequence();
     
-    // Update clip length if requested from the processSlice methof (in the RT thread)
+    // Update clip length if requested from the processSlice method (in the RT thread)
     if (shouldUpdateClipLenthInTimerTo > -1.0){
         if (hasZeroLength() && hasSequenceEvents()){
             setClipLength(shouldUpdateClipLenthInTimerTo);
@@ -507,7 +512,7 @@ void Clip::prepareSlice()
     ClipSequence::Ptr t;
     while( clipSequenceObjectsFifo.pull(t) ) { ; }
     if( t != nullptr )
-          clipSequenceForRTThread = t;
+        clipSequenceForRTThread = t;
 }
 
 /** Process the current slice of the global playhead to tigger notes that this clip should be playing (if any) and/or record incoming notes to the clip recording sequence (if any).
