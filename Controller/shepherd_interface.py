@@ -43,7 +43,10 @@ class ShepherdInterface(object):
         #self.app.notes_midi_in = None # This used to be here in previous controller implementation, not sure if it is needed
 
     def receive_midi_cc_values_for_device(self, *values):
-        device_name = values[0].decode("utf-8")        
+        try:
+            device_name = values[0].decode("utf-8")        
+        except AttributeError:
+            device_name = values[0]
         if 'devices' not in self.parsed_state:
             self.parsed_state['devices'] = {}
         if device_name not in self.parsed_state['devices']:

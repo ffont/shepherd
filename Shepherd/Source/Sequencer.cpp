@@ -50,8 +50,12 @@ Sequencer::Sequencer()
     notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
     
     // Init OSC and WebSockets
+#if ENABLE_SYNC_STATE_WITH_OSC
     initializeOSC();
+#endif
+#if ENABLE_SYNC_STATE_WITH_WS
     initializeWS();
+#endif
     
     // Init sine synth with 16 voices (used for testig purposes only)
     #if !RPI_BUILD
@@ -80,9 +84,7 @@ Sequencer::Sequencer()
     initializeTracks();
     
     // Send OSC message to frontend indiating that Shepherd is ready to rock
-    juce::OSCMessage message = juce::OSCMessage(OSC_ADDRESS_SHEPHERD_READY);
-    sendOscMessage(message);
-    sendOscMessage(juce::OSCMessage("/app_started"));  // For new state synchroniser
+    sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
     sequencerInitialized = true;
     
     #if !RPI_BUILD
@@ -129,11 +131,6 @@ void Sequencer::loadSessionFromFile(juce::String sessionName)
     initializeTracks();
 }
 
-void Sequencer::initializeWS() {
-    wsServer.setSequencerPointer(this);
-    wsServer.startThread(0);
-}
-
 juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
 {
     juce::String actionName = message.getAddressPattern().toString();
@@ -164,6 +161,58 @@ void Sequencer::sendWSMessage(const juce::OSCMessage& message) {
     }
 }
 
+void Sequencer::sendOscMessage (const juce::OSCMessage& message)
+{
+    if (!oscSenderIsConnected){
+        if (oscSender.connect (oscSendHost, oscSendPort)){
+            oscSenderIsConnected = true;
+        }
+    }
+    if (oscSenderIsConnected){
+        bool success = oscSender.send (message);
+    }
+}
+
+void Sequencer::sendMessageToController(const juce::OSCMessage& message) {
+#if ENABLE_SYNC_STATE_WITH_OSC
+    sendOscMessage(message);
+#endif
+    
+#if ENABLE_SYNC_STATE_WITH_WS
+    sendWSMessage(message);
+#endif
+}
+
+void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
+{
+    juce::String action = message.getAddressPattern().toString();
+    juce::StringArray actionParameters = {};
+    for (int i=0; i<message.size(); i++){
+        if (message[i].isString()){
+            actionParameters.add(message[i].getString());
+        } else if (message[i].isInt32()){
+            actionParameters.add((juce::String)message[i].getInt32());
+        } else if (message[i].isFloat32()){
+            actionParameters.add((juce::String)message[i].getFloat32());
+        }
+    }
+    processMessageFromController(action, actionParameters);
+}
+
+void Sequencer::wsMessageReceived (const juce::String& serializedMessage)
+{
+    juce::String action = serializedMessage.substring(0, serializedMessage.indexOf(":"));
+    juce::String serializedParameters = serializedMessage.substring(serializedMessage.indexOf(":") + 1);
+    juce::StringArray actionParameters;
+    actionParameters.addTokens (serializedParameters, (juce::String)SERIALIZATION_SEPARATOR, "");
+    processMessageFromController(action, actionParameters);
+}
+
+void Sequencer::initializeWS() {
+    wsServer.setSequencerPointer(this);
+    wsServer.startThread(0);
+}
+
 void Sequencer::initializeOSC()
 {
     // Setup OSC server
@@ -176,7 +225,6 @@ void Sequencer::initializeOSC()
         addListener (this);
     }
 }
-
 
 bool Sequencer::midiDeviceAlreadyInitialized(const juce::String& deviceName)
 {
@@ -430,7 +478,7 @@ void Sequencer::initializeHardwareDevices()
                     HardwareDevice* device = new HardwareDevice(name,
                                                                 shortName,
                                                                 [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                                [this](const juce::OSCMessage &message){sendOscMessage(message);},
+                                                                [this](const juce::OSCMessage &message){sendMessageToController(message);},
                                                                 [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
                                                                 );
                     device->configureMidiOutput(midiDeviceName, midiChannel);
@@ -454,7 +502,7 @@ void Sequencer::initializeHardwareDevices()
             HardwareDevice* device = new HardwareDevice(name,
                                                         shortName,
                                                         [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                        [this](const juce::OSCMessage &message){sendOscMessage(message);},
+                                                        [this](const juce::OSCMessage &message){sendMessageToController(message);},
                                                         [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
                                                         );
             device->configureMidiOutput(synthsMidiOut, i + 1);
@@ -883,13 +931,15 @@ void Sequencer::timerCallback()
     // Update musical context stateX members
     musicalContext->updateStateMemberVersions();
     
+#if ENABLE_SYNC_STATE_WITH_OSC
     // If syncing the state wia OSC, we send "/alive" messages as these are used to determine if the app is up and running
     if ((juce::Time::getMillisecondCounterHiRes() - lastTimeIsAliveWasSent) > 1000.0){
         // Every second send "alive" message
-        juce::OSCMessage message = juce::OSCMessage("/alive");
+        juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_ALIVE_MESSAGE);
         sendOscMessage(message);
         lastTimeIsAliveWasSent = juce::Time::getMillisecondCounterHiRes();
     }
+#endif
 }
 
 //==============================================================================
@@ -919,37 +969,10 @@ void Sequencer::duplicateScene(int sceneN)
 }
 
 //==============================================================================
-void Sequencer::sendOscMessage (const juce::OSCMessage& message)
-{
-    if (!oscSenderIsConnected){
-        if (oscSender.connect (oscSendHost, oscSendPort)){
-            oscSenderIsConnected = true;
-        }
-    }
-    if (oscSenderIsConnected){
-        bool success = oscSender.send (message);
-    }
-}
 
-void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
+void Sequencer::processMessageFromController (const juce::String action, juce::StringArray parameters)
 {
-    juce::String action = message.getAddressPattern().toString();
-    juce::StringArray actionParameters = {};
-    for (int i=0; i<message.size(); i++){
-        if (message[i].isString()){
-            actionParameters.add(message[i].getString());
-        } else if (message[i].isInt32()){
-            actionParameters.add((juce::String)message[i].getInt32());
-        } else if (message[i].isFloat32()){
-            actionParameters.add((juce::String)message[i].getFloat32());
-        }
-    }
-    processActionMessage(action, actionParameters);
-}
-
-void Sequencer::processActionMessage (const juce::String action, juce::StringArray parameters)
-{
-    if (action.startsWith(OSC_ADDRESS_CLIP)) {
+    if (action.startsWith(ACTION_ADDRESS_CLIP)) {
         jassert(parameters.size() >= 2);
         juce::String trackUUID = parameters[0];
         juce::String clipUUID = parameters[1];
@@ -957,36 +980,36 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
         if (track != nullptr){
             auto* clip = track->getClipWithUUID(clipUUID);
             if (clip != nullptr){
-                if (action == OSC_ADDRESS_CLIP_PLAY){
+                if (action == ACTION_ADDRESS_CLIP_PLAY){
                     if (!clip->isPlaying()){
                         track->stopAllPlayingClipsExceptFor(clipUUID, false, true, false);
                         clip->togglePlayStop();
                     }
-                } else if (action == OSC_ADDRESS_CLIP_STOP){
+                } else if (action == ACTION_ADDRESS_CLIP_STOP){
                     if (clip->isPlaying()){
                         clip->togglePlayStop();
                     }
-                } else if (action == OSC_ADDRESS_CLIP_PLAY_STOP){
+                } else if (action == ACTION_ADDRESS_CLIP_PLAY_STOP){
                     if (!clip->isPlaying()){
                         track->stopAllPlayingClipsExceptFor(clipUUID, false, true, false);
                     }
                     clip->togglePlayStop();
-                } else if (action == OSC_ADDRESS_CLIP_RECORD_ON_OFF){
+                } else if (action == ACTION_ADDRESS_CLIP_RECORD_ON_OFF){
                     if (!clip->isPlaying()){
                         track->stopAllPlayingClipsExceptFor(clipUUID, false, true, false);
                     }
                     clip->toggleRecord();
-                } else if (action == OSC_ADDRESS_CLIP_CLEAR){
+                } else if (action == ACTION_ADDRESS_CLIP_CLEAR){
                     clip->clearClip();
-                } else if (action == OSC_ADDRESS_CLIP_DOUBLE){
+                } else if (action == ACTION_ADDRESS_CLIP_DOUBLE){
                     clip->doubleSequence();
-                } else if (action == OSC_ADDRESS_CLIP_UNDO){
+                } else if (action == ACTION_ADDRESS_CLIP_UNDO){
                     clip->undo();
-                } else if (action == OSC_ADDRESS_CLIP_QUANTIZE){
+                } else if (action == ACTION_ADDRESS_CLIP_QUANTIZE){
                     jassert(parameters.size() == 3);
                     double quantizationStep = (double)parameters[2].getFloatValue();
                     clip->quantizeSequence(quantizationStep);
-                } else if (action == OSC_ADDRESS_CLIP_SET_LENGTH){
+                } else if (action == ACTION_ADDRESS_CLIP_SET_LENGTH){
                     jassert(parameters.size() == 3);
                     double newLength = (double)parameters[2].getFloatValue();
                     clip->setClipLength(newLength);
@@ -994,37 +1017,37 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
             }
         }
         
-    } else if (action.startsWith(OSC_ADDRESS_TRACK)) {
+    } else if (action.startsWith(ACTION_ADDRESS_TRACK)) {
         jassert(parameters.size() >= 1);
         juce::String trackUUID = parameters[0];
         auto* track = getTrackWithUUID(trackUUID);
         if (track != nullptr){
-            if (action == OSC_ADDRESS_TRACK_SET_INPUT_MONITORING){
+            if (action == ACTION_ADDRESS_TRACK_SET_INPUT_MONITORING){
                 jassert(parameters.size() == 2);
                 bool trueFalse = parameters[1].getIntValue() == 1;
                 track->setInputMonitoring(trueFalse);
-            } else if (action == OSC_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK){
+            } else if (action == ACTION_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK){
                 activeUiNotesMonitoringTrack = trackUUID;
             }
         }
                
-    } else if (action.startsWith(OSC_ADDRESS_DEVICE)) {
+    } else if (action.startsWith(ACTION_ADDRESS_DEVICE)) {
         jassert(parameters.size() >= 1);
         juce::String deviceName = parameters[0];
         auto device = getHardwareDeviceByName(deviceName);
         if (device == nullptr) return;
-        if (action == OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE){
+        if (action == ACTION_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE){
              device->sendAllNotesOff();
-        } else if (action == OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
+        } else if (action == ACTION_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
             jassert(parameters.size() == 3);
             int bank = parameters[1].getIntValue();
             int preset = parameters[2].getIntValue();
             device->loadPreset(bank, preset);
-        } else if (action == OSC_ADDRESS_DEVICE_SEND_MIDI){
+        } else if (action == ACTION_ADDRESS_DEVICE_SEND_MIDI){
             jassert(parameters.size() == 4);
             juce::MidiMessage msg = juce::MidiMessage(parameters[1].getIntValue(), parameters[2].getIntValue(), parameters[3].getIntValue());
             device->sendMidi(msg);
-        } else if (action ==  OSC_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS){
+        } else if (action ==  ACTION_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS){
             jassert(parameters.size() > 1);
             for (int i=1; i<parameters.size(); i=i+2){
                 int index = parameters[i].getIntValue();
@@ -1032,9 +1055,9 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
                 device->setMidiCCParameterValue(index, value, false);
                 // Don't notify controller about the cc value change as the change is most probably comming from the controller itself
             }
-        } else if (action ==  OSC_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS){
+        } else if (action ==  ACTION_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS){
             jassert(parameters.size() > 1);
-            juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
+            juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
             returnMessage.addString(device->getShortName());
             for (int i=1; i<parameters.size(); i++){
                 int index = parameters[i].getIntValue();
@@ -1042,20 +1065,20 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
                 returnMessage.addInt32(index);
                 returnMessage.addInt32(value);
             }
-            sendOscMessage(returnMessage);
+            sendMessageToController(returnMessage);
         }
     
-    } else if (action.startsWith(OSC_ADDRESS_SCENE)) {
+    } else if (action.startsWith(ACTION_ADDRESS_SCENE)) {
         jassert(parameters.size() == 1);
         int sceneNum = parameters[0].getIntValue();
-        if (action == OSC_ADDRESS_SCENE_PLAY){
+        if (action == ACTION_ADDRESS_SCENE_PLAY){
             playScene(sceneNum);
-        } else if (action == OSC_ADDRESS_SCENE_DUPLICATE){
+        } else if (action == ACTION_ADDRESS_SCENE_DUPLICATE){
             duplicateScene(sceneNum);
         }
          
-    } else if (action.startsWith(OSC_ADDRESS_TRANSPORT)) {
-        if (action == OSC_ADDRESS_TRANSPORT_PLAY_STOP){
+    } else if (action.startsWith(ACTION_ADDRESS_TRANSPORT)) {
+        if (action == ACTION_ADDRESS_TRANSPORT_PLAY_STOP){
             jassert(parameters.size() == 0);
             if (musicalContext->playheadIsPlaying()){
                 // If it is playing, stop it
@@ -1075,13 +1098,13 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
                     shouldToggleIsPlaying = true;
                 }
             }
-        } else if (action == OSC_ADDRESS_TRANSPORT_SET_BPM){
+        } else if (action == ACTION_ADDRESS_TRANSPORT_SET_BPM){
             jassert(parameters.size() == 1);
             float newBpm = parameters[0].getFloatValue();
             if (newBpm > 0.0 && newBpm < 400.0){
                 nextBpm = (double)newBpm;
             }
-        } else if (action == OSC_ADDRESS_TRANSPORT_SET_METER){
+        } else if (action == ACTION_ADDRESS_TRANSPORT_SET_METER){
             jassert(parameters.size() == 1);
             int newMeter = parameters[0].getIntValue();
             if (newMeter > 0 && !musicalContext->playheadIsDoingCountIn()){
@@ -1090,25 +1113,25 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
             }
         }
         
-    } else if (action.startsWith(OSC_ADDRESS_METRONOME)) {
-        if (action == OSC_ADDRESS_METRONOME_ON){
+    } else if (action.startsWith(ACTION_ADDRESS_METRONOME)) {
+        if (action == ACTION_ADDRESS_METRONOME_ON){
             jassert(parameters.size() == 0);
             musicalContext->setMetronome(true);
-        } else if (action == OSC_ADDRESS_METRONOME_OFF){
+        } else if (action == ACTION_ADDRESS_METRONOME_OFF){
             jassert(parameters.size() == 0);
             musicalContext->setMetronome(false);
-        } else if (action == OSC_ADDRESS_METRONOME_ON_OFF){
+        } else if (action == ACTION_ADDRESS_METRONOME_ON_OFF){
             jassert(parameters.size() == 0);
             musicalContext->toggleMetronome();
         }
         
-    } else if (action.startsWith(OSC_ADDRESS_SETTINGS)) {
-        if (action == OSC_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
+    } else if (action.startsWith(ACTION_ADDRESS_SETTINGS)) {
+        if (action == ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
             jassert(parameters.size() == 64);
             for (int i=0; i<64; i++){
                 pushPadsNoteMapping[i] = parameters[i].getIntValue();
             }
-        } else if (action == OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING){
+        } else if (action == ACTION_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING){
             jassert(parameters.size() == 9);
             juce::String deviceName = parameters[0];
             pushEncodersCCMappingHardwareDeviceShortName = deviceName;
@@ -1120,7 +1143,7 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
             // The Controller needs these values to display current cc parameter values on the display
             auto device = getHardwareDeviceByName(deviceName);
             if (device != nullptr){
-                juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
+                juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
                 returnMessage.addString(device->getShortName());
                 for (int i=0; i<8; i++){
                     int index = pushEncodersCCMapping[i];
@@ -1130,13 +1153,13 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
                         returnMessage.addInt32(value);
                     }
                 }
-                sendOscMessage(returnMessage);
+                sendMessageToController(returnMessage);
             }
 
-        } else if (action == OSC_ADDRESS_SETTINGS_FIXED_VELOCITY){
+        } else if (action == ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY){
             jassert(parameters.size() == 1);
             fixedVelocity = parameters[0].getIntValue();
-        } else if (action == OSC_ADDRESS_SETTINGS_FIXED_LENGTH){
+        } else if (action == ACTION_ADDRESS_SETTINGS_FIXED_LENGTH){
             jassert(parameters.size() == 1);
             fixedLengthRecordingBars = parameters[0].getIntValue();
             
@@ -1152,23 +1175,24 @@ void Sequencer::processActionMessage (const juce::String action, juce::StringArr
             }
             
             
-        } else if (action == OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
+        } else if (action == ACTION_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
             jassert(parameters.size() == 0);
             recordAutomationEnabled = !recordAutomationEnabled;
         }
         
-    } else if (action == OSC_ADDRESS_GET_STATE) {
+    } else if (action == ACTION_ADDRESS_GET_STATE) {
         jassert(parameters.size() == 1);
         juce::String stateType = parameters[0];
         if (stateType == "full"){
-            juce::OSCMessage returnMessage = juce::OSCMessage("/full_state");
+            juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_FULL_STATE);
             returnMessage.addInt32(stateUpdateID);
             returnMessage.addString(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
-            //sendOscMessage(returnMessage);
-            // OSC communication seems not to work with WS becayse state is too big, so we use WS
-            sendWSMessage(returnMessage);
+            // Note that sending full state does not work well with OSC as the state is too big, so if
+            // OSC communication is to be used, this here we should somehow split the state in several
+            // messages or find a solution
+            sendMessageToController(returnMessage);
         }
-    } else if (action == OSC_ADDRESS_SHEPHERD_CONTROLLER_READY) {
+    } else if (action == ACTION_ADDRESS_SHEPHERD_CONTROLLER_READY) {
         jassert(parameters.size() == 0);
         // Set midi in push connection to false so the method to initialize midi in is retrieggered at next timer call
         // This is to prevent issues caused by the order in which frontend and backend are started
@@ -1190,14 +1214,14 @@ void Sequencer::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasC
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     
     // Send state update to UI
-    juce::OSCMessage message = juce::OSCMessage("/state_update");
+    juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_STATE_UPDATE);
     message.addString("propertyChanged");
     message.addInt32(stateUpdateID);
     message.addString(treeWhosePropertyHasChanged[IDs::uuid].toString());
     message.addString(treeWhosePropertyHasChanged.getType().toString());
     message.addString(property.toString());
     message.addString(treeWhosePropertyHasChanged[property].toString());
-    sendOscMessage(message);
+    sendMessageToController(message);
     stateUpdateID += 1;
 }
 
@@ -1207,14 +1231,14 @@ void Sequencer::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTre
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     
     // Send state update to UI
-    juce::OSCMessage message = juce::OSCMessage("/state_update");
+    juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_STATE_UPDATE);
     message.addString("addedChild");
     message.addInt32(stateUpdateID);
     message.addString(parentTree[IDs::uuid].toString());
     message.addString(parentTree.getType().toString());
     message.addInt32(parentTree.indexOf(childWhichHasBeenAdded));
     message.addString(childWhichHasBeenAdded.toXmlString(juce::XmlElement::TextFormat().singleLine()));
-    sendOscMessage(message);
+    sendMessageToController(message);
     stateUpdateID += 1;
 }
 
@@ -1224,12 +1248,12 @@ void Sequencer::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueT
     // jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     
     // Send state update to UI
-    juce::OSCMessage message = juce::OSCMessage("/state_update");
+    juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_STATE_UPDATE);
     message.addString("removedChild");
     message.addInt32(stateUpdateID);
     message.addString(childWhichHasBeenRemoved[IDs::uuid].toString());
     message.addString(childWhichHasBeenRemoved.getType().toString());
-    sendOscMessage(message);
+    sendMessageToController(message);
     stateUpdateID += 1;
 }
 

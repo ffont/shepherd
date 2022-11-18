@@ -86,12 +86,6 @@ def full_state_handler(*values):
         sss_instance.set_full_state(update_id, new_state_raw)
 
 
-def volatile_state_string_handler(*values):
-    volatile_state_string = values[0]
-    if sss_instance is not None:
-        sss_instance.set_volatile_state_from_string(volatile_state_string)
-
-
 def osc_state_update_handler(*values):
     new_values = []
     for value in values:
@@ -110,17 +104,6 @@ def osc_full_state_handler(*values):
         else:
             new_values.append(value)
     full_state_handler(*new_values)
-
-
-def osc_volatile_state_string_handler(*values):
-    new_values = []
-    for value in values:
-        if type(value) == bytes:
-            new_values.append(str(value.decode('utf-8')))
-        else:
-            new_values.append(value)
-    volatile_state_string_handler(*new_values)
-
     
 
 class OSCReceiverThread(threading.Thread):
@@ -136,15 +119,11 @@ class OSCReceiverThread(threading.Thread):
         print('* Listening OSC messages in port {}'.format(self.port))
         osc.listen(address='0.0.0.0', port=self.port, default=True)
         osc.bind(b'/app_started', lambda: sss_instance.app_has_started())
-        osc.bind(b'/alive', lambda: sss_instance.app_is_alive())
         osc.bind(b'/state_update', osc_state_update_handler)
         osc.bind(b'/full_state', osc_full_state_handler)
-        osc.bind(b'/volatile_state_string', osc_volatile_state_string_handler)
-
-        # Legacy methods
-        osc.bind(b'/shepherdReady', lambda *values: sss_instance.app.shepherd_interface.receive_shepherd_ready())
+        osc.bind(b'/alive', lambda: sss_instance.app_is_alive())
         osc.bind(b'/midiCCParameterValuesForDevice', lambda *values: sss_instance.app.shepherd_interface.receive_midi_cc_values_for_device(*values))
-        
+    
 
 def ws_on_message(ws, message):
     if sss_instance is not None:
@@ -153,10 +132,7 @@ def ws_on_message(ws, message):
     address = message[:message.find(':')]
     data = message[message.find(':') + 1:]
     
-    if address == '/volatile_state_string':
-        volatile_state_string_handler(data)
-
-    elif address == '/app_started':
+    if address == '/app_started':
         sss_instance.app_has_started()
 
     elif address == '/state_update':
@@ -180,7 +156,16 @@ def ws_on_message(ws, message):
         full_state_raw = data_parts[1]
         args = [update_id, full_state_raw]
         full_state_handler(*args)
-    
+
+    elif address == '/alive':
+        # When using WS communication we don't need the /alive message to know the connection is alive as WS manages that
+        pass
+
+    elif address == '/midiCCParameterValuesForDevice':
+        # This is used for the midi CC mode so that it knows the current values of each of the encoders
+        data_values = data.split(';')
+        sss_instance.app.shepherd_interface.receive_midi_cc_values_for_device(*data_values)
+
 
 def ws_on_error(ws, error):
     print("* WS connection error: {}".format(error))
@@ -247,10 +232,6 @@ class RequestStateThread(threading.Thread):
         print('* Starting loop to request state')
         while True:
             time.sleep(1.0/state_request_hz)
-
-            if self.state_synchronizer.should_request_volatile_state:
-                self.state_synchronizer.request_volatile_state()
-
             if self.state_synchronizer.should_request_full_state:
                 self.state_synchronizer.request_full_state()
 
@@ -268,9 +249,6 @@ class GenericStateSynchronizer(object):
     full_state_requested = False
     last_time_full_state_requested = 0
     full_state_request_timeout = 5  # Seconds
-
-    should_request_volatile_state = False
-    volatile_state = {}
 
     state_soup = None
     app = None
@@ -290,8 +268,7 @@ class GenericStateSynchronizer(object):
         global sss_instance
         sss_instance = self
         self.verbose = verbose
-        
-        '''
+
         if not USE_WEBSOCKETS:
             print('* Using OSC to communicate with app')
 
@@ -305,29 +282,10 @@ class GenericStateSynchronizer(object):
             print('* Using WebSockets to communicate with app')
 
             # Start websockets client to handle communication with app
-            WSConnectionThread(ws_port, self).start()
-        '''
-        # NOTE: for now use both OSC and WS at the same time.
-        # WS is only used to receive full state because sending full state
-        # over OSC does not seem to work (state too big)
-
-        print('* Using OSC to communicate with app')
-
-        # Start OSC receiver to receive OSC messages from the app
-        OSCReceiverThread(osc_port_receive, self).start()
-        
-        # Start OSC client to send OSC messages to app
-        self.osc_client = OSCClient(osc_ip, osc_port_send, encoding='utf8')
-        print('* Sending OSC messages in port {}'.format(osc_port_send))
-    
-        print('* Using WebSockets to communicate with app')
-
-        # Start websockets client to handle communication with app
         WSConnectionThread(ws_port, self).start()
 
         # Start Thread to request state to app
-        # This thread will request the volatile state and the full state
-        # if self.should_request_full_state is True
+        # This thread will request the full state if self.should_request_full_state is set to True
         RequestStateThread(self).start()
 
         # If state debugger is enabled, start  the server
@@ -369,9 +327,6 @@ class GenericStateSynchronizer(object):
             self.last_time_full_state_requested = time.time()
             self.send_msg_to_app('/get_state', ["full"])
 
-    def request_volatile_state(self):
-        self.send_msg_to_app('/get_state', ["volatileString"])
-
     def set_full_state(self, update_id, full_state_raw):
         if self.verbose:
             print("Receiving full state with update id {}".format(update_id))
@@ -384,10 +339,6 @@ class GenericStateSynchronizer(object):
 
         # Call method after ful state is received
         self.on_full_state_received()
-
-    def set_volatile_state_from_string(self, volatile_state_string):
-        # Implement in subclass if app uses volatile state
-        pass
 
     def apply_update(self, update_id, update_type, update_data):
         if self.state_soup is not None:

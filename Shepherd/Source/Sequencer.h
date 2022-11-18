@@ -70,6 +70,9 @@ public:
     void debugState();
     void randomizeClipsNotes();
     
+    // Public method for receiving WS messages
+    void wsMessageReceived  (const juce::String& serializedMessage);
+    
 protected:
     juce::ValueTree state;
     void bindState();
@@ -89,21 +92,22 @@ private:
     void saveCurrentSessionToFile();
     void loadSessionFromFile(juce::String fileName);
     
-    // OSC & WebSockets
-    void initializeWS();
-    juce::String serliaizeOSCMessage(const juce::OSCMessage& message);
-    void sendWSMessage(const juce::OSCMessage& message);
+    // Communication with controller
     WebSocketsServer wsServer;
-    void initializeOSC();
-    void oscMessageReceived (const juce::OSCMessage& message) override;
-    void processActionMessage (const juce::String action, juce::StringArray parameters);
-    void sendOscMessage (const juce::OSCMessage& message);
     juce::OSCSender oscSender;
     int oscReceivePort = OSC_BACKEND_RECEIVE_PORT;
     int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
     juce::String oscSendHost = "127.0.0.1";
     bool oscSenderIsConnected = false;
-    
+    void initializeWS();
+    void initializeOSC();
+    juce::String serliaizeOSCMessage(const juce::OSCMessage& message);
+    void sendMessageToController(const juce::OSCMessage& message);
+    void sendWSMessage(const juce::OSCMessage& message);
+    void sendOscMessage (const juce::OSCMessage& message);
+    // wsMessageReceived is defined in the public API
+    void oscMessageReceived (const juce::OSCMessage& message) override;
+    void processMessageFromController (const juce::String action, juce::StringArray parameters);
     int stateUpdateID = 0;
     double lastTimeIsAliveWasSent = 0;
     
@@ -193,7 +197,6 @@ private:
     bool renderWithInternalSynth = true;
     int nSynthVoices = 32;
     
-    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Sequencer)
 };
 
@@ -207,8 +210,7 @@ void WebSocketsServer::run()
     source_coms_endpoint.on_message = [&server, this](std::shared_ptr<WsServer::Connection> /*connection*/, std::shared_ptr<WsServer::InMessage> in_message) {
         juce::String message = juce::String(in_message->string());
         if (sequencerPtr != nullptr){
-            // TODO
-            //sequencerPtr->processActionFromSerializedMessage(message);
+            sequencerPtr->wsMessageReceived(message);
         }
     };
     

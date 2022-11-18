@@ -10,59 +10,65 @@
 
 #pragma once
 
-#define OSC_ADDRESS_TRANSPORT "/transport"
-#define OSC_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
-#define OSC_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
-#define OSC_ADDRESS_TRANSPORT_SET_METER "/transport/setMeter"
-
-#define OSC_ADDRESS_CLIP "/clip"
-#define OSC_ADDRESS_CLIP_PLAY "/clip/play"
-#define OSC_ADDRESS_CLIP_STOP "/clip/stop"
-#define OSC_ADDRESS_CLIP_PLAY_STOP "/clip/playStop"
-#define OSC_ADDRESS_CLIP_RECORD_ON_OFF "/clip/recordOnOff"
-#define OSC_ADDRESS_CLIP_CLEAR "/clip/clear"
-#define OSC_ADDRESS_CLIP_DOUBLE "/clip/double"
-#define OSC_ADDRESS_CLIP_QUANTIZE "/clip/quantize"
-#define OSC_ADDRESS_CLIP_UNDO "/clip/undo"
-#define OSC_ADDRESS_CLIP_SET_LENGTH "/clip/setLength"
-
-#define OSC_ADDRESS_TRACK "/track"
-#define OSC_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
-#define OSC_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK "/track/setActiveUiNotesMonitoringTrack"
-
-#define OSC_ADDRESS_DEVICE "/device"
-#define OSC_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"
-#define OSC_ADDRESS_DEVICE_LOAD_DEVICE_PRESET "/device/loadDevicePreset"
-#define OSC_ADDRESS_DEVICE_SEND_MIDI "/device/sendMidi"
-#define OSC_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS "/device/setMidiCCParameterValues"
-#define OSC_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS "/device/getMidiCCParameterValues"
-
-#define OSC_ADDRESS_SCENE "/scene"
-#define OSC_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
-#define OSC_ADDRESS_SCENE_PLAY "/scene/play"
-
-#define OSC_ADDRESS_METRONOME "/metronome"
-#define OSC_ADDRESS_METRONOME_ON "/metronome/on"
-#define OSC_ADDRESS_METRONOME_OFF "/metronome/off"
-#define OSC_ADDRESS_METRONOME_ON_OFF "/metronome/onOff"
-
-#define OSC_ADDRESS_SETTINGS "/settings"
-#define OSC_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
-#define OSC_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
-#define OSC_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
-#define OSC_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
-#define OSC_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"
-
-#define OSC_ADDRESS_GET_STATE "/get_state"
-
-#define OSC_ADDRESS_SHEPHERD_CONTROLLER_READY "/shepherdControllerReady"
-
-#define OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE "/midiCCParameterValuesForDevice"
-#define OSC_ADDRESS_SHEPHERD_READY "/shepherdReady"
+#define ENABLE_SYNC_STATE_WITH_OSC 0  // Using OSC does not seem to work well as full state is too big to bundle in an OSC message (?)
+#define ENABLE_SYNC_STATE_WITH_WS 1
 
 #define OSC_BACKEND_RECEIVE_PORT 9003
 #define OSC_CONRTOLLER_RECEIVE_PORT 9004
 #define WEBSOCKETS_SERVER_PORT 8125
+
+#define ACTION_ADDRESS_TRANSPORT "/transport"
+#define ACTION_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
+#define ACTION_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
+#define ACTION_ADDRESS_TRANSPORT_SET_METER "/transport/setMeter"
+
+#define ACTION_ADDRESS_CLIP "/clip"
+#define ACTION_ADDRESS_CLIP_PLAY "/clip/play"
+#define ACTION_ADDRESS_CLIP_STOP "/clip/stop"
+#define ACTION_ADDRESS_CLIP_PLAY_STOP "/clip/playStop"
+#define ACTION_ADDRESS_CLIP_RECORD_ON_OFF "/clip/recordOnOff"
+#define ACTION_ADDRESS_CLIP_CLEAR "/clip/clear"
+#define ACTION_ADDRESS_CLIP_DOUBLE "/clip/double"
+#define ACTION_ADDRESS_CLIP_QUANTIZE "/clip/quantize"
+#define ACTION_ADDRESS_CLIP_UNDO "/clip/undo"
+#define ACTION_ADDRESS_CLIP_SET_LENGTH "/clip/setLength"
+
+#define ACTION_ADDRESS_TRACK "/track"
+#define ACTION_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
+#define ACTION_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK "/track/setActiveUiNotesMonitoringTrack"
+
+#define ACTION_ADDRESS_DEVICE "/device"
+#define ACTION_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"
+#define ACTION_ADDRESS_DEVICE_LOAD_DEVICE_PRESET "/device/loadDevicePreset"
+#define ACTION_ADDRESS_DEVICE_SEND_MIDI "/device/sendMidi"
+#define ACTION_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS "/device/setMidiCCParameterValues"
+#define ACTION_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS "/device/getMidiCCParameterValues"
+
+#define ACTION_ADDRESS_SCENE "/scene"
+#define ACTION_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
+#define ACTION_ADDRESS_SCENE_PLAY "/scene/play"
+
+#define ACTION_ADDRESS_METRONOME "/metronome"
+#define ACTION_ADDRESS_METRONOME_ON "/metronome/on"
+#define ACTION_ADDRESS_METRONOME_OFF "/metronome/off"
+#define ACTION_ADDRESS_METRONOME_ON_OFF "/metronome/onOff"
+
+#define ACTION_ADDRESS_SETTINGS "/settings"
+#define ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
+#define ACTION_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
+#define ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
+#define ACTION_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
+#define ACTION_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"
+
+#define ACTION_ADDRESS_GET_STATE "/get_state"
+#define ACTION_ADDRESS_FULL_STATE "/full_state"
+#define ACTION_ADDRESS_STATE_UPDATE "/state_update"
+
+#define ACTION_ADDRESS_SHEPHERD_CONTROLLER_READY "/shepherdControllerReady"
+#define ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE "/midiCCParameterValuesForDevice"
+#define ACTION_ADDRESS_ALIVE_MESSAGE "/alive"
+#define ACTION_ADDRESS_STARTED_MESSAGE "/app_started"
+
 #define SERIALIZATION_SEPARATOR ";"
 
 #define ACTION_UPDATE_DEVUI_RELOAD_BROWSER "ACTION_UPDATE_DEVUI_RELOAD_BROWSER"

@@ -14,13 +14,13 @@
 HardwareDevice::HardwareDevice(juce::String _name,
                juce::String _shortName,
                std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
-               std::function<void(const juce::OSCMessage& message)> oscMessageSender,
+               std::function<void(const juce::OSCMessage& message)> messageSender,
                std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
 {
     name = _name;
     shortName = _shortName;
     getMidiOutputDevice = outputMidiDeviceGetter;
-    sendOscMessage = oscMessageSender;
+    sendMessageToController = messageSender;
     getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     
     for (int i=0; i<midiCCParameterValues.size(); i++){
@@ -101,11 +101,11 @@ void HardwareDevice::setMidiCCParameterValue(int index, int value, bool notifyCo
     midiCCParameterValues[index] = value;
     
     if (notifyController){
-        juce::OSCMessage returnMessage = juce::OSCMessage(OSC_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
+        juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
         returnMessage.addString(getShortName());
         returnMessage.addInt32(index);
         returnMessage.addInt32(value);
-        sendOscMessage(returnMessage);
+        sendMessageToController(returnMessage);
     }
 }
 

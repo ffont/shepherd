@@ -53,7 +53,7 @@ private:
     
     std::array<int, 128> midiCCParameterValues = {0};
     
-    std::function<void(const juce::OSCMessage& message)> sendOscMessage;
+    std::function<void(const juce::OSCMessage& message)> sendMessageToController;
     
     Fifo<juce::MidiMessage, 100> midiMessagesToRenderInBuffer;
 };
