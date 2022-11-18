@@ -39,8 +39,9 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     quantize_button = push2_python.constants.BUTTON_QUANTIZE
     undo_button = push2_python.constants.BUTTON_UNDO
     duplicate_button = push2_python.constants.BUTTON_DUPLICATE
+    clip_edit_button = push2_python.constants.BUTTON_CONVERT
 
-    buttons_used = scene_trigger_buttons + [clear_clip_button, double_clip_button, quantize_button, undo_button, duplicate_button]
+    buttons_used = scene_trigger_buttons + [clear_clip_button, double_clip_button, quantize_button, undo_button, duplicate_button, clip_edit_button]
 
     def get_playing_clips_info(self):
         """
@@ -176,6 +177,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         self.set_button_color_if_pressed(self.double_clip_button, animation=definitions.DEFAULT_ANIMATION)
         self.set_button_color_if_pressed(self.quantize_button, animation=definitions.DEFAULT_ANIMATION)
         self.set_button_color_if_pressed(self.undo_button, animation=definitions.DEFAULT_ANIMATION)
+        self.set_button_color_if_pressed(self.clip_edit_button, animation=definitions.DEFAULT_ANIMATION)
         self.set_button_color(self.duplicate_button)
 
         if not self.app.is_mode_active(self.app.settings_mode):
@@ -275,7 +277,10 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             # Toggle record on/off for that clip if record button is being pressed
             self.app.shepherd_interface.clip_record_on_off(track_num, clip_num)
             self.app.set_button_ignore_next_action_if_not_yet_triggered(self.app.main_controls_mode.record_button)
-
+        elif self.app.is_button_being_pressed(self.clip_edit_button):
+            # Activate clip edit mode
+            self.app.clip_edit_mode.selected_clip_uuid = self.app.shepherd_interface.session.tracks[track_num].clips[clip_num].uuid
+            self.app.set_clip_edit_mode()
         else:
             if self.app.is_button_being_pressed(self.clear_clip_button):
                 self.app.shepherd_interface.clip_clear(track_num, clip_num)

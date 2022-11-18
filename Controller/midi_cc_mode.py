@@ -224,7 +224,7 @@ class MIDICCMode(ShepherdControllerMode):
         self.set_button_color_if_expression(self.page_right_button, show_next)
 
     def update_display(self, ctx, w, h):
-        if not self.app.is_mode_active(self.app.settings_mode) and not self.app.is_mode_active(self.app.clip_triggering_mode):
+        if not self.app.is_mode_active(self.app.settings_mode) and not self.app.is_mode_active(self.app.clip_triggering_mode) and not self.app.is_mode_active(self.app.clip_edit_mode):
             # If settings mode is active, don't draw the upper parts of the screen because settings page will
             # "cover them"
 

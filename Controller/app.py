@@ -15,6 +15,7 @@ from collections import defaultdict
 from melodic_mode import MelodicMode
 from track_selection_mode import TrackSelectionMode
 from clip_triggering_mode import ClipTriggeringMode
+from clip_edit_mode import ClipEditgMode
 from rhythmic_mode import RhythmicMode
 from slice_notes_mode import SliceNotesMode
 from settings_mode import SettingsMode
@@ -86,6 +87,7 @@ class ShepherdControllerApp(object):
 
         self.track_selection_mode = TrackSelectionMode(self, settings=settings)
         self.clip_triggering_mode = ClipTriggeringMode(self, settings=settings)
+        self.clip_edit_mode = ClipEditgMode(self, settings=settings)
         self.preset_selection_mode = PresetSelectionMode(self, settings=settings)
         self.midi_cc_mode = MIDICCMode(self, settings=settings)  # Must be initialized after track selection mode so it gets info about loaded tracks
         self.active_modes += [self.track_selection_mode, self.midi_cc_mode]
@@ -205,6 +207,12 @@ class ShepherdControllerApp(object):
 
     def unset_clip_triggering_mode(self):
         self.unset_mode_for_xor_group(self.clip_triggering_mode)
+
+    def set_clip_edit_mode(self):
+        self.set_mode_for_xor_group(self.clip_edit_mode)
+
+    def unset_clip_edit_mode(self):
+        self.unset_mode_for_xor_group(self.clip_edit_mode)
 
     def set_preset_selection_mode(self):
         self.set_mode_for_xor_group(self.preset_selection_mode)
