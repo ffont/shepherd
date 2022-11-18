@@ -1069,8 +1069,9 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                     /*{
                        "clipLength": 6,
                        "sequenceEvents": [
-                         {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},
+                         {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},  // type 1 = note event
                          {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42},
+                         {"type": 0, "eventMidiBytes": "73,21,56", "timestamp": 2.99},  // type 0 = generic midi message
                          ...
                        ]
                     }*/
@@ -1087,10 +1088,10 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             float midiVelocity = (float)eventData["midiVelocity"];
                             double duration = (double)eventData["duration"];
                             clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
-                        } else {
-                            // TODO: implement creating events of types MIDI (and possibly others?)
-                            // use helper Helpers::createSequenceEventFromMidiMessage, and will also need
-                            // a helper to first transform from bytes passed from JSON to MidiMessage
+                        } else if ((int)eventData["type"] == SequenceEventType::midi){
+                            double timestamp = (double)eventData["timestamp"];
+                            juce::String eventMidiBytes = eventData["eventMidiBytes"].toString();
+                            clip->state.addChild(Helpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes), -1, nullptr);
                         }
                     }
                 } else if (action == ACTION_ADDRESS_CLIP_EDIT_SEQUENCE) {
@@ -1125,8 +1126,14 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             if (eventData.hasProperty("duration")) {
                                 sequenceEvent.setProperty(IDs::duration, (double)eventData["duration"], nullptr);
                             }
-                        } else {
-                            // TODO: implement editing events other than note
+                        } else if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::midi){
+                            juce::var eventData = editSequenceData["eventData"];
+                            if (eventData.hasProperty("timestamp")) {
+                                sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
+                            }
+                            if (eventData.hasProperty("eventMidiBytes")) {
+                                sequenceEvent.setProperty(IDs::eventMidiBytes, (float)eventData["eventMidiBytes"], nullptr);
+                            }
                         }
                     } else if (editAction == "addEvent") {
                         // Create new sequence event
@@ -1137,10 +1144,10 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             float midiVelocity = (float)eventData["midiVelocity"];
                             double duration = (double)eventData["duration"];
                             clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
-                        } else {
-                            // TODO: implement creating events of types MIDI (and possibly others?)
-                            // use helper Helpers::createSequenceEventFromMidiMessage, and will also need
-                            // a helper to first transform from bytes passed from JSON to MidiMessage
+                        } else if ((int)eventData["type"] == SequenceEventType::midi){
+                            double timestamp = (double)eventData["timestamp"];
+                            juce::String eventMidiBytes = eventData["eventMidiBytes"].toString();
+                            clip->state.addChild(Helpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes), -1, nullptr);
                         }
                     }
                 }

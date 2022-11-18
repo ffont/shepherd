@@ -106,6 +106,19 @@ namespace Helpers
         return sequenceEvent;
     }
 
+    inline juce::ValueTree createSequenceEventFromMidiBytesString(double timestamp, const juce::String& eventMidiBytes)
+    {
+        // eventMidiBytes = comma separated byte values, eg: 127,75,12
+        juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
+        Helpers::createUuidProperty (sequenceEvent);
+        sequenceEvent.setProperty(IDs::type, SequenceEventType::midi, nullptr);
+        sequenceEvent.setProperty(IDs::timestamp, timestamp, nullptr);
+        sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
+        sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
+        sequenceEvent.setProperty(IDs::eventMidiBytes, eventMidiBytes, nullptr);
+        return sequenceEvent;
+    }
+
     inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration)
     {
         juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};

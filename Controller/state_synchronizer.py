@@ -601,8 +601,9 @@ class Clip(BaseShepherdClass):
         {
             "clipLength": 6,
             "sequenceEvents": [
-                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},
+                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},  # type 1 = note event
                 {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42},
+                {"type": 0, "eventMidiBytes": "73,21,56", "timestamp": 2.99},  # type 0 = generic midi message
                 ...
             ]
         }
@@ -634,7 +635,7 @@ class Clip(BaseShepherdClass):
         self.edit_sequence({
             'action': 'addEvent',
             'eventData': {
-                'type': 1,  # type 1 = midi note
+                'type': 1,  # type 1 = note event
                 'midiNote': midi_note, 
                 'midiVelocity': midi_velocity,  # 0.0 to 1.0 
                 'timestamp': timestamp, 
@@ -642,7 +643,17 @@ class Clip(BaseShepherdClass):
             }, 
         })
 
-    def edit_sequence_note_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None):
+    def add_sequence_midi_event(self, eventMidiBytes, timestamp):
+        self.edit_sequence({
+            'action': 'addEvent',
+            'eventData': {
+                'type': 0,  # type 0 = midi event
+                'eventMidiBytes': midi_note, 
+                'timestamp': timestamp, 
+            }, 
+        })
+
+    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None, midi_bytes=None):
         event_data = {}
         if midi_note is not None:
             event_data['midiNote'] = midi_note
@@ -652,6 +663,8 @@ class Clip(BaseShepherdClass):
             event_data['timestamp'] = timestamp
         if duration is not None:
             event_data['duration'] = duration
+        if midi_bytes is not None:
+            event_data['eventMidiBytes'] = midi_bytes
         self.edit_sequence({
             'action': 'editEvent',
             'eventUUID': event_uuid,
@@ -673,19 +686,23 @@ class SequenceEvent(BaseShepherdClass):
         return self.type == 0
 
     def set_timestamp(self, timestamp):
-        self.clip.edit_sequence_note_event(self.uuid, timestamp=timestamp)
+        self.clip.edit_sequence_event(self.uuid, timestamp=timestamp)
 
     def set_midi_note(self, midi_note):
         if self.is_type_note():
-            self.clip.edit_sequence_note_event(self.uuid, midi_note=midi_note)
+            self.clip.edit_sequence_event(self.uuid, midi_note=midi_note)
 
     def set_midi_velocity(self, midi_velocity):
         if self.is_type_note():
-            self.clip.edit_sequence_note_event(self.uuid, midi_velocity=midi_velocity)
+            self.clip.edit_sequence_event(self.uuid, midi_velocity=midi_velocity)
 
     def set_duration(self, duration):
         if self.is_type_note():
-            self.clip.edit_sequence_note_event(self.uuid, duration=duration)
+            self.clip.edit_sequence_event(self.uuid, duration=duration)
+
+    def set_midibytes(self, midi_bytes):
+        if self.is_type_midi():
+            self.clip.edit_sequence_event(self.uuid, midi_bytes=midi_bytes)
 
 class ShepherdStateSynchronizer(GenericStateSynchronizer):
 
