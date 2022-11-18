@@ -487,25 +487,6 @@ def backend_value_to_python_value(attr_name, value):
         raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
 
 
-def python_value_to_backend_value(attr_name, value):
-    # TODO: is htis needed?
-    attr_type = parameters_types.get(attr_name, None)
-    try:
-        if attr_type == float:
-            return str(value)
-        elif attr_type == int:
-            return str(value)
-        elif attr_type == bool:
-            return '1' if value else '0'
-        elif attr_type == str:
-            return value
-        elif attr_type == None:
-            print('WARNING: don\' know how to python_value_to_backend_value parameter {} of received value type {}'.format(attr_name, type(value)))
-            return value
-    except Exception as e:
-        raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
-
-
 class BaseShepherdClass(object):
 
     def __init__(self, soup, state_synchronizer):
