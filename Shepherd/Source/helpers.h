@@ -52,14 +52,14 @@ namespace Helpers
             t.setProperty (IDs::enabled, tn < numEnabledTracks, nullptr);
             t.setProperty (IDs::order, tn, nullptr);
             t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
+            const juce::String trackName ("Track " + juce::String (tn + 1));
+            t.setProperty (IDs::name, trackName, nullptr);
+            t.setProperty (IDs::hardwareDeviceName, Defaults::emptyString, nullptr);
+
             if (tn < numEnabledTracks){
-                // Track is enabled (not deleted), add name and hardware device to it
-                const juce::String trackName ("Track " + juce::String (tn + 1));
-                t.setProperty (IDs::name, trackName, nullptr);
+                // Track is enabled (not deleted), add hardware device to it
                 if (tn < availableHardwareDeviceNames.size()){
                     t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
-                } else {
-                    t.setProperty (IDs::hardwareDeviceName, Defaults::emptyString, nullptr);
                 }
             }
             
