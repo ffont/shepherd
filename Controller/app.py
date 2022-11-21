@@ -2,6 +2,7 @@ import json
 import os
 import time
 import traceback
+import subprocess
 
 import cairo
 from push2_python.constants import BUTTON_SELECT
@@ -75,6 +76,13 @@ class ShepherdControllerApp(object):
 
         self.init_push()
         self.init_modes(settings)
+
+        run_backend_from_frontend = settings.get("run_backend_from_frontend", False)
+        if run_backend_from_frontend:
+            # If "run_backend_from_frontend" is set in settings.json as a command list to be
+            # run by subprocess, do it (e.g. ["xvfb-run", "-a", "../Shepherd/Builds/LinuxMakefile/build/Shepherd"])
+            subprocess.Popen(run_backend_from_frontend)
+
 
     def init_modes(self, settings):
         self.main_controls_mode = MainControlsMode(self, settings=settings)
