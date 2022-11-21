@@ -15,9 +15,9 @@ Clone respository (with submodules):
 git clone https://github.com/ffont/shepherd.git && cd shepherd && git submodule update --init
 ```
 
-On macOS, open the XCode project file in `Builds/MacOSX` folder and compile as a normal JUCE project.
+On **macOS**, insall `openssl` (e.g. `brew install openssl`), open the XCode project file in `Builds/MacOSX` folder and compile as a normal JUCE project.
 
-On a Raspberry Pi, you'll need to [install JUCE linux dependencies]( https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md
+On a **Raspberry Pi** (or Linux), you'll need to [install JUCE linux dependencies]( https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md
 ), and also `xvfb`, which is used to run Shepherd headlessly without errors:
 
 ```
