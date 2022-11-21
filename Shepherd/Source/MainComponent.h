@@ -16,7 +16,11 @@ class MainComponent: public juce::AudioAppComponent,
                        
 {
 public:
+    #if !RPI_BUILD
     MainComponent() : devUiComponent(&sequencer)
+    #else
+    MainComponent()
+    #endif
     {
         // Some platforms require permissions to open input channels so request that here
         if (juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
@@ -52,9 +56,11 @@ public:
         juce::String actionName = message.substring(0, message.indexOf(":"));
         juce::String actionData = message.substring(message.indexOf(":") + 1);
     
+        #if !RPI_BUILD
         if (actionName == ACTION_UPDATE_DEVUI_RELOAD_BROWSER) {
             devUiComponent.reloadBrowser();
         }
+        #endif
     }
 
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override
