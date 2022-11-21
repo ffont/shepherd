@@ -302,23 +302,25 @@ void Sequencer::initializeMIDIInputs()
 
     if (!midiInIsConnected){ // Keyboard MIDI in
         const juce::String inDeviceName = DEFAULT_KEYBOARD_MIDI_IN_DEVICE_NAME;
-        juce::String inDeviceIdentifier = "";
-        for (int i=0; i<midiInputs.size(); i++){
-            if (midiInputs[i].name == inDeviceName){
-                inDeviceIdentifier = midiInputs[i].identifier;
-            }
-        }
-        midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
-        if (midiIn != nullptr){
-            std::cout << "- " << midiIn->getName() << std::endl;
-            midiIn->start();
-            midiInIsConnected = true;
-        } else {
-            std::cout << "- ERROR " << inDeviceName << ". Available MIDI IN devices: ";
+        if (inDeviceName != ""){
+            juce::String inDeviceIdentifier = "";
             for (int i=0; i<midiInputs.size(); i++){
-                std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+                if (midiInputs[i].name == inDeviceName){
+                    inDeviceIdentifier = midiInputs[i].identifier;
+                }
             }
-            std::cout << std::endl;
+            midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
+            if (midiIn != nullptr){
+                std::cout << "- " << midiIn->getName() << std::endl;
+                midiIn->start();
+                midiInIsConnected = true;
+            } else {
+                std::cout << "- ERROR " << inDeviceName << ". Available MIDI IN devices: ";
+                for (int i=0; i<midiInputs.size(); i++){
+                    std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+                }
+                std::cout << std::endl;
+            }
         }
     }
 
