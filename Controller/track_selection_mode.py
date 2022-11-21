@@ -51,7 +51,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         return list(set([self.app.shepherd_interface.get_track_device_short_name(i) for i in range(0, self.app.shepherd_interface.get_num_tracks())]))
 
     def get_current_track_device_info(self):
-        return self.devices_info[self.app.shepherd_interface.get_track_device_short_name(self.selected_track)]
+        return self.devices_info.get(self.app.shepherd_interface.get_track_device_short_name(self.selected_track), {})
 
     def get_track_device_short_name(self, i):
         return self.app.shepherd_interface.get_track_device_short_name(i)
