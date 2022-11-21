@@ -148,8 +148,10 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
         }
     }
     
-    if (auto xml = std::unique_ptr<juce::XmlElement> (savedState.createXml()))
+    if (auto xml = std::unique_ptr<juce::XmlElement> (savedState.createXml())) {
+        DBG("Saving session to: " << outputFile.getFullPathName());
         xml->writeTo(outputFile);
+    }
 }
 
 void Sequencer::loadSessionFromFile(juce::String filePath)
@@ -164,6 +166,8 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
     }
     if (sessionFile.existsAsFile()){
         if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (sessionFile))){
+            DBG("Loading session from: " << sessionFile.getFullPathName());
+
             // Stop playback (give some sleep time so the RT thread has time to be executed and clips set to stop (with note offs sent)
             if (musicalContext->playheadIsPlaying()){ shouldToggleIsPlaying = true; }
             juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
