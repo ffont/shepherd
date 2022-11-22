@@ -61,7 +61,7 @@ class StateDebuggerServerThread(threading.Thread):
 
     def run(self):
         asyncio.set_event_loop(asyncio.new_event_loop())
-        print('* Starting state debugger in port {}'.format(self.port))
+        print('* Starting state debugger in port http://localhost:{}'.format(self.port))
         state_debugger_server.run(host='0.0.0.0', port=self.port, debug=True, use_reloader=False)
 
 

@@ -24,7 +24,7 @@ namespace Helpers
         return v;
     }
 
-    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numEnabledTracks)
+    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames)
     {
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
@@ -49,18 +49,16 @@ namespace Helpers
             // Create track
             juce::ValueTree t (IDs::TRACK);
             Helpers::createUuidProperty (t);
-            t.setProperty (IDs::enabled, tn < numEnabledTracks, nullptr);
+            t.setProperty (IDs::enabled, true, nullptr);
             t.setProperty (IDs::order, tn, nullptr);
             t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
             const juce::String trackName ("Track " + juce::String (tn + 1));
             t.setProperty (IDs::name, trackName, nullptr);
             t.setProperty (IDs::hardwareDeviceName, Defaults::emptyString, nullptr);
 
-            if (tn < numEnabledTracks){
-                // Track is enabled (not deleted), add hardware device to it
-                if (tn < availableHardwareDeviceNames.size()){
-                    t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
-                }
+            // Add hardware device to track
+            if (tn < availableHardwareDeviceNames.size()){
+                t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
             }
             
             // Now add clips to track (for now clips are still empty and disabled)

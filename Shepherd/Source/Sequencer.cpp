@@ -66,13 +66,7 @@ Sequencer::Sequencer()
     
     // Load empty session to state
     DBG("Creating default session state");
-    #if !RPI_BUILD
-    //int numEnabledTracks = juce::Random::getSystemRandom().nextInt (juce::Range<int> (2, MAX_NUM_TRACKS - 1));
-    int numEnabledTracks = 8;
-    #else
-    int numEnabledTracks = 0;
-    #endif
-    state = Helpers::createDefaultSession(availableHardwareDeviceNames, numEnabledTracks);
+    state = Helpers::createDefaultSession(availableHardwareDeviceNames);
     
     // Add state change listener and bind cached properties to state properties
     bindState();
