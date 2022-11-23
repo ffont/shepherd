@@ -3,7 +3,7 @@ import push2_python
 import time
 import random
 
-from display_utils import show_text, show_rectangle
+from display_utils import show_text, show_rectangle, draw_clip
 
 
 class ClipTriggeringMode(definitions.ShepherdControllerMode):
@@ -54,15 +54,16 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             current_track_playing_clips_info = []
             current_track_will_play_clips_info = []
             for clip_num in range(0, self.app.shepherd_interface.get_track_num_clips(track_num)):
+                clip = self.app.shepherd_interface.session.tracks[track_num].clips[clip_num]
                 clip_state = self.app.shepherd_interface.get_clip_state(track_num, clip_num)
                 if 'p' in clip_state or 'C' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
                     playhead_position = self.app.shepherd_interface.get_clip_playhead(track_num, clip_num)
-                    current_track_playing_clips_info.append((clip_num, clip_length, playhead_position))
+                    current_track_playing_clips_info.append((clip_num, clip_length, playhead_position, clip))
                 if 'c' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
                     playhead_position = self.app.shepherd_interface.get_clip_playhead(track_num, clip_num)
-                    current_track_will_play_clips_info.append((clip_num, clip_length, playhead_position))
+                    current_track_will_play_clips_info.append((clip_num, clip_length, playhead_position, clip))
             if current_track_playing_clips_info:
                 if not track_num in playing_clips_info:
                     playing_clips_info[track_num] = {}
@@ -87,7 +88,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     playing_clips = playing_clips_info['playing']
 
                 num_clips = len(playing_clips)  # There should normally be only 1 clip playing per track at a time, but this supports multiple clips playing
-                for i , (clip_num, clip_length, playhead_position) in enumerate(playing_clips):
+                for i , (clip_num, clip_length, playhead_position, clip) in enumerate(playing_clips):
                     # Add playing percentage with background bar
                     height = (h - 20) // num_clips
                     y = height * i
@@ -111,52 +112,8 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
                     # Draw clip notes
                     if clip_length > 0.0:
-                        rendered_notes = self.app.shepherd_interface.get_clip_notes(track_num, clip_num)
-                        all_midinotes = [int(note.midinote) for note in rendered_notes]
-                        if len(all_midinotes) > 0:
-                            min_midinote = min(all_midinotes)
-                            max_midinote = max(all_midinotes) + 1  # Add 1 to highest note does not fall outside of screen
-                            for note in rendered_notes:
-                                note_percentage =  (int(note.midinote) - min_midinote) / (max_midinote - min_midinote)
-                                note_height_percentage =  1.0 / (max_midinote - min_midinote)
-                                note_start_percentage = float(note.renderedstarttimestamp) / clip_length
-                                note_end_percentage = float(note.renderedendtimestamp) / clip_length
-                                
-                                display_w = push2_python.constants.DISPLAY_LINE_PIXELS
-                                display_h = push2_python.constants.DISPLAY_N_LINES
-                                part_w = (display_w // 8)
-                                part_h = display_h * 0.87
-                                
-                                if note_start_percentage <= note_end_percentage:    
-                                    if (note_start_percentage <= position_percentage <= note_end_percentage + 0.05) and playhead_position != 0.0: 
-                                        color = definitions.WHITE
-                                    else:
-                                        color = track_color + '_darker1'
-                                    x0_rel = (part_w * track_num + note_start_percentage * part_w) / display_w
-                                    y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
-                                    width_rel = ((part_w * track_num + note_end_percentage * part_w) / display_w) - x0_rel
-                                    height_rel = note_height_percentage
-                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
-                                else:
-                                    # Draw "2 rectangles", one from start of note to end of section, and one from start of section to end of note
-
-                                    if (note_start_percentage <= position_percentage or  position_percentage <= note_end_percentage + 0.05) and playhead_position != 0.0: 
-                                        color = definitions.WHITE
-                                    else:
-                                        color = track_color + '_darker1'
-
-                                    x0_rel = (part_w * track_num + note_start_percentage * part_w) / display_w
-                                    y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
-                                    width_rel = ((part_w * track_num + 1.0 * part_w) / display_w) - x0_rel
-                                    height_rel = note_height_percentage
-                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
-
-                                    x0_rel = (part_w * track_num + 0.0 * part_w) / display_w
-                                    y0_rel = part_h/display_h - (part_h/display_h * note_percentage + note_height_percentage)
-                                    width_rel = ((part_w * track_num + note_end_percentage * part_w) / display_w) - x0_rel
-                                    height_rel = note_height_percentage
-                                    show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
-
+                        display_w = push2_python.constants.DISPLAY_LINE_PIXELS
+                        draw_clip(ctx, clip, frame=(1.0/8 * track_num, 0.0, 1.0/8, 0.87), event_color=track_color + '_darker1', highlight_color=definitions.WHITE)
 
     def activate(self):
         self.update_buttons()
