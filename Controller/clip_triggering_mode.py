@@ -39,7 +39,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     quantize_button = push2_python.constants.BUTTON_QUANTIZE
     undo_button = push2_python.constants.BUTTON_UNDO
     duplicate_button = push2_python.constants.BUTTON_DUPLICATE
-    clip_edit_button = push2_python.constants.BUTTON_CONVERT
+    clip_edit_button = push2_python.constants.BUTTON_SELECT
 
     buttons_used = scene_trigger_buttons + [clear_clip_button, double_clip_button, quantize_button, undo_button, duplicate_button, clip_edit_button]
 
