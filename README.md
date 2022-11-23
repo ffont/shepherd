@@ -115,6 +115,17 @@ For mac development-based setup:
 }
 ```
 
+For dev setup with no devices:
+```
+{
+    "push_midi_out_device_name": "",
+    "push_midi_in_device_name": "Push2Simulator",
+    "metronome_midi_out_device_name": "",
+    "clock_midi_out_device_name": "",
+    "keyboard_midi_in_device_name": ""
+}
+```
+
 
 #### hardwareDevices.json
 
