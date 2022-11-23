@@ -64,25 +64,10 @@ Sequencer::Sequencer()
     sineSynth.addSound (new SineWaveSound());
     #endif
     
-    // Load empty session to state
-    DBG("Creating default session state");
-    state = Helpers::createDefaultSession(availableHardwareDeviceNames);
-    
-    // Add state change listener and bind cached properties to state properties
-    bindState();
-    
-    // Initialize musical context
-    musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
-    
-    // Create tracks
-    initializeTracks();
-    
-    // Send OSC message to frontend indiating that Shepherd is ready to rock
-    sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
-    sequencerInitialized = true;
-    
-    // Load first preset (if any)
+    // Load first preset (if no presets saved, it will create an empty session)
     loadSessionFromFile("0");
+
+    sequencerInitialized = true;
 }
 
 Sequencer::~Sequencer()
@@ -150,6 +135,18 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
 
 void Sequencer::loadSessionFromFile(juce::String filePath)
 {
+    if (sequencerInitialized){
+        // If sequencer has already been initialized, first stop playback (give some sleep time so 
+        // the RT thread has time to be executed and clips set to stop (with note offs sent)
+        if (musicalContext->playheadIsPlaying()){ shouldToggleIsPlaying = true; }
+        juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
+
+        // Remove current state VT listener
+        state.removeListener(this);
+    }
+    
+    // Then load the session from the specified file
+    bool stateLoadedFromFileSuccessfully = false;
     juce::File sessionFile;
     if (juce::File::isAbsolutePath(filePath)){
         // File path is an absolute path to a file where to save the session
@@ -161,24 +158,28 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
     if (sessionFile.existsAsFile()){
         if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (sessionFile))){
             DBG("Loading session from: " << sessionFile.getFullPathName());
-
-            // Stop playback (give some sleep time so the RT thread has time to be executed and clips set to stop (with note offs sent)
-            if (musicalContext->playheadIsPlaying()){ shouldToggleIsPlaying = true; }
-            juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
-
             juce::ValueTree loadedState = juce::ValueTree::fromXml (*xml);  // Load new state into VT
-            state.removeListener(this);  // Remove existing state VT listener
             state = loadedState; // Then set the new state
-            
-            // Then bind the state and init corresponding objects
-            bindState();
-            musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
-            initializeTracks();
-            
-            // Notify controller
-            sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));
+            stateLoadedFromFileSuccessfully = true;
         }
     }
+    if (!stateLoadedFromFileSuccessfully){
+        // If state could not be loaded from file, create a new default empty state
+        DBG("Loading new default empty state");
+        state = Helpers::createDefaultSession(availableHardwareDeviceNames);
+    }
+            
+    // Add state change listener and bind cached properties to state properties
+    bindState();
+    
+    // Initialize musical context
+    musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
+    
+    // Create tracks
+    initializeTracks();
+    
+    // Send OSC message to frontend indiating that Shepherd is ready to rock
+    sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
 }
 
 juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
