@@ -125,7 +125,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                                 display_w = push2_python.constants.DISPLAY_LINE_PIXELS
                                 display_h = push2_python.constants.DISPLAY_N_LINES
                                 part_w = (display_w // 8)
-                                part_h = display_h * 0.9
+                                part_h = display_h * 0.87
                                 
                                 if note_start_percentage <= note_end_percentage:    
                                     if (note_start_percentage <= position_percentage <= note_end_percentage + 0.05) and playhead_position != 0.0: 
