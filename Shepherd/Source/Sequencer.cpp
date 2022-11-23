@@ -17,14 +17,6 @@ Sequencer::Sequencer()
     // Start timer for recurring tasks
     startTimer (50);
     
-    // Set some defaults
-    if (juce::String(DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME).length() > 0){
-        sendMidiClockMidiDeviceNames = {DEFAULT_MIDI_CLOCK_OUT_DEVICE_NAME};
-    }
-    if (juce::String(DEFAULT_MIDI_OUT_DEVICE_NAME).length() > 0){
-        sendMetronomeMidiDeviceNames = {DEFAULT_MIDI_OUT_DEVICE_NAME};
-    }
-    
     // Pre allocate memory for MIDI buffers
     // My rough tests indicate that 1 midi message takes 9 int8 array positions in the midibuffer.data structure
     // (therefore 9 bytes?). These buffers are cleared at every slice, so some milliseconds only, no need to make them super
@@ -43,6 +35,16 @@ Sequencer::Sequencer()
     
     // Init hardware devices
     initializeHardwareDevices();
+
+    // Set some defaults
+    const juce::String midiClockOutDeviceName = getPropertyFromSettingsFile("clock_midi_out_device_name");
+    if (midiClockOutDeviceName.length() > 0){
+        sendMidiClockMidiDeviceNames = {midiClockOutDeviceName};
+    }
+    const juce::String metronomeOutDeviceName = getPropertyFromSettingsFile("metronome_midi_out_device_name");
+    if (metronomeOutDeviceName.length() > 0){
+        sendMetronomeMidiDeviceNames = {metronomeOutDeviceName};
+    }
     
     // Init MIDI
     initializeMIDIInputs();
@@ -300,7 +302,7 @@ void Sequencer::initializeMIDIInputs()
     auto midiInputs = juce::MidiInput::getAvailableDevices();
 
     if (!midiInIsConnected){ // Keyboard MIDI in
-        const juce::String inDeviceName = DEFAULT_KEYBOARD_MIDI_IN_DEVICE_NAME;
+        const juce::String inDeviceName = getPropertyFromSettingsFile("keyboard_midi_in_device_name");
         if (inDeviceName != ""){
             juce::String inDeviceIdentifier = "";
             for (int i=0; i<midiInputs.size(); i++){
@@ -320,30 +322,55 @@ void Sequencer::initializeMIDIInputs()
                 }
                 std::cout << std::endl;
             }
+        } else {
+            // If no midi input is expected, set this to true so we don't check all the time
+            midiInIsConnected = true;
         }
     }
 
     if (!midiInPushIsConnected){ // Push messages MIDI in (used for triggering notes and encoders if mode is active)
-        const juce::String pushInDeviceName = PUSH_MIDI_IN_DEVICE_NAME;
-        juce::String pushInDeviceIdentifier = "";
-        for (int i=0; i<midiInputs.size(); i++){
-            if (midiInputs[i].name == pushInDeviceName){
-                pushInDeviceIdentifier = midiInputs[i].identifier;
-            }
-        }
-        midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
-        if (midiInPush != nullptr){
-            std::cout << "- " << midiInPush->getName() << std::endl;
-            midiInPush->start();
-            midiInPushIsConnected = true;
-        } else {
-            std::cout << "- ERROR " << pushInDeviceName << ". Available MIDI IN devices: ";
+        const juce::String pushInDeviceName = getPropertyFromSettingsFile("push_midi_in_device_name");
+        if (pushInDeviceName.length() > 0){
+            juce::String pushInDeviceIdentifier = "";
             for (int i=0; i<midiInputs.size(); i++){
-                std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+                if (midiInputs[i].name == pushInDeviceName){
+                    pushInDeviceIdentifier = midiInputs[i].identifier;
+                }
             }
-            std::cout << std::endl;
+            midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
+            if (midiInPush != nullptr){
+                std::cout << "- " << midiInPush->getName() << std::endl;
+                midiInPush->start();
+                midiInPushIsConnected = true;
+            } else {
+                std::cout << "- ERROR " << pushInDeviceName << ". Available MIDI IN devices: ";
+                for (int i=0; i<midiInputs.size(); i++){
+                    std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+                }
+                std::cout << std::endl;
+            }
+        } else {
+            // If no push midi in device is expected, set this to true so we don't check all the time
+            midiInPushIsConnected = true;
         }
     }
+}
+
+juce::String Sequencer::getPropertyFromSettingsFile(juce::String propertyName)
+{
+    juce::String returnValue = "";
+    juce::File backendSettingsLocation = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/backendSettings").withFileExtension("json");
+    if (backendSettingsLocation.existsAsFile()){
+        juce::var parsedJson;
+        auto result = juce::JSON::parse(backendSettingsLocation.loadFileAsString(), parsedJson);
+        if (result.wasOk())
+        {
+            if (parsedJson.isObject()){
+                returnValue = parsedJson.getProperty(propertyName, "").toString();
+            }
+        } 
+    }
+    return returnValue;
 }
 
 void Sequencer::initializeMIDIOutputs()
@@ -388,11 +415,13 @@ void Sequencer::initializeMIDIOutputs()
     }
     
     // Initialize midi output to Push MIDI input (used for sending clock messages to push and sync animations with Shepherd tempo)
-    if (juce::String(PUSH_MIDI_OUT_DEVICE_NAME).length() > 0){
-        if (!midiDeviceAlreadyInitialized(PUSH_MIDI_OUT_DEVICE_NAME)){
-            auto pushMidiDevice = initializeMidiOutputDevice(PUSH_MIDI_OUT_DEVICE_NAME);
+    juce::String pushMidiOutDeviceName = getPropertyFromSettingsFile("push_midi_out_device_name");
+    if (pushMidiOutDeviceName.length() > 0){
+        sendPushMidiClockDeviceNames = {pushMidiOutDeviceName};
+        if (!midiDeviceAlreadyInitialized(pushMidiOutDeviceName)){
+            auto pushMidiDevice = initializeMidiOutputDevice(pushMidiOutDeviceName);
             if (pushMidiDevice == nullptr) {
-                DBG("Failed to initialize push midi device: " << PUSH_MIDI_OUT_DEVICE_NAME);
+                DBG("Failed to initialize push midi device: " << pushMidiOutDeviceName);
                 someFailedInitialization = true;
             }
         }
@@ -498,9 +527,25 @@ void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vect
 
 void Sequencer::initializeHardwareDevices()
 {
-    
-    bool shouldLoadDefaults = false;
-    
+    // First initialize default hardware devices for each available midi out device in the system
+    std::cout << "Initializing default Hardware Devices" << std::endl;
+    juce::Array<juce::MidiDeviceInfo> availableMidiOutDevices = juce::MidiOutput::getAvailableDevices();
+    for (int i=0; i<availableMidiOutDevices.size(); i++) {
+        juce::String name = "Device " + availableMidiOutDevices[i].name;
+        juce::String shortName = "D" + juce::String(i + 1);
+        HardwareDevice* device = new HardwareDevice(name,
+                                                    shortName,
+                                                    [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
+                                                    [this](const juce::OSCMessage &message){sendMessageToController(message);},
+                                                    [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
+                                                    );
+        device->configureMidiOutput(availableMidiOutDevices[i].name, i + 1);
+        hardwareDevices.add(device);
+        availableHardwareDeviceNames.add(shortName);
+        std::cout << "- " << name << std::endl;
+    }
+
+    // Then add extra hardware devices if found in the definitions file
     juce::File hardwareDeviceDefinitionsLocation = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/hardwareDevices").withFileExtension("json");
     if (hardwareDeviceDefinitionsLocation.existsAsFile()){
         std::cout << "Initializing Hardware Devices from JSON file" << std::endl;
@@ -509,20 +554,16 @@ void Sequencer::initializeHardwareDevices()
         if (!result.wasOk())
         {
             std::cout << "Error parsing JSON: " + result.getErrorMessage() << std::endl;
-            std::cout << "Will load default hardware devices" << std::endl;
-            shouldLoadDefaults = true;
         } else {
             // At the top level, the JSON file should be an array
             if (!parsedJson.isArray()){
                 std::cout << "Devices configuration file has wrong contents or can't be read. Are permissions granted to access the file?" << std::endl;
-                shouldLoadDefaults = true;
             } else {
                 for (int i=0; i<parsedJson.size(); i++){
                     // Each element in the array should be an object element with the properties needed to create the hardware device
                     juce::var deviceInfo = parsedJson[i];
                     if (!parsedJson.isObject()){
                         std::cout << "Devices configuration file has wrong contents or can't be read." << std::endl;
-                        shouldLoadDefaults = true;
                     }
                     juce::String name = deviceInfo.getProperty("name", "NoName").toString();
                     juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
@@ -543,26 +584,6 @@ void Sequencer::initializeHardwareDevices()
         }
     } else {
         std::cout << "No hardware devices configuration file found at " << hardwareDeviceDefinitionsLocation.getFullPathName() << std::endl;
-        shouldLoadDefaults = true;
-    }
-    
-    if (shouldLoadDefaults){
-        std::cout << "Initializing default Hardware Devices" << std::endl;
-        const juce::String synthsMidiOut = DEFAULT_MIDI_OUT_DEVICE_NAME;
-        for (int i=0; i<8; i++){
-            juce::String name = "Synth " + juce::String(i + 1);
-            juce::String shortName = "S" + juce::String(i + 1);
-            HardwareDevice* device = new HardwareDevice(name,
-                                                        shortName,
-                                                        [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                        [this](const juce::OSCMessage &message){sendMessageToController(message);},
-                                                        [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
-                                                        );
-            device->configureMidiOutput(synthsMidiOut, i + 1);
-            hardwareDevices.add(device);
-            availableHardwareDeviceNames.add(shortName);
-            std::cout << "- " << name << std::endl;
-        }
     }
 }
 

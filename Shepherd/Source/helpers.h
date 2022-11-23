@@ -59,6 +59,8 @@ namespace Helpers
             // Add hardware device to track
             if (tn < availableHardwareDeviceNames.size()){
                 t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
+            } else {
+                t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[availableHardwareDeviceNames.size() - 1], nullptr);
             }
             
             // Now add clips to track (for now clips are still empty and disabled)

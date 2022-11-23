@@ -90,6 +90,9 @@ private:
     // Save/load
     void saveCurrentSessionToFile(juce::String filePath);
     void loadSessionFromFile(juce::String filePath);
+
+    // Settings file
+    juce::String getPropertyFromSettingsFile(juce::String propertyName);
     
     // Communication with controller
     WebSocketsServer wsServer;
@@ -176,7 +179,7 @@ private:
     double lastTimePushMidiClockBurstStarted = -1.0;
     std::vector<juce::String> sendMidiClockMidiDeviceNames = {};
     std::vector<juce::String> sendMetronomeMidiDeviceNames = {};
-    std::vector<juce::String> sendPushMidiClockDeviceNames = {PUSH_MIDI_OUT_DEVICE_NAME};
+    std::vector<juce::String> sendPushMidiClockDeviceNames = {};
 
     // Tracks
     void initializeTracks();

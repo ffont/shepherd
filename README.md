@@ -86,6 +86,65 @@ When running as a servie, check stdout with:
 sudo journalctl -fu shepherd
 ```
 
+### Settings files examples
+
+To be palced in the user Documents folder
+
+
+#### backendSettings.json
+
+For raspberry-based setup:
+```
+{
+    "push_midi_out_device_name": "Ableton Push 2 MIDI 1",
+    "push_midi_in_device_name": "Ableton Push 2 MIDI 1",
+    "metronome_midi_out_device_name": "ESI M4U eX MIDI 5",
+    "clock_midi_out_device_name": "ESI M4U eX MIDI 6",
+    "keyboard_midi_in_device_name": "LUMI Keys BLOCK MIDI 1"
+}
+```
+
+For mac development-based setup:
+```
+{
+    "push_midi_out_device_name": "",
+    "push_midi_in_device_name": "Push2Simulator",
+    "metronome_midi_out_device_name": "IAC Driver Bus 1",
+    "clock_midi_out_device_name": "",
+    "keyboard_midi_in_device_name": "iCON iKEY V1.02"
+}
+```
+
+
+#### hardwareDevices.json
+
+```
+[
+	{
+		"name": "Synth 1",
+	    "short_name": "S1",
+	    "midi_out_channel": 1,
+	    "midi_out_device": "Midi Through Port-0"
+	},{
+		"name": "Synth 2",
+	    "short_name": "S2",
+	    "midi_out_channel": 2,
+	    "midi_out_device": "Midi Through Port-0"
+	}
+]
+```
+
+
+#if RPI_BUILD
+#define PUSH_MIDI_OUT_DEVICE_NAME "Ableton Push 2 MIDI 1"
+//#define PUSH_MIDI_IN_DEVICE_NAME "Ableton Push 2 MIDI 1"
+#define PUSH_MIDI_IN_DEVICE_NAME "Push2Simulator"
+#else
+#define PUSH_MIDI_OUT_DEVICE_NAME ""
+#define PUSH_MIDI_IN_DEVICE_NAME "Push2Simulator"
+#endif
+
+
 ## Shepherd Controller (frontend)
 
 The Shepherd Controller app is a Python 3 script which interacts with Shepherd and a Push2 devices to provide the the UI.
