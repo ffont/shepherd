@@ -29,6 +29,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         push2_python.constants.BUTTON_RIGHT,
         push2_python.constants.BUTTON_DOUBLE_LOOP,
         push2_python.constants.BUTTON_QUANTIZE,
+        push2_python.constants.BUTTON_DELETE,
     ]
 
     pads_min_note_offset = 64
@@ -61,6 +62,16 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     @property
     def end_displayed_time(self):
         return self.pads_pad_beats_offset + self.pads_pad_beat_scale * 8
+
+    def set_selected_clip(self, new_clip_uuid):
+        self.selected_clip_uuid = new_clip_uuid
+        # Auto adjust pads_min_note_offset, etc
+        if self.clip.sequence_events:
+            self.pads_min_note_offset = min([event.midinote for event in self.clip.sequence_events if event.type == 1])
+        else:
+            self.pads_min_note_offset = 64
+        self.pads_pad_beats_offset = 0.0
+        self.pads_pad_beat_scale = 0.5
 
     def pad_ij_to_note_beat(self, pad_ij):
         note = self.pads_min_note_offset + (7 - pad_ij[0])
@@ -154,7 +165,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     0.25: '16th note',
                     0.5: '8th note',
                     1.0: '4th note',
-                    0.0: 'no quantization'
+                    0.0: '-'
                 }
                 show_value(ctx, part_w * 2, h, '{}'.format(quantization_step_labels.get(self.clip.currentquantizationstep, self.clip.currentquantizationstep)))
 
@@ -164,7 +175,13 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
                 # Slots 5-8, clip preview
                 if self.clip.cliplengthinbeats > 0.0:
-                    draw_clip(ctx, self.clip, frame=(0.5, 0.0, 0.5, 0.87), event_color=track_color + '_darker1', highlight_color=track_color)
+                    highglight_notes_beat_frame = (
+                        self.pads_min_note_offset,
+                        self.pads_min_note_offset + 8,
+                        self.pads_pad_beats_offset,
+                        self.pads_pad_beats_offset + 8 * self.pads_pad_beat_scale
+                    )
+                    draw_clip(ctx, self.clip, frame=(0.5, 0.0, 0.5, 0.87), highglight_notes_beat_frame=highglight_notes_beat_frame, event_color=track_color + '_darker1', highlight_color=track_color)
         
             beas_to_pad = self.beats_to_pad(self.clip.playheadpositioninbeats)
             if 0 <= beas_to_pad <= 7 and beas_to_pad is not self.last_beats_to_pad:
@@ -197,6 +214,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
         self.set_button_color_if_pressed(push2_python.constants.BUTTON_DOUBLE_LOOP, animation=definitions.DEFAULT_ANIMATION)
         self.set_button_color_if_pressed(push2_python.constants.BUTTON_QUANTIZE, animation=definitions.DEFAULT_ANIMATION)
+        self.set_button_color_if_pressed(push2_python.constants.BUTTON_DELETE, animation=definitions.DEFAULT_ANIMATION)
         
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_UP, definitions.WHITE)
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_DOWN, definitions.WHITE)
@@ -247,6 +265,10 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
             self.quantize_helper()
             return True
+        elif button_name == push2_python.constants.BUTTON_DELETE:
+            self.clip.clear()
+            return True
+        
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         notes_in_pad = self.notes_in_pad(pad_ij)
@@ -279,9 +301,9 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                             next_clip_index = 0
                         elif next_clip_index >= len(self.available_clips) - 1:
                             next_clip_index = len(self.available_clips) - 1
-                    self.selected_clip_uuid = self.available_clips[next_clip_index]
+                    self.set_selected_clip(self.available_clips[next_clip_index])
                 else:
-                    self.selected_clip_uuid = self.available_clips[0]
+                    self.set_selected_clip(self.available_clips[0])
             
         elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
             new_length = self.clip.cliplengthinbeats + increment

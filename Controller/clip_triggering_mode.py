@@ -236,7 +236,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             self.app.set_button_ignore_next_action_if_not_yet_triggered(self.app.main_controls_mode.record_button)
         elif self.app.is_button_being_pressed(self.clip_edit_button):
             # Activate clip edit mode
-            self.app.clip_edit_mode.selected_clip_uuid = self.app.shepherd_interface.session.tracks[track_num].clips[clip_num].uuid
+            self.app.clip_edit_mode.set_selected_clip(self.app.shepherd_interface.session.tracks[track_num].clips[clip_num].uuid)
             self.app.set_clip_edit_mode()
         else:
             if self.app.is_button_being_pressed(self.clear_clip_button):
