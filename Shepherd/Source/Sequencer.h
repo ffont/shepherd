@@ -72,6 +72,8 @@ public:
     // Public method for receiving WS messages
     void wsMessageReceived  (const juce::String& serializedMessage);
     
+    juce::File getDataLocation();
+    
 protected:
     juce::ValueTree state;
     void bindState();

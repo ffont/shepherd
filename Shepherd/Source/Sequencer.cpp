@@ -14,6 +14,12 @@
 //==============================================================================
 Sequencer::Sequencer()
 {
+    // Make sure data location exists
+    juce::File location = getDataLocation();
+    if (!location.exists()){
+        location.createDirectory();
+    }
+    
     // Start timer for recurring tasks
     startTimer (50);
     
@@ -90,6 +96,10 @@ void Sequencer::bindState()
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
 }
 
+juce::File Sequencer::getDataLocation() {
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/");
+}
+
 void Sequencer::saveCurrentSessionToFile(juce::String filePath)
 {
     juce::File outputFile;
@@ -98,7 +108,7 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
         outputFile = juce::File(filePath);
     } else {
         // File path is the name of the file only, save it in the default location
-        outputFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + filePath).withFileExtension("xml");
+        outputFile = getDataLocation().getChildFile(filePath).withFileExtension("xml");
     }
     
     // Remove things from state playhead positions, play/recording state and other things which are "voaltile"
@@ -155,7 +165,7 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
         sessionFile = juce::File(filePath);
     } else {
         // File path is the name of the file only, save it in the default location
-        sessionFile = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/" + filePath).withFileExtension("xml");
+        sessionFile = getDataLocation().getChildFile(filePath).withFileExtension("xml");
     }
     if (sessionFile.existsAsFile()){
         if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (sessionFile))){
@@ -359,7 +369,7 @@ void Sequencer::initializeMIDIInputs()
 juce::String Sequencer::getPropertyFromSettingsFile(juce::String propertyName)
 {
     juce::String returnValue = "";
-    juce::File backendSettingsLocation = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/backendSettings").withFileExtension("json");
+    juce::File backendSettingsLocation = getDataLocation().getChildFile("backendSettings").withFileExtension("json");
     if (backendSettingsLocation.existsAsFile()){
         juce::var parsedJson;
         auto result = juce::JSON::parse(backendSettingsLocation.loadFileAsString(), parsedJson);
@@ -528,7 +538,7 @@ void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vect
 void Sequencer::initializeHardwareDevices()
 {
     // Initialize hardware devices from definitions file
-    juce::File hardwareDeviceDefinitionsLocation = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/hardwareDevices").withFileExtension("json");
+    juce::File hardwareDeviceDefinitionsLocation = getDataLocation().getChildFile("hardwareDevices").withFileExtension("json");
     if (hardwareDeviceDefinitionsLocation.existsAsFile()){
         std::cout << "Initializing Hardware Devices from JSON file" << std::endl;
         juce::var parsedJson;
