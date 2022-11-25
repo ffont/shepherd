@@ -493,7 +493,6 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
                 if (bufferToFill != nullptr) bufferToFill->addEvent(msg, getGlobalSettings().samplesPerSlice - 1);
                 notesCurrentlyPlayed.setBit(i, false);
             }
-            
         }
         
         if (sustainPedalBeingPressed){
@@ -1046,7 +1045,18 @@ void Clip::removeSequenceEventWithUUID(const juce::String& uuid)
 {
     auto sequenceEvent = getSequenceEventWithUUID(uuid);
     if (sequenceEvent.isValid()){
+        int midiNote = -1;
+        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note){
+            midiNote = (int)sequenceEvent.getProperty(IDs::midiNote);
+        }
         state.removeChild(sequenceEvent, nullptr);
+        if (midiNote > -1){
+            if (notesCurrentlyPlayed[midiNote] == true){
+                juce::MidiMessage msg = juce::MidiMessage::noteOff(getTrackSettings().device->getMidiOutputChannel(), midiNote, 0.0f);
+                getTrackSettings().device->sendMidi(msg);
+                notesCurrentlyPlayed.setBit(midiNote, false);
+            }
+        }
     }
 }
 
