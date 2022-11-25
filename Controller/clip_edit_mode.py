@@ -220,6 +220,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 'pad_start_ij': (7 - (event.midinote - self.pads_min_note_offset), 
                                 int(math.floor((event.renderedstarttimestamp - self.pads_pad_beats_offset)/(self.pads_pad_beat_scale)))),
                 'duration_n_pads': int(math.ceil((duration) / self.pads_pad_beat_scale)),
+                'is_selected_in_note_edit_mode': event.uuid == self.selected_event_uuid
             })
         track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
         color_matrix = []
@@ -239,12 +240,18 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
             for i in range(note_to_display['duration_n_pads']):
                 if 0 <= pad_ij[0] <= 8 and 0 <= (pad_ij[1] + i) <= 7:
                     if i != 0:
-                        color_matrix[pad_ij[0]][pad_ij[1] + i] = track_color + '_darker1'
+                        if not note_to_display['is_selected_in_note_edit_mode']:
+                            color_matrix[pad_ij[0]][pad_ij[1] + i] = track_color + '_darker1'
+                        else:
+                            color_matrix[pad_ij[0]][pad_ij[1] + i] = definitions.GRAY_DARK
         # Draw first-pads for notes (this will allow to always draw full color first-pad note for overlapping notes)
         for note_to_display in notes_to_display:
             pad_ij = note_to_display['pad_start_ij']
             if 0 <= pad_ij[0] <= 8 and 0 <= pad_ij[1] <= 7:
                 color_matrix[pad_ij[0]][pad_ij[1]] = track_color
+                if note_to_display['is_selected_in_note_edit_mode']:
+                    animation_matrix[pad_ij[0]][pad_ij[1]] = definitions.DEFAULT_ANIMATION
+                    color_matrix[pad_ij[0]][pad_ij[1]] = definitions.WHITE
 
         return color_matrix, animation_matrix
 
@@ -498,9 +505,13 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         notes_in_pad = self.notes_in_pad(pad_ij)
         if notes_in_pad:
             if not select:
-                # Remove all notes
-                for note in notes_in_pad:
-                    self.clip.remove_sequence_event(note.uuid)
+                if self.mode != self.MODE_EVENT:
+                    # Remove all notes
+                    for note in notes_in_pad:
+                        self.clip.remove_sequence_event(note.uuid)
+                else:
+                    # Exit event edit mode
+                    self.set_clip_mode(self.selected_clip_uuid)
             else:
                 if self.mode == self.MODE_EVENT:
                     self.set_clip_mode(self.selected_clip_uuid)
