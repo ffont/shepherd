@@ -378,6 +378,7 @@ parameters_types = {
     'renderedstarttimestamp': float,
     'timestamp': float,
     'type': int, # SequenceEventType {midi=0, note=1}
+    'utime': float,
     'uuid': str,
     'willplayat': float,
     'willstartrecordingat': float,
@@ -601,9 +602,9 @@ class Clip(BaseShepherdClass):
         {
             "clipLength": 6,
             "sequenceEvents": [
-                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65},  # type 1 = note event
-                {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42},
-                {"type": 0, "eventMidiBytes": "73,21,56", "timestamp": 2.99},  # type 0 = generic midi message
+                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65, ...},  # type 1 = note event
+                {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42, ...},
+                {"type": 0, "eventMidiBytes": "73,21,56", "timestamp": 2.99, ...},  # type 0 = generic midi message
                 ...
             ]
         }
@@ -631,7 +632,7 @@ class Clip(BaseShepherdClass):
             'eventUUID': event_uuid, 
         })
 
-    def add_sequence_note_event(self, midi_note, midi_velocity, timestamp, duration):
+    def add_sequence_note_event(self, midi_note, midi_velocity, timestamp, duration, utime=0.0):
         self.edit_sequence({
             'action': 'addEvent',
             'eventData': {
@@ -640,6 +641,7 @@ class Clip(BaseShepherdClass):
                 'midiVelocity': midi_velocity,  # 0.0 to 1.0 
                 'timestamp': timestamp, 
                 'duration': duration,
+                'utime': utime
             }, 
         })
 
@@ -653,7 +655,7 @@ class Clip(BaseShepherdClass):
             }, 
         })
 
-    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None, midi_bytes=None):
+    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None, midi_bytes=None, utime=None):
         event_data = {}
         if midi_note is not None:
             event_data['midiNote'] = midi_note
@@ -665,6 +667,8 @@ class Clip(BaseShepherdClass):
             event_data['duration'] = duration
         if midi_bytes is not None:
             event_data['eventMidiBytes'] = midi_bytes
+        if utime is not None:
+            event_data['utime'] = utime
         self.edit_sequence({
             'action': 'editEvent',
             'eventUUID': event_uuid,
@@ -687,6 +691,9 @@ class SequenceEvent(BaseShepherdClass):
 
     def set_timestamp(self, timestamp):
         self.clip.edit_sequence_event(self.uuid, timestamp=timestamp)
+
+    def set_utime(self, utime):
+        self.clip.edit_sequence_event(self.uuid, utime=utime)
 
     def set_midi_note(self, midi_note):
         if self.is_type_note():

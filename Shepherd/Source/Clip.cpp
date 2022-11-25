@@ -1068,6 +1068,7 @@ void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChange
     if ((property == IDs::currentQuantizationStep) ||
         (property == IDs::clipLengthInBeats) ||
         (property == IDs::timestamp) ||
+        (property == IDs::uTime) ||
         (property == IDs::midiNote) ||
         (property == IDs::duration) ||
         (property == IDs::eventMidiBytes) ||

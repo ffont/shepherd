@@ -120,6 +120,7 @@ inline double willPlayAt = -1.0;
 inline double willStopAt = -1.0;
 inline bool playing = false;
 inline double timestamp = 0.0;
+inline double uTime = 0.0;
 inline juce::String eventType = "midi";
 inline juce::String eventMidiBytes = "128,64,64";
 }
@@ -163,6 +164,7 @@ DECLARE_ID (recording)
 DECLARE_ID (willStartRecordingAt)
 DECLARE_ID (willStopRecordingAt)
 DECLARE_ID (timestamp)
+DECLARE_ID (uTime)
 DECLARE_ID (eventMidiBytes)
 DECLARE_ID (midiNote)
 DECLARE_ID (midiVelocity)

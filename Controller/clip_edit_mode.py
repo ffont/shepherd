@@ -317,6 +317,10 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     # Slot 2, duration
                     show_title(ctx, part_w * 1, h, 'DURATION')
                     show_value(ctx, part_w * 1, h, '{:.3f}'.format(self.event.duration))
+
+                    # Slot 3, micro time (utime)
+                    show_title(ctx, part_w * 2, h, 'uTIME')
+                    show_value(ctx, part_w * 2, h, '{:.3f}'.format(self.event.utime))
                     
             elif self.mode == self.MODE_GENERATOR:
                 show_title(ctx, part_w * 0, h, 'ALGORITHM')
@@ -576,6 +580,9 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
                     new_duration = round(100.0 * max(0.1, self.event.duration + increment/10))/100.0
                     self.event.set_duration(new_duration)
+                elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
+                    new_utime = self.event.utime + increment/1000.0
+                    self.event.set_utime(new_utime)
 
         elif self.mode == self.MODE_GENERATOR:
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:

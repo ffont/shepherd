@@ -185,8 +185,12 @@ private:
                 if ((double)sequenceEvent.getProperty(IDs::timestamp) < clipLengthInBeats) {
                     // If event starts before clip length, this will be rendered as MIDI message in the sequence
                     
-                    // Quantize the start time
-                    double originalStartTimestamp = sequenceEvent.getProperty(IDs::timestamp);
+                    // Quantize the start time (add uTime to the start time)
+                    double originalStartTimestamp = (double)sequenceEvent.getProperty(IDs::timestamp) + (double)sequenceEvent.getProperty(IDs::uTime);
+                    if (originalStartTimestamp < 0.0){
+                        // If start time become negative because of uTime, make start of the event wrap
+                        originalStartTimestamp += clipLengthInBeats;
+                    }
                     double quantizedStartTimestamp = findNearestQuantizedBeatPosition(originalStartTimestamp, quantizationStep);
                     double quantizedEndTimestamp = -1.0;
                     

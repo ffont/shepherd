@@ -1158,6 +1158,9 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             if (eventData.hasProperty("timestamp")) {
                                 sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
                             }
+                            if (eventData.hasProperty("utime")) {
+                                sequenceEvent.setProperty(IDs::uTime, (double)eventData["utime"], nullptr);
+                            }
                             if (eventData.hasProperty("duration")) {
                                 sequenceEvent.setProperty(IDs::duration, (double)eventData["duration"], nullptr);
                             }
@@ -1165,6 +1168,9 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             juce::var eventData = editSequenceData["eventData"];
                             if (eventData.hasProperty("timestamp")) {
                                 sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
+                            }
+                            if (eventData.hasProperty("utime")) {
+                                sequenceEvent.setProperty(IDs::uTime, (double)eventData["utime"], nullptr);
                             }
                             if (eventData.hasProperty("eventMidiBytes")) {
                                 sequenceEvent.setProperty(IDs::eventMidiBytes, (float)eventData["eventMidiBytes"], nullptr);
@@ -1178,11 +1184,13 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             int midiNote = (int)eventData["midiNote"];
                             float midiVelocity = (float)eventData["midiVelocity"];
                             double duration = (double)eventData["duration"];
-                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                            double utime = (double)eventData["utime"];
+                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration, utime), -1, nullptr);
                         } else if ((int)eventData["type"] == SequenceEventType::midi){
                             double timestamp = (double)eventData["timestamp"];
                             juce::String eventMidiBytes = eventData["eventMidiBytes"].toString();
-                            clip->state.addChild(Helpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes), -1, nullptr);
+                            double utime = (double)eventData["utime"];
+                            clip->state.addChild(Helpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes, utime), -1, nullptr);
                         }
                     }
                 }

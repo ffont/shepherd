@@ -95,6 +95,7 @@ namespace Helpers
         Helpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(IDs::type, SequenceEventType::midi, nullptr);
         sequenceEvent.setProperty(IDs::timestamp, msg.getTimeStamp(), nullptr);
+        sequenceEvent.setProperty(IDs::uTime, Defaults::uTime, nullptr);
         sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
         sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
         juce::StringArray bytes = {};
@@ -105,31 +106,43 @@ namespace Helpers
         return sequenceEvent;
     }
 
-    inline juce::ValueTree createSequenceEventFromMidiBytesString(double timestamp, const juce::String& eventMidiBytes)
+    inline juce::ValueTree createSequenceEventFromMidiBytesString(double timestamp, const juce::String& eventMidiBytes, double utime)
     {
         // eventMidiBytes = comma separated byte values, eg: 127,75,12
         juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
         Helpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(IDs::type, SequenceEventType::midi, nullptr);
         sequenceEvent.setProperty(IDs::timestamp, timestamp, nullptr);
+        sequenceEvent.setProperty(IDs::uTime, utime, nullptr);
         sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
         sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
         sequenceEvent.setProperty(IDs::eventMidiBytes, eventMidiBytes, nullptr);
         return sequenceEvent;
     }
 
-    inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration)
+    inline juce::ValueTree createSequenceEventFromMidiBytesString(double timestamp, const juce::String& eventMidiBytes)
+    {
+        return createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes, Defaults::uTime);
+    }
+
+    inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration, double utime)
     {
         juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
         Helpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(IDs::type, SequenceEventType::note, nullptr);
         sequenceEvent.setProperty(IDs::timestamp, timestamp, nullptr);
+        sequenceEvent.setProperty(IDs::uTime, utime, nullptr);
         sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
         sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
         sequenceEvent.setProperty(IDs::midiNote, note, nullptr);
         sequenceEvent.setProperty(IDs::midiVelocity, velocity, nullptr);
         sequenceEvent.setProperty(IDs::duration, duration, nullptr);
         return sequenceEvent;
+    }
+
+    inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration)
+    {
+        return createSequenceEventOfTypeNote(timestamp, note, velocity, duration, Defaults::uTime);
     }
 
     inline std::vector<juce::MidiMessage> eventValueTreeToMidiMessages(juce::ValueTree& sequenceEvent)
