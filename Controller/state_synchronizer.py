@@ -357,7 +357,6 @@ parameters_types = {
     'doingcountin': bool,
     'doingcountin': bool, 
     'duration': float,
-    'enabled': bool,
     'eventmidibytes': str,
     'fixedlengthrecordingbars': int,    
     'fixedvelocity': bool,

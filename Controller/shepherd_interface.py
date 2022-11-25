@@ -175,11 +175,6 @@ class ShepherdInterface(object):
         if self.session:
             return len(self.session.tracks[track_num].clips)
         return 0
-
-    def is_track_enabled(self, track_num):
-        if self.session:
-            return self.session.tracks[track_num].enabled
-        return False
     
     def scene_play(self, scene_number):
         self.session.scene_play(scene_number)

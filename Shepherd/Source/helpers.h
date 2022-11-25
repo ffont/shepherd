@@ -49,7 +49,6 @@ namespace Helpers
             // Create track
             juce::ValueTree t (IDs::TRACK);
             Helpers::createUuidProperty (t);
-            t.setProperty (IDs::enabled, true, nullptr);
             t.setProperty (IDs::order, tn, nullptr);
             t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
             const juce::String trackName ("Track " + juce::String (tn + 1));

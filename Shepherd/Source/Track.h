@@ -30,7 +30,6 @@ public:
     void bindState();
     juce::ValueTree state;
     
-    bool isEnabled() { return enabled.get(); };
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
     
@@ -70,7 +69,6 @@ public:
 
 private:
     
-    juce::CachedValue<bool> enabled;
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
     juce::CachedValue<int> order;

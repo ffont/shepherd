@@ -101,7 +101,6 @@ inline juce::String emptyString = "";
 inline int order = -1;
 inline double playheadPosition = 0.0;
 inline bool isPlaying = false;
-inline bool enabled = false;
 inline bool doingCountIn = false;
 inline int fixedLengthRecordingBars = 0;
 inline bool recordAutomationEnabled = true;
@@ -135,7 +134,6 @@ DECLARE_ID (TRACK)
 DECLARE_ID (CLIP)
 DECLARE_ID (SEQUENCE_EVENT)
 
-DECLARE_ID (enabled)
 DECLARE_ID (name)
 DECLARE_ID (uuid)
 DECLARE_ID (order)

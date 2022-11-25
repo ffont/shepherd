@@ -33,7 +33,6 @@ Track::Track(const juce::ValueTree& _state,
 
 void Track::bindState()
 {
-    enabled.referTo(state, IDs::enabled, nullptr, true);
     uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
     name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
     order.referTo(state, IDs::order, nullptr, Defaults::order);
@@ -98,7 +97,6 @@ void Track::prepareClips()
                                        getGlobalSettings,
                                        [this]{
                                            TrackSettingsStruct settings;
-                                           settings.enabled = isEnabled();
                                            settings.midiOutChannel = getMidiOutputChannel();
                                            settings.device = getHardwareDevice();
                                            return settings;

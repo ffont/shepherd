@@ -58,9 +58,6 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
 
     def get_current_track_device_short_name(self):
         return self.app.shepherd_interface.get_track_device_short_name(self.selected_track)
-
-    def is_track_enabled(self, i):
-        return self.app.shepherd_interface.is_track_enabled(i)
     
     def get_track_color(self, i):
         return definitions.COLORS_NAMES[i % 8]
@@ -92,7 +89,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         # Selects a track
         # Note that if this is called from a mode from the same xor group with melodic/rhythmic modes,
         # that other mode will be deactivated.
-        if track_idx < self.app.shepherd_interface.get_num_tracks() and self.is_track_enabled(track_idx):
+        if track_idx < self.app.shepherd_interface.get_num_tracks():
             self.selected_track = track_idx
             self.send_select_track(self.selected_track)
             self.clean_currently_notes_being_played()
@@ -117,29 +114,25 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
 
     def update_buttons(self):
         for count, name in enumerate(self.track_button_names):
-            if self.is_track_enabled(count):
-                color = self.get_track_color(count)
-                self.push.buttons.set_button_color(name, color)
-            else:
-                self.push.buttons.set_button_color(name, definitions.BLACK)
-
+            color = self.get_track_color(count)
+            self.push.buttons.set_button_color(name, color)
+            
     def update_display(self, ctx, w, h):
         # Draw track selector labels
         height = 20
         for i in range(0, self.app.shepherd_interface.get_num_tracks()):
-            if self.is_track_enabled(i):
-                track_color = self.get_track_color(i)
-                if self.selected_track == i:
-                    background_color = track_color
-                    font_color = definitions.BLACK
-                else:
-                    background_color = definitions.BLACK
-                    font_color = track_color
-                device_short_name = self.get_track_device_short_name(i)
-                if self.app.shepherd_interface.get_track_is_input_monitoring(i):
-                    device_short_name = '+' + device_short_name
-                show_text(ctx, i, h - height, device_short_name, height=height,
-                        font_color=font_color, background_color=background_color)
+            track_color = self.get_track_color(i)
+            if self.selected_track == i:
+                background_color = track_color
+                font_color = definitions.BLACK
+            else:
+                background_color = definitions.BLACK
+                font_color = track_color
+            device_short_name = self.get_track_device_short_name(i)
+            if self.app.shepherd_interface.get_track_is_input_monitoring(i):
+                device_short_name = '+' + device_short_name
+            show_text(ctx, i, h - height, device_short_name, height=height,
+                    font_color=font_color, background_color=background_color)
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
        if button_name in self.track_button_names:

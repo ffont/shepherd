@@ -20,7 +20,6 @@
 
 
 struct TrackSettingsStruct {
-    bool enabled;
     int midiOutChannel;
     HardwareDevice* device;
 };
