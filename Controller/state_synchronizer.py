@@ -21,7 +21,7 @@ USE_STATE_DEBUGGER = True
 osc_send_host = "127.0.0.1"
 osc_send_port = 9003
 osc_receive_port = 9004
-ws_port = 8125 
+ws_port = 8126
 state_debugger_port = 5100
 state_request_hz = 10 
 
