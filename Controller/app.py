@@ -484,8 +484,8 @@ def on_pad_pressed(_, pad_n, pad_ij, velocity):
             try:
                 for mode in app.active_modes[::-1]:
                     action_performed = mode.on_pad_pressed(pad_n, pad_ij, velocity, long_press=True,
-                        shift=pads_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
-                        select=pads_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
+                        shift=buttons_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
+                        select=buttons_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
                     if action_performed:
                         break  # If mode took action, stop event propagation
             except NameError as e:
@@ -537,8 +537,8 @@ def on_pad_released(_, pad_n, pad_ij, velocity):
             try:
                 for mode in app.active_modes[::-1]:
                     action_performed = mode.on_pad_pressed(pad_n, pad_ij, velocity, double_press=True,
-                        shift=pads_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
-                        select=pads_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
+                        shift=buttons_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
+                        select=buttons_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
                     if action_performed:
                         break  # If mode took action, stop event propagation
             except NameError as e:
@@ -548,8 +548,8 @@ def on_pad_released(_, pad_n, pad_ij, velocity):
             try:
                 for mode in app.active_modes[::-1]:
                     action_performed = mode.on_pad_pressed(pad_n, pad_ij, velocity, 
-                        shift=pads_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
-                        select=pads_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
+                        shift=buttons_pressed_state.get(push2_python.constants.BUTTON_SHIFT, False), 
+                        select=buttons_pressed_state.get(push2_python.constants.BUTTON_SELECT, False))
                     if action_performed:
                         break  # If mode took action, stop event propagation
             except NameError as e:

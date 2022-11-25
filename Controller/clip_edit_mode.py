@@ -10,10 +10,6 @@ from display_utils import show_title, show_value, draw_clip
 class ClipEditgMode(definitions.ShepherdControllerMode):
 
     xor_group = 'pads'
-
-    selected_clip_uuid = None
-    available_clips = []
-    
     buttons_used = [
         push2_python.constants.BUTTON_UPPER_ROW_1,
         push2_python.constants.BUTTON_UPPER_ROW_2,
@@ -30,28 +26,57 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         push2_python.constants.BUTTON_DOUBLE_LOOP,
         push2_python.constants.BUTTON_QUANTIZE,
         push2_python.constants.BUTTON_DELETE,
+        push2_python.constants.BUTTON_RECORD,
     ]
+
+    MODE_CLIP = 'mode_clip'
+    MODE_EVENT = 'mdoe_event'
+    MODE_GENERATOR = 'mode_generator'
+    mode = MODE_CLIP
+
+    selected_clip_uuid = None
+    available_clips = []
+
+    selected_event_uuid = None
 
     pads_min_note_offset = 64
     pads_pad_beats_offset = 0.0 # Offset for notes to be shown
     pads_pad_beat_scale = 0.5 # Default, 1 pad is one half of a beat, there fore 8 pads are 1 bar (assuming 4/4)
-
     pads_pad_beat_scales = [0.125 + 0.125 * i for i in range(0, 32)]
 
     last_beats_to_pad = -1
 
     '''
-    Slot 1 = select clip
+    MODE_CLIP
+    Slot 1 = select clip (Slot 1 button triggers clip play/stop)
     Slot 2 = clip length
     Slot 3 = quantization
     Slot 4 = view scale
     Slots 5-8 = clip preview 
+
+    MODE_EVENT
+    Slot 1 = midi note
+    Slot 2 = duration (rotating ecoder sets quantized duration, encoder + shift sets without quantization)
+
+    MODE_GENERATOR
+    Slot 1 = algorithm (Slot 1 button triggers generation)
+    Slot 2-x = allgorithm paramters
     '''
 
     @property
     def clip(self):
         if self.selected_clip_uuid is not None:
             return self.app.shepherd_interface.sss.get_element_with_uuid(self.selected_clip_uuid)
+        else:
+            return None
+
+    @property
+    def event(self):
+        if self.selected_event_uuid is not None:
+            try:
+                return self.app.shepherd_interface.sss.get_element_with_uuid(self.selected_event_uuid)
+            except KeyError:
+                return None
         else:
             return None
 
@@ -63,15 +88,23 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def end_displayed_time(self):
         return self.pads_pad_beats_offset + self.pads_pad_beat_scale * 8
 
-    def set_selected_clip(self, new_clip_uuid):
+    def set_clip_mode(self, new_clip_uuid):
+        self.selected_event_uuid = None
         self.selected_clip_uuid = new_clip_uuid
+        
         # Auto adjust pads_min_note_offset, etc
         if self.clip.sequence_events:
-            self.pads_min_note_offset = min([event.midinote for event in self.clip.sequence_events if event.type == 1])
+            self.pads_min_note_offset = min([event.midinote for event in self.clip.sequence_events if event.is_type_note()])
         else:
             self.pads_min_note_offset = 64
         self.pads_pad_beats_offset = 0.0
         self.pads_pad_beat_scale = 0.5
+
+        self.mode = self.MODE_CLIP
+
+    def set_event_mode(self, new_event_uuid):
+        self.selected_event_uuid = new_event_uuid
+        self.mode = self.MODE_EVENT
 
     def pad_ij_to_note_beat(self, pad_ij):
         note = self.pads_min_note_offset + (7 - pad_ij[0])
@@ -81,7 +114,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def notes_in_pad(self, pad_ij):
         midi_note, start_time = self.pad_ij_to_note_beat(pad_ij)
         end_time = start_time + self.pads_pad_beat_scale
-        notes = [event for event in self.clip.sequence_events if event.type == 1 and 
+        notes = [event for event in self.clip.sequence_events if event.is_type_note() and 
                                                                  start_time <= event.renderedstarttimestamp <= end_time and
                                                                  event.midinote == midi_note]
         return notes
@@ -90,7 +123,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         return int(math.floor(8 * (beats - self.start_displayed_time)/(self.end_displayed_time - self.start_displayed_time)))
 
     def notes_to_pads(self):
-        notes = [event for event in self.clip.sequence_events if event.type == 1 and 
+        notes = [event for event in self.clip.sequence_events if event.is_type_note() and 
                                                                  (event.renderedstarttimestamp < self.end_displayed_time or event.renderedendtimestamp > self.start_displayed_time) and
                                                                  self.pads_min_note_offset <= event.midinote < self.pads_min_note_offset + 8]
         notes_to_display = []
@@ -146,32 +179,46 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
     def update_display(self, ctx, w, h):
         if not self.app.is_mode_active(self.app.settings_mode) and not self.app.is_mode_active(self.app.ddrm_tone_selector_mode):
-            if self.selected_clip_uuid is not None:
-                part_w = w // 8
-                track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
-                track_color_rgb = definitions.get_color_rgb_float(track_color)
-                
-                # Slot 1, clip name
-                show_title(ctx, part_w * 0, h, 'CLIP', color=track_color_rgb)
-                show_value(ctx, part_w * 0, h, self.clip.name, color=track_color_rgb)
+            part_w = w // 8
+            track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
+            track_color_rgb = definitions.get_color_rgb_float(track_color)
 
-                # Slot 2, clip length
-                show_title(ctx, part_w * 1, h, 'LENGTH')
-                show_value(ctx, part_w * 1, h, '{:.1f}'.format(self.clip.cliplengthinbeats))
+            if self.mode == self.MODE_CLIP:
+                if self.selected_clip_uuid is not None:
+                    
+                    # Slot 1, clip name
+                    show_title(ctx, part_w * 0, h, 'CLIP', color=track_color_rgb)
+                    show_value(ctx, part_w * 0, h, self.clip.name, color=track_color_rgb)
 
-                # Slot 3, quantization
-                show_title(ctx, part_w * 2, h, 'QUANTIZATION')
-                quantization_step_labels = {
-                    0.25: '16th note',
-                    0.5: '8th note',
-                    1.0: '4th note',
-                    0.0: '-'
-                }
-                show_value(ctx, part_w * 2, h, '{}'.format(quantization_step_labels.get(self.clip.currentquantizationstep, self.clip.currentquantizationstep)))
+                    # Slot 2, clip length
+                    show_title(ctx, part_w * 1, h, 'LENGTH')
+                    show_value(ctx, part_w * 1, h, '{:.1f}'.format(self.clip.cliplengthinbeats))
 
-                # Slot 4, view scale
-                show_title(ctx, part_w * 3, h, 'VIEW SCALE')
-                show_value(ctx, part_w * 3, h, '{:.3f}'.format(self.pads_pad_beat_scale))
+                    # Slot 3, quantization
+                    show_title(ctx, part_w * 2, h, 'QUANTIZATION')
+                    quantization_step_labels = {
+                        0.25: '16th note',
+                        0.5: '8th note',
+                        1.0: '4th note',
+                        0.0: '-'
+                    }
+                    show_value(ctx, part_w * 2, h, '{}'.format(quantization_step_labels.get(self.clip.currentquantizationstep, self.clip.currentquantizationstep)))
+
+                    # Slot 4, view scale
+                    show_title(ctx, part_w * 3, h, 'VIEW SCALE')
+                    show_value(ctx, part_w * 3, h, '{:.3f}'.format(self.pads_pad_beat_scale))
+ 
+            elif self.mode == self.MODE_EVENT:
+                if self.event is not None and self.event.is_type_note():
+                    # Slot 1, midi note
+                    show_title(ctx, part_w * 0, h, 'NOTE')
+                    show_value(ctx, part_w * 0, h, self.event.midinote)
+
+                    # Slot 2, duration
+                    show_title(ctx, part_w * 1, h, 'DURATION')
+                    show_value(ctx, part_w * 1, h, '{:.3f}'.format(self.event.duration))
+                    
+            if self.mode == self.MODE_CLIP or self.mode == self.MODE_EVENT:
 
                 # Slots 5-8, clip preview
                 if self.clip.cliplengthinbeats > 0.0:
@@ -182,7 +229,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                         self.pads_pad_beats_offset + 8 * self.pads_pad_beat_scale
                     )
                     draw_clip(ctx, self.clip, frame=(0.5, 0.0, 0.5, 0.87), highglight_notes_beat_frame=highglight_notes_beat_frame, event_color=track_color + '_darker1', highlight_color=track_color)
-        
+               
             beas_to_pad = self.beats_to_pad(self.clip.playheadpositioninbeats)
             if 0 <= beas_to_pad <= 7 and beas_to_pad is not self.last_beats_to_pad:
                 # If clip is playing, trigger re-drawing pads when playhead position advances enough
@@ -203,23 +250,55 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(button_name, definitions.BLACK)
 
     def update_buttons(self):
-        self.set_button_color_if_pressed(push2_python.constants.BUTTON_UPPER_ROW_1, animation=definitions.DEFAULT_ANIMATION)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.BLACK)
-        self.set_button_color_if_pressed(push2_python.constants.BUTTON_UPPER_ROW_3, animation=definitions.DEFAULT_ANIMATION)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.BLACK)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.BLACK)
+        if self.mode == self.MODE_CLIP:
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.BLACK)
+            self.set_button_color_if_pressed(push2_python.constants.BUTTON_UPPER_ROW_3, animation=definitions.DEFAULT_ANIMATION)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.BLACK)
 
-        self.set_button_color_if_pressed(push2_python.constants.BUTTON_DOUBLE_LOOP, animation=definitions.DEFAULT_ANIMATION)
-        self.set_button_color_if_pressed(push2_python.constants.BUTTON_QUANTIZE, animation=definitions.DEFAULT_ANIMATION)
-        self.set_button_color_if_pressed(push2_python.constants.BUTTON_DELETE, animation=definitions.DEFAULT_ANIMATION)
+            self.set_button_color_if_pressed(push2_python.constants.BUTTON_DOUBLE_LOOP, animation=definitions.DEFAULT_ANIMATION)
+            self.set_button_color_if_pressed(push2_python.constants.BUTTON_QUANTIZE, animation=definitions.DEFAULT_ANIMATION)
+            self.set_button_color_if_pressed(push2_python.constants.BUTTON_DELETE, animation=definitions.DEFAULT_ANIMATION)
+
+            if self.clip.recording or self.clip.willstartrecordingat > -1.0:
+                if self.clip.recording:
+                    self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.RED)
+                else:
+                    self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.RED, animation=definitions.DEFAULT_ANIMATION)
+            else:
+                self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.WHITE)
+
+            track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
+            if self.clip.playing or self.clip.willplayat > -1.0:
+                if self.clip.playing:
+                    self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, track_color)
+                else:
+                    self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, track_color, animation=definitions.DEFAULT_ANIMATION)
+            else:
+                self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, track_color + '_darker1')
         
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_UP, definitions.WHITE)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_DOWN, definitions.WHITE)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_LEFT, definitions.WHITE)
-        self.push.buttons.set_button_color(push2_python.constants.BUTTON_RIGHT, definitions.WHITE)
+        elif self.mode == self.MODE_EVENT:
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.BLACK)
+
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_DOUBLE_LOOP, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_QUANTIZE, definitions.BLACK)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_DELETE, definitions.BLACK)
+
+        if self.mode == self.MODE_CLIP or self.mode == self.MODE_EVENT:
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UP, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_DOWN, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_LEFT, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_RIGHT, definitions.WHITE)
             
     def update_pads(self):
         color_matrix, animation_matrix = self.notes_to_pads() 
@@ -233,93 +312,121 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         self.push.pads.set_pads_color(color_matrix, animation_matrix)
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
-        if button_name == push2_python.constants.BUTTON_UP:
-            self.pads_min_note_offset += 1
-            if self.pads_min_note_offset > 128 - 8:
-                self.pads_min_note_offset = 128 - 8
-            self.update_pads()
-            return True
-        elif button_name == push2_python.constants.BUTTON_DOWN:
-            self.pads_min_note_offset -= 1
-            if self.pads_min_note_offset < 0:
-                self.pads_min_note_offset = 0
-            self.update_pads()
-            return True
-        elif button_name == push2_python.constants.BUTTON_LEFT:
-            self.pads_pad_beats_offset -= self.pads_pad_beat_scale
-            if self.pads_pad_beats_offset < 0.0:
-                self.pads_pad_beats_offset = 0.0
-            self.update_pads()
-            return True
-        elif button_name == push2_python.constants.BUTTON_RIGHT:
-            self.pads_pad_beats_offset += self.pads_pad_beat_scale
-            # TODO: don't allow offset that would render clip invisible
-            self.update_pads()
-            return True
-        elif button_name == push2_python.constants.BUTTON_DOUBLE_LOOP:
-            self.clip.double()
-            return True
-        elif button_name == push2_python.constants.BUTTON_QUANTIZE:
-            self.quantize_helper()
-            return True
-        elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
-            self.quantize_helper()
-            return True
-        elif button_name == push2_python.constants.BUTTON_DELETE:
-            self.clip.clear()
-            return True
+        if self.mode == self.MODE_CLIP:
+            if button_name == push2_python.constants.BUTTON_DOUBLE_LOOP:
+                self.clip.double()
+                return True
+            elif button_name == push2_python.constants.BUTTON_QUANTIZE:
+                self.quantize_helper()
+                return True
+            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
+                self.quantize_helper()
+                return True
+            elif button_name == push2_python.constants.BUTTON_DELETE:
+                self.clip.clear()
+                return True
+            elif button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
+                self.clip.play_stop()
+                return True
+            elif button_name == push2_python.constants.BUTTON_RECORD:
+                self.clip.record_on_off()
+                return True
         
-
+        if self.mode == self.MODE_CLIP or self.mode == self.MODE_EVENT:
+            if button_name == push2_python.constants.BUTTON_UP:
+                self.pads_min_note_offset += 1
+                if self.pads_min_note_offset > 128 - 8:
+                    self.pads_min_note_offset = 128 - 8
+                self.update_pads()
+                return True
+            elif button_name == push2_python.constants.BUTTON_DOWN:
+                self.pads_min_note_offset -= 1
+                if self.pads_min_note_offset < 0:
+                    self.pads_min_note_offset = 0
+                self.update_pads()
+                return True
+            elif button_name == push2_python.constants.BUTTON_LEFT:
+                self.pads_pad_beats_offset -= self.pads_pad_beat_scale
+                if self.pads_pad_beats_offset < 0.0:
+                    self.pads_pad_beats_offset = 0.0
+                self.update_pads()
+                return True
+            elif button_name == push2_python.constants.BUTTON_RIGHT:
+                self.pads_pad_beats_offset += self.pads_pad_beat_scale
+                # TODO: don't allow offset that would render clip invisible
+                self.update_pads()
+                return True
+        
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         notes_in_pad = self.notes_in_pad(pad_ij)
         if notes_in_pad:
-            # Remove all notes
-            for note in notes_in_pad:
-                self.clip.remove_sequence_event(note.uuid)
+            if not select:
+                # Remove all notes
+                for note in notes_in_pad:
+                    self.clip.remove_sequence_event(note.uuid)
+            else:
+                if self.mode == self.MODE_EVENT:
+                    self.set_clip_mode(self.selected_clip_uuid)
+                # Enter event edit mode
+                self.set_event_mode(notes_in_pad[0].uuid)
         else:
-            # Create a new note
-            midi_note, timestamp = self.pad_ij_to_note_beat(pad_ij)
-            self.clip.add_sequence_note_event(midi_note, velocity / 127, timestamp, self.pads_pad_beat_scale)
-            if timestamp + self.pads_pad_beat_scale > self.clip.cliplengthinbeats:
-                # If adding a not beyond current clip length
-                self.clip.set_length(math.ceil(timestamp + self.pads_pad_beat_scale))
+            if self.mode == self.MODE_CLIP:
+                # Create a new note
+                midi_note, timestamp = self.pad_ij_to_note_beat(pad_ij)
+                self.clip.add_sequence_note_event(midi_note, velocity / 127, timestamp, self.pads_pad_beat_scale)
+                if timestamp + self.pads_pad_beat_scale > self.clip.cliplengthinbeats:
+                    # If adding a not beyond current clip length
+                    self.clip.set_length(math.ceil(timestamp + self.pads_pad_beat_scale))
+            elif self.mode == self.MODE_EVENT:
+                # Exit event edit mode
+                self.set_clip_mode(self.selected_clip_uuid)
+
         return True
 
     def on_encoder_rotated(self, encoder_name, increment):
-        if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
-            if self.available_clips:
-                if self.selected_clip_uuid is not None:
-                    try:
-                        current_clip_index = self.available_clips.index(self.selected_clip_uuid)
-                    except:
-                        current_clip_index = None
-                    if current_clip_index is None:
-                        next_clip_index = 0
-                    else:
-                        next_clip_index = current_clip_index + increment
-                        if next_clip_index < 0:
+        if self.mode == self.MODE_CLIP:
+            if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
+                if self.available_clips:
+                    if self.selected_clip_uuid is not None:
+                        try:
+                            current_clip_index = self.available_clips.index(self.selected_clip_uuid)
+                        except:
+                            current_clip_index = None
+                        if current_clip_index is None:
                             next_clip_index = 0
-                        elif next_clip_index >= len(self.available_clips) - 1:
-                            next_clip_index = len(self.available_clips) - 1
-                    self.set_selected_clip(self.available_clips[next_clip_index])
-                else:
-                    self.set_selected_clip(self.available_clips[0])
-            
-        elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
-            new_length = self.clip.cliplengthinbeats + increment
-            if new_length < 1.0:
-                new_length = 1.0
-            self.clip.set_length(new_length)
+                        else:
+                            next_clip_index = current_clip_index + increment
+                            if next_clip_index < 0:
+                                next_clip_index = 0
+                            elif next_clip_index >= len(self.available_clips) - 1:
+                                next_clip_index = len(self.available_clips) - 1
+                        self.set_clip_mode(self.available_clips[next_clip_index])
+                    else:
+                        self.set_clip_mode(self.available_clips[0])
+                
+            elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
+                new_length = self.clip.cliplengthinbeats + increment
+                if new_length < 1.0:
+                    new_length = 1.0
+                self.clip.set_length(new_length)
 
-        elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
-            # Set pad beat zoom
-            current_pad_scale = self.pads_pad_beat_scales.index(self.pads_pad_beat_scale)
-            next_pad_scale = current_pad_scale + increment
-            if next_pad_scale < 0:
-                next_pad_scale = 0
-            elif next_pad_scale >= len(self.pads_pad_beat_scales) - 1:
-                next_pad_scale = self.pads_pad_beat_scales
-            self.pads_pad_beat_scale = self.pads_pad_beat_scales[next_pad_scale]
-            self.update_pads()
+            elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
+                # Set pad beat zoom
+                current_pad_scale = self.pads_pad_beat_scales.index(self.pads_pad_beat_scale)
+                next_pad_scale = current_pad_scale + increment
+                if next_pad_scale < 0:
+                    next_pad_scale = 0
+                elif next_pad_scale >= len(self.pads_pad_beat_scales) - 1:
+                    next_pad_scale = self.pads_pad_beat_scales
+                self.pads_pad_beat_scale = self.pads_pad_beat_scales[next_pad_scale]
+                self.update_pads()
+        
+        if self.mode == self.MODE_EVENT:
+            if self.event is not None and self.event.is_type_note():
+                if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
+                    self.event.set_midi_note(self.event.midinote + increment)
+                elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
+                    new_duration = round(100.0 * max(0.1, self.event.duration + increment/10))/100.0
+                    self.event.set_duration(new_duration)
 
         return True  # Always return True because encoder should not be used in any other mode if this is first active

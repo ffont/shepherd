@@ -537,9 +537,6 @@ class Clip(BaseShepherdClass):
     def remove_sequence_event_with_uuid(self, sequence_event_uuid):
         self.sequence_events = [sequence_event for sequence_event in self.sequence_events if sequence_event.uuid != sequence_event_uuid]
 
-    def play_stop(self):
-        self.send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
-
     def get_status(self):
         CLIP_STATUS_PLAYING = "p"
         CLIP_STATUS_STOPPED = "s"
@@ -579,6 +576,9 @@ class Clip(BaseShepherdClass):
     def is_empty(self):
         return 'E' in self.get_status()
 
+    def play_stop(self):
+        self.send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
+    
     def record_on_off(self):
         self.send_msg_to_app('/clip/recordOnOff', [self.track.uuid, self.uuid])
 

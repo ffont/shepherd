@@ -165,7 +165,7 @@ class ShepherdInterface(object):
         if self.session:
             clip = self.session.tracks[track_num].clips[clip_num]
             # type "note" is "1"
-            return [event for event in clip.sequence_events if event.type == 1 and event.renderedstarttimestamp >= 0.0]
+            return [event for event in clip.sequence_events if event.is_type_note() and event.renderedstarttimestamp >= 0.0]
         return []
 
     def get_track_num_clips(self, track_num):

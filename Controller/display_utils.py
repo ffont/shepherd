@@ -130,7 +130,7 @@ def draw_clip(ctx,
     if background_color is not None:
         show_rectangle(ctx, xoffset_percentage, yoffset_percentage, width_percentage, height_percentage, background_color=background_color)
     
-    rendered_notes = [event for event in clip.sequence_events if event.type == 1 and event.renderedstarttimestamp >= 0.0]
+    rendered_notes = [event for event in clip.sequence_events if event.is_type_note() and event.renderedstarttimestamp >= 0.0]
     all_midinotes = [int(note.midinote) for note in rendered_notes]
     playhead_position_percentage = clip.playheadpositioninbeats/displaybeatslength
 
@@ -159,7 +159,7 @@ def draw_clip(ctx,
                     color = highlight_color
                 else:
                     color = event_color
-                    
+
                 x0_rel = (x + note_start_percentage * width) / display_w
                 y0_rel = (y - (note_height_percentage * height + note_height)) / display_h
                 width_rel = ((x + clip.cliplengthinbeats/displaybeatslength * width) / display_w) - x0_rel
