@@ -65,6 +65,7 @@
 #define ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
 #define ACTION_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
 #define ACTION_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"
+#define ACTION_ADDRESS_SETTINGS_TOGGLE_DEBUG_SYNTH "/settings/debugSynthOnOff"
 
 #define ACTION_ADDRESS_GET_STATE "/get_state"
 #define ACTION_ADDRESS_FULL_STATE "/full_state"

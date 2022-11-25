@@ -60,7 +60,7 @@ Sequencer::Sequencer()
 #endif
     
     // Init sine synth with 16 voices (used for testig purposes only)
-    #if !RPI_BUILD
+    #if JUCE_DEBUG
     for (auto i = 0; i < nSynthVoices; ++i)
         sineSynth.addVoice (new SineWaveVoice());
     sineSynth.addSound (new SineWaveSound());
@@ -170,7 +170,7 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
         DBG("Loading new default empty state");
         state = Helpers::createDefaultSession(availableHardwareDeviceNames);
     }
-            
+        
     // Add state change listener and bind cached properties to state properties
     bindState();
     
@@ -527,25 +527,7 @@ void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vect
 
 void Sequencer::initializeHardwareDevices()
 {
-    // First initialize default hardware devices for each available midi out device in the system
-    std::cout << "Initializing default Hardware Devices" << std::endl;
-    juce::Array<juce::MidiDeviceInfo> availableMidiOutDevices = juce::MidiOutput::getAvailableDevices();
-    for (int i=0; i<availableMidiOutDevices.size(); i++) {
-        juce::String name = "Device " + availableMidiOutDevices[i].name;
-        juce::String shortName = "D" + juce::String(i + 1);
-        HardwareDevice* device = new HardwareDevice(name,
-                                                    shortName,
-                                                    [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                    [this](const juce::OSCMessage &message){sendMessageToController(message);},
-                                                    [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
-                                                    );
-        device->configureMidiOutput(availableMidiOutDevices[i].name, i + 1);
-        hardwareDevices.add(device);
-        availableHardwareDeviceNames.add(shortName);
-        std::cout << "- " << name << std::endl;
-    }
-
-    // Then add extra hardware devices if found in the definitions file
+    // Initialize hardware devices from definitions file
     juce::File hardwareDeviceDefinitionsLocation = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/hardwareDevices").withFileExtension("json");
     if (hardwareDeviceDefinitionsLocation.existsAsFile()){
         std::cout << "Initializing Hardware Devices from JSON file" << std::endl;
@@ -584,6 +566,27 @@ void Sequencer::initializeHardwareDevices()
         }
     } else {
         std::cout << "No hardware devices configuration file found at " << hardwareDeviceDefinitionsLocation.getFullPathName() << std::endl;
+    }
+    
+    // If no hardware definition file is preset or could not be loaded, create some default hw devices
+    if (availableHardwareDeviceNames.size() == 0){
+        std::cout << "Initializing default Hardware Devices" << std::endl;
+        juce::Array<juce::MidiDeviceInfo> availableMidiOutDevices = juce::MidiOutput::getAvailableDevices();
+        auto firstDevice = availableMidiOutDevices[0];
+        for (int i=0; i<16; i++) {
+            juce::String name = "Device " + firstDevice.name + " ch " + juce::String(i + 1);
+            juce::String shortName = "Dch" + juce::String(i + 1);
+            HardwareDevice* device = new HardwareDevice(name,
+                                                        shortName,
+                                                        [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
+                                                        [this](const juce::OSCMessage &message){sendMessageToController(message);},
+                                                        [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
+                                                        );
+            device->configureMidiOutput(firstDevice.name, i + 1);
+            hardwareDevices.add(device);
+            availableHardwareDeviceNames.add(shortName);
+            std::cout << "- " << name << std::endl;
+        }
     }
 }
 
@@ -945,7 +948,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     
     // 13) -------------------------------------------------------------------------------------------------
     
-    #if !RPI_BUILD
+    #if JUCE_DEBUG
     if (renderWithInternalSynth){
         // All buffers are combined into a single buffer which is then sent to the synth
         internalSynthCombinedBuffer.clear();
@@ -1343,10 +1346,12 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                 }
             }
             
-            
         } else if (action == ACTION_ADDRESS_TRANSPORT_RECORD_AUTOMATION){
             jassert(parameters.size() == 0);
             recordAutomationEnabled = !recordAutomationEnabled;
+        
+        } else if (action == ACTION_ADDRESS_SETTINGS_TOGGLE_DEBUG_SYNTH){
+            renderWithInternalSynth = !renderWithInternalSynth;
         }
         
     } else if (action == ACTION_ADDRESS_GET_STATE) {
@@ -1368,7 +1373,7 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
         midiInPushIsConnected = false;
         
         // Also in dev mode trigger reload ui
-        #if !RPI_BUILD
+        #if JUCE_DEBUG
         juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 2000);
         sendActionMessage(ACTION_UPDATE_DEVUI_RELOAD_BROWSER);
         #endif

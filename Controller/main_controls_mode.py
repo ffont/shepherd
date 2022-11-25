@@ -134,6 +134,10 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         elif button_name == self.record_automation_button:
             self.app.shepherd_interface.set_record_automation_enabled()
 
+        elif button_name == push2_python.constants.BUTTON_MASTER:
+            # Toggle backend sine-wave debug synth
+            self.app.shepherd_interface.settings_toggle_internal_debug_synth()
+
     def on_button_pressed_raw(self, button_name):    
         if button_name == self.track_triggering_button:
             if self.app.is_mode_active(self.app.clip_triggering_mode):

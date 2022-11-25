@@ -16,7 +16,7 @@ class MainComponent: public juce::AudioAppComponent,
                        
 {
 public:
-    #if !RPI_BUILD
+    #if JUCE_DEBUG
     MainComponent() : devUiComponent(&sequencer)
     #else
     MainComponent()
@@ -35,7 +35,7 @@ public:
             setAudioChannels (2, 2);
         }
         
-        #if !RPI_BUILD
+        #if JUCE_DEBUG
         addAndMakeVisible(devUiComponent);
         setSize (devUiComponent.getWidth(), devUiComponent.getHeight());
         #else
@@ -56,7 +56,7 @@ public:
         juce::String actionName = message.substring(0, message.indexOf(":"));
         juce::String actionData = message.substring(message.indexOf(":") + 1);
     
-        #if !RPI_BUILD
+        #if JUCE_DEBUG
         if (actionName == ACTION_UPDATE_DEVUI_RELOAD_BROWSER) {
             devUiComponent.reloadBrowser();
         }
@@ -85,7 +85,7 @@ public:
     
     void resized() override
     {
-        #if !RPI_BUILD
+        #if JUCE_DEBUG
         devUiComponent.setBounds(getLocalBounds());
         #else
         setSize(10, 10); // I think this needs to be called anyway...
@@ -95,7 +95,7 @@ public:
 private:
     Sequencer sequencer;
     
-    #if !RPI_BUILD
+    #if JUCE_DEBUG
     // Only for desktop app UI
     DevelopmentUIComponent devUiComponent;
     #endif

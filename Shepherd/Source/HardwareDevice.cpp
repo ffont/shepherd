@@ -40,6 +40,7 @@ juce::String HardwareDevice::getShortName()
 
 void HardwareDevice::configureMidiOutput(juce::String deviceName, int channel)
 {
+    // Channel 0 to 16
     midiOutputDeviceName = deviceName;
     midiOutputChannel = channel;
 }
