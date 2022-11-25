@@ -64,8 +64,8 @@ class ShepherdInterface(object):
             for i in range(0, num_tracks):
                 self.session.tracks[i].set_input_monitoring(i==track_num)
 
-    def settings_toggle_internal_debug_synth(self, device_name, msg):
-        self.sss.send_msg_to_app('/settings/debugSynthOnOff')
+    def settings_toggle_internal_debug_synth(self):
+        self.sss.send_msg_to_app('/settings/debugSynthOnOff', [])
 
     def track_set_input_monitoring(self, track_num, enabled):
         if not self.session: return

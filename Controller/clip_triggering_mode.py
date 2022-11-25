@@ -1,7 +1,6 @@
 import definitions
 import push2_python
 import time
-import random
 
 from display_utils import show_text, show_rectangle, draw_clip
 
@@ -137,6 +136,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         self.set_button_color_if_pressed(self.clip_edit_button, animation=definitions.DEFAULT_ANIMATION)
         self.set_button_color(self.duplicate_button)
 
+        '''
         if not self.app.is_mode_active(self.app.settings_mode):
             # If settings mode is active, don't update the upper buttons as these are also used by settings
             for count, track in enumerate(self.app.shepherd_interface.session.tracks):
@@ -145,6 +145,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.WHITE)
                 else:
                     self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.OFF_BTN_COLOR)
+        '''
             
     def update_pads(self):
         color_matrix = []
@@ -203,28 +204,6 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 self.selected_scene += 1
                 self.app.buttons_need_update = True
             return True
-
-        elif button_name in self.upper_row_buttons:
-            track_num = self.upper_row_buttons.index(button_name)
-            track = self.app.shepherd_interface.session.tracks[track_num]
-            clip = track.clips[self.selected_scene]  # clip from the selected scene
-            if not clip.is_empty():
-                # Randomize notes of clip X
-                # NOTE: this is added here to have a way of quickly testing changing clip contents from the 
-                # controller. A proper interaction should be thought         
-                new_clip_length = random.randint(5, 13)
-                random_sequence = []
-                for i in range(0, random.randint(2, 16)):
-                    timestamp = (new_clip_length - 0.5) * random.random()
-                    duration = random.random() * 1.5 + 0.01
-                    random_sequence.append(
-                        {'type': 1, 'midiNote': random.randint(64, 85), 'midiVelocity': 1.0, 'timestamp': timestamp, 'duration': duration}
-                    )
-                clip.set_sequence({
-                        'clipLength': new_clip_length,
-                        'sequenceEvents': random_sequence,
-                })
-
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         track_num = pad_ij[1]
