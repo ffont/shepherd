@@ -514,7 +514,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         notes_in_pad = self.notes_in_pad(pad_ij)
         if notes_in_pad:
-            if not select:
+            if not long_press:
                 if self.mode != self.MODE_EVENT:
                     # Remove all notes
                     for note in notes_in_pad:
@@ -561,12 +561,14 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                         self.set_clip_mode(self.available_clips[next_clip_index])
                     else:
                         self.set_clip_mode(self.available_clips[0])
+                return True  # Don't trigger this encoder moving in any other mode
                 
             elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
                 new_length = self.clip.cliplengthinbeats + increment
                 if new_length < 1.0:
                     new_length = 1.0
                 self.clip.set_length(new_length)
+                return True  # Don't trigger this encoder moving in any other mode
 
             elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
                 # Set pad beat zoom
@@ -578,26 +580,32 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     next_pad_scale = self.pads_pad_beat_scales
                 self.pads_pad_beat_scale = self.pads_pad_beat_scales[next_pad_scale]
                 self.update_pads()
+                return True  # Don't trigger this encoder moving in any other mode
         
         elif self.mode == self.MODE_EVENT:
             if self.event is not None and self.event.is_type_note():
                 if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                     self.event.set_midi_note(self.event.midinote + increment)
+                    return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
                     new_duration = round(100.0 * max(0.1, self.event.duration + increment/10))/100.0
                     self.event.set_duration(new_duration)
+                    return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
                     new_utime = self.event.utime + increment/1000.0
                     self.event.set_utime(new_utime)
+                    return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
-                    new_chance = self.event.chance + increment/100.0
+                    new_chance = self.event.chance + 5 * increment/100.0
                     self.event.set_chance(clamp01(new_chance))
+                    return True  # Don't trigger this encoder moving in any other mode
 
         elif self.mode == self.MODE_GENERATOR:
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                 # Change selected generator algorithm
                 current_algorithm_index = self.generator_algorithms.index(self.generator_algorithm)
                 self.selected_generator_algorithm = (current_algorithm_index + 1) % len(self.generator_algorithms)
+                return True  # Don't trigger this encoder moving in any other mode
 
             else:
                 # Set algorithm parameter
@@ -617,5 +625,5 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 except ValueError:
                     # Encoder not in list (not one of the parameter enconders)3
                     pass
+                return True  # Don't trigger this encoder moving in any other mode
 
-        return True  # Always return True because encoder should not be used in any other mode if this is first active

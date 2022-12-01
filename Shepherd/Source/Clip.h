@@ -185,7 +185,7 @@ private:
         double quantizationStep = currentQuantizationStep;
         
         juce::MidiMessageSequence midiSequence;
-        std::vector<SequenceEventAnnotations*> annotations;
+        std::vector<std::pair<juce::MidiMessage, SequenceEventAnnotations*>> rawAnnotations;
         for (int i=0; i<state.getNumChildren(); i++){
             auto sequenceEvent = state.getChild(i);
             if (sequenceEvent.hasType (IDs::SEQUENCE_EVENT)){
@@ -224,12 +224,19 @@ private:
                         // Set computed properties, create annotation objects and render MIDI messages
                         sequenceEvent.setProperty(IDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
                         sequenceEvent.setProperty(IDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
+                        
                         SequenceEventAnnotations* eventAnnotations = new SequenceEventAnnotations();
                         eventAnnotations->sequenceEventUUID = sequenceEvent.getProperty(IDs::uuid);
-                        eventAnnotations->chance = sequenceEvent.getProperty(IDs::chance);
+                        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
+                            eventAnnotations->chance = sequenceEvent.getProperty(IDs::chance);
+                        }
                         for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
                             midiSequence.addEvent(msg);
-                            annotations.push_back(eventAnnotations);
+                            // Add the corresponding eventAnnotations object to the annotations list
+                            // We also need to add the event timestamp as this will be used to sort
+                            // the annotations vector and make sure it is aligned with the midi message
+                            // sequence
+                            rawAnnotations.push_back(std::make_pair(msg, eventAnnotations));
                         }
                     }
                 } else {
@@ -246,6 +253,28 @@ private:
         
         // Pre-process de MIDI sequence (update quantization, etc)
         preProcessSequence(midiSequence);
+        
+        // Now re-create annotations vector to make sure event annotations are perfectly aligned with
+        // sequence contents after preProcessSequence (and because MidiMessageSequence automatically sorts
+        // MIDI messages). We do that by creating a new vector in which we sequentially add elements
+        // from the old vector that correspond to the exact same midi message of the midi sequence.
+        std::vector<SequenceEventAnnotations*> annotations;
+        for (int i=0; i<midiSequence.getNumEvents(); i++){
+            juce::MidiMessage targetMessage = midiSequence.getEventPointer(i)->message;
+            bool messageFound = false;
+            for (int j=0; j<rawAnnotations.size(); j++){
+                juce::MidiMessage checkedMessage = rawAnnotations[j].first;
+                if (Helpers::sameMidiMessageWithSameTimestamp(targetMessage, checkedMessage)) {
+                    annotations.push_back(rawAnnotations[j].second);
+                    messageFound = true;
+                    break;
+                }
+            }
+            if (!messageFound){
+                annotations.push_back(nullptr); // If no matching message was found, add nullptr for "no annotations"
+            }
+        }
+        jassert(midiSequence.getNumEvents() == annotations.size());
         
         // Creat ClipSequence::Ptr object to share with the RT thread
         ClipSequence::Ptr clipSequenceObject = new ClipSequence();

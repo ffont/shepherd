@@ -146,31 +146,35 @@ def draw_clip(ctx,
                 # Note does not wrap across clip boundaries, draw 1 rectangle  
                 if (note_start_percentage <= playhead_position_percentage <= note_end_percentage + 0.05) and clip.playheadpositioninbeats != 0.0: 
                     color = highlight_color
+                    alpha = 1.0
                 else:
                     color = event_color
+                    alpha = note.chance
                 x0_rel = (x + note_start_percentage * width) / display_w
                 y0_rel = (y - (note_height_percentage * height + note_height)) / display_h
                 width_rel = ((x + note_end_percentage * width) / display_w) - x0_rel
                 height_rel = note_height / display_h
-                show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
+                show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color, alpha=alpha)
             else:
                 # Draw "2 rectangles", one from start of note to end of section, and one from start of section to end of note
                 if (note_start_percentage <= playhead_position_percentage or (playhead_position_percentage <= note_end_percentage + 0.05 and note_end_percentage != 0.0)) and clip.playheadpositioninbeats != 0.0: 
                     color = highlight_color
+                    alpha = 1.0
                 else:
                     color = event_color
+                    alpha = note.chance
 
                 x0_rel = (x + note_start_percentage * width) / display_w
                 y0_rel = (y - (note_height_percentage * height + note_height)) / display_h
                 width_rel = ((x + clip.cliplengthinbeats/displaybeatslength * width) / display_w) - x0_rel
                 height_rel = note_height / display_h
-                show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
+                show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color, alpha=alpha)
 
                 x0_rel = (x + 0.0 * width) / display_w
                 y0_rel = (y - (note_height_percentage * height + note_height)) / display_h
                 width_rel = ((x + note_end_percentage * width) / display_w) - x0_rel
                 height_rel = note_height / display_h
-                show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color)
+                show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color, alpha=alpha)
 
         if highglight_notes_beat_frame is not None:
             y0 = y/display_h - (((highglight_notes_beat_frame[0] - min_midinote) * note_height))/display_h

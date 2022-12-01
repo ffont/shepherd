@@ -17,6 +17,18 @@
 namespace Helpers
 {
 
+    inline bool sameMidiMessageWithSameTimestamp(juce::MidiMessage& m1, juce::MidiMessage& m2)
+    {
+        // Check that two midi messages are exactly the same and have the same timestamp
+        int sizeM1 = m1.getRawDataSize();
+        int sizeM2 = m2.getRawDataSize();
+        if (sizeM1 != sizeM2){
+            return false;
+        }
+        return (memcmp(m1.getRawData(), m2.getRawData(), sizeM1) == 0 && m1.getTimeStamp() == m2.getTimeStamp());
+        //return m1.getDescription() + (juce::String)m1.getTimeStamp() == m2.getDescription() + (juce::String)m2.getTimeStamp();
+    }
+
     inline juce::ValueTree createUuidProperty (juce::ValueTree& v)
     {
         if (! v.hasProperty (IDs::uuid))
