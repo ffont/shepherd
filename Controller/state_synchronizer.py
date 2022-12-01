@@ -351,6 +351,7 @@ class GenericStateSynchronizer(object):
 parameters_types = {
     'barcount': int,
     'bpm': float,
+    'chance': float,
     'cliplengthinbeats': float,
     'countinplayheadpositioninbeats': float,
     'currentquantizationstep': float,
@@ -632,7 +633,7 @@ class Clip(BaseShepherdClass):
             'eventUUID': event_uuid, 
         })
 
-    def add_sequence_note_event(self, midi_note, midi_velocity, timestamp, duration, utime=0.0):
+    def add_sequence_note_event(self, midi_note, midi_velocity, timestamp, duration, utime=0.0, chance=1.0):
         self.edit_sequence({
             'action': 'addEvent',
             'eventData': {
@@ -641,6 +642,7 @@ class Clip(BaseShepherdClass):
                 'midiVelocity': midi_velocity,  # 0.0 to 1.0 
                 'timestamp': timestamp, 
                 'duration': duration,
+                'chance': chance,
                 'utime': utime
             }, 
         })
@@ -655,7 +657,7 @@ class Clip(BaseShepherdClass):
             }, 
         })
 
-    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None, midi_bytes=None, utime=None):
+    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None, midi_bytes=None, utime=None, chance=None):
         event_data = {}
         if midi_note is not None:
             event_data['midiNote'] = midi_note
@@ -669,6 +671,8 @@ class Clip(BaseShepherdClass):
             event_data['eventMidiBytes'] = midi_bytes
         if utime is not None:
             event_data['utime'] = utime
+        if chance is not None:
+            event_data['chance'] = chance
         self.edit_sequence({
             'action': 'editEvent',
             'eventUUID': event_uuid,
@@ -706,6 +710,10 @@ class SequenceEvent(BaseShepherdClass):
     def set_duration(self, duration):
         if self.is_type_note():
             self.clip.edit_sequence_event(self.uuid, duration=duration)
+
+    def set_chance(self, chance):
+        if self.is_type_note():
+            self.clip.edit_sequence_event(self.uuid, chance=chance)
 
     def set_midibytes(self, midi_bytes):
         if self.is_type_midi():

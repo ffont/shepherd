@@ -125,7 +125,7 @@ namespace Helpers
         return createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes, Defaults::uTime);
     }
 
-    inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration, double utime)
+    inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration, double utime, float chance)
     {
         juce::ValueTree sequenceEvent {IDs::SEQUENCE_EVENT};
         Helpers::createUuidProperty (sequenceEvent);
@@ -137,12 +137,13 @@ namespace Helpers
         sequenceEvent.setProperty(IDs::midiNote, note, nullptr);
         sequenceEvent.setProperty(IDs::midiVelocity, velocity, nullptr);
         sequenceEvent.setProperty(IDs::duration, duration, nullptr);
+        sequenceEvent.setProperty(IDs::chance, chance, nullptr);
         return sequenceEvent;
     }
 
     inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration)
     {
-        return createSequenceEventOfTypeNote(timestamp, note, velocity, duration, Defaults::uTime);
+        return createSequenceEventOfTypeNote(timestamp, note, velocity, duration, Defaults::uTime, Defaults::chance);
     }
 
     inline std::vector<juce::MidiMessage> eventValueTreeToMidiMessages(juce::ValueTree& sequenceEvent)

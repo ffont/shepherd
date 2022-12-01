@@ -24,18 +24,26 @@ struct TrackSettingsStruct {
     HardwareDevice* device;
 };
 
+struct SequenceEventAnnotations: juce::ReferenceCountedObject  
+{
+    // Struct to store sequence event properties that are needed for rendering the 
+    // sequence in Clip::processSlice method (for example to support the "chance" feature)
+    juce::String sequenceEventUUID = "";
+    float chance = 1.0;
+    float lastComputedChance = 0.0;
+};
 
-struct ClipSequence : juce::ReferenceCountedObject
+struct ClipSequence: juce::ReferenceCountedObject
 {
     using Ptr = juce::ReferenceCountedObjectPtr<ClipSequence>;
     double lengthInBeats = 0.0;
+    std::vector<SequenceEventAnnotations*> annotations;
     juce::MidiMessageSequence midiSequence = {};
     juce::MidiMessageSequence& sequenceAsMidi() {
         // Using helper function here as in the future we might want to store sequences with another format other than MIDI
         return midiSequence;
     }
 };
-
 
 class Clip: protected juce::ValueTree::Listener,
             private juce::Timer
@@ -177,6 +185,7 @@ private:
         double quantizationStep = currentQuantizationStep;
         
         juce::MidiMessageSequence midiSequence;
+        std::vector<SequenceEventAnnotations*> annotations;
         for (int i=0; i<state.getNumChildren(); i++){
             auto sequenceEvent = state.getChild(i);
             if (sequenceEvent.hasType (IDs::SEQUENCE_EVENT)){
@@ -212,11 +221,15 @@ private:
                         }
                     }
                     if (shouldRenderEvent){
-                        // Set computed properties and render MIDI messages
+                        // Set computed properties, create annotation objects and render MIDI messages
                         sequenceEvent.setProperty(IDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
                         sequenceEvent.setProperty(IDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
+                        SequenceEventAnnotations* eventAnnotations = new SequenceEventAnnotations();
+                        eventAnnotations->sequenceEventUUID = sequenceEvent.getProperty(IDs::uuid);
+                        eventAnnotations->chance = sequenceEvent.getProperty(IDs::chance);
                         for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
                             midiSequence.addEvent(msg);
+                            annotations.push_back(eventAnnotations);
                         }
                     }
                 } else {
@@ -238,6 +251,7 @@ private:
         ClipSequence::Ptr clipSequenceObject = new ClipSequence();
         clipSequenceObject->lengthInBeats = clipLengthInBeats;
         clipSequenceObject->midiSequence = midiSequence;
+        clipSequenceObject->annotations = annotations;
 
         clipSequenceObjectsReleasePool.add(clipSequenceObject);  // Add object to release pool so it is never deleted in the audio thread
         clipSequenceObjectsFifo.push(clipSequenceObject);  // Add object to the fifo si it can be pulled from the audio thread (when MIDI messages are added to buffers)

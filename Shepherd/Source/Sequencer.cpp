@@ -1155,6 +1155,9 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             if (eventData.hasProperty("midiVelocity")) {
                                 sequenceEvent.setProperty(IDs::midiVelocity, (float)eventData["midiVelocity"], nullptr);
                             }
+                            if (eventData.hasProperty("chance")) {
+                                sequenceEvent.setProperty(IDs::chance, (float)eventData["chance"], nullptr);
+                            }
                             if (eventData.hasProperty("timestamp")) {
                                 sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
                             }
@@ -1185,7 +1188,8 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             float midiVelocity = (float)eventData["midiVelocity"];
                             double duration = (double)eventData["duration"];
                             double utime = (double)eventData["utime"];
-                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration, utime), -1, nullptr);
+                            float chance = (float)eventData["chance"];
+                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration, utime, chance), -1, nullptr);
                         } else if ((int)eventData["type"] == SequenceEventType::midi){
                             double timestamp = (double)eventData["timestamp"];
                             juce::String eventMidiBytes = eventData["eventMidiBytes"].toString();

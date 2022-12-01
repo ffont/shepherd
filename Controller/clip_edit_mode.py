@@ -5,7 +5,7 @@ import random
 import math
 
 from display_utils import show_title, show_value, draw_clip
-from utils import clamp
+from utils import clamp, clamp01
 
 
 class GeneratorAlogorithm(object):
@@ -130,6 +130,8 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     MODE_EVENT
     Slot 1 = midi note
     Slot 2 = duration (rotating ecoder sets quantized duration, encoder + shift sets without quantization)
+    Slot 3 = utime
+    Slot 4 = chance
 
     MODE_GENERATOR
     Slot 1 = algorithm (Slot 1 button triggers generation)
@@ -321,6 +323,10 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     # Slot 3, micro time (utime)
                     show_title(ctx, part_w * 2, h, 'uTIME')
                     show_value(ctx, part_w * 2, h, '{:.3f}'.format(self.event.utime))
+
+                    # Slot 4, chance
+                    show_title(ctx, part_w * 3, h, 'CHANCE')
+                    show_value(ctx, part_w * 3, h, "{:.0%}".format(self.event.chance))
                     
             elif self.mode == self.MODE_GENERATOR:
                 show_title(ctx, part_w * 0, h, 'ALGORITHM')
@@ -583,6 +589,9 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
                     new_utime = self.event.utime + increment/1000.0
                     self.event.set_utime(new_utime)
+                elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
+                    new_chance = self.event.chance + increment/100.0
+                    self.event.set_chance(clamp01(new_chance))
 
         elif self.mode == self.MODE_GENERATOR:
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:

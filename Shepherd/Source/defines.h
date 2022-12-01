@@ -123,6 +123,7 @@ inline double timestamp = 0.0;
 inline double uTime = 0.0;
 inline juce::String eventType = "midi";
 inline juce::String eventMidiBytes = "128,64,64";
+inline float chance = 1.0;
 }
 
 namespace IDs
@@ -171,6 +172,7 @@ DECLARE_ID (midiVelocity)
 DECLARE_ID (duration)
 DECLARE_ID (renderedStartTimestamp)
 DECLARE_ID (renderedEndTimestamp)
+DECLARE_ID (chance)
 
 #undef DECLARE_ID
 }

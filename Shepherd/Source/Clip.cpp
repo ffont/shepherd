@@ -609,6 +609,23 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
         
         for (int i=0; i < sequenceToRender.getNumEvents(); i++){
             juce::MidiMessage& msg = sequenceToRender.getEventPointer(i)->message;
+            SequenceEventAnnotations* eventAnnotations = clipSequenceForRTThread->annotations[i];
+
+            // Compute chance values for events of type "note on" when the chance property is lower than 1.0,
+            // otherwise there is no need to compute the chance as notes will allways be played
+            // Because note on and note off pairs will refer to the same SequenceEventAnnotations*
+            // object, when the chance is compute for the note on is the same chance value for the
+            // corresponding note off
+            if (msg.isNoteOn() && eventAnnotations->chance < 1.0){
+                eventAnnotations->lastComputedChance = juce::Random::getSystemRandom().nextFloat();
+            }
+
+            // If the last computed chance is above the event chance, then skip this message
+            // as it should not be rendered in the buffer
+            if (eventAnnotations->lastComputedChance > eventAnnotations->chance) {
+                continue;
+            }
+
             double eventPositionInBeats = msg.getTimeStamp();
             if (loopingInThisSlice && eventPositionInBeats < sliceInBeats.getStart()){
                 // If we're looping and the event position is before the start of the slice, make checks using looped version
@@ -1069,6 +1086,7 @@ void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChange
         (property == IDs::clipLengthInBeats) ||
         (property == IDs::timestamp) ||
         (property == IDs::uTime) ||
+        (property == IDs::chance) ||
         (property == IDs::midiNote) ||
         (property == IDs::duration) ||
         (property == IDs::eventMidiBytes) ||
