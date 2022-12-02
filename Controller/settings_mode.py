@@ -32,8 +32,11 @@ class SettingsMode(definitions.ShepherdControllerMode):
     # - App restart
     # - FPS
 
+    # Hardware devices panel
+    # configure output hw device per track
+
     current_page = 0
-    n_pages = 3
+    n_pages = 4
     encoders_state = {}
 
     current_preset_save_number = 0
@@ -108,6 +111,16 @@ class SettingsMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
+
+        elif self.current_page == 3:  # About
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_4, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_5, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_6, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.WHITE)
+            self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.WHITE)
         
     def update_display(self, ctx, w, h):
         # Divide display in 8 parts to show different settings
@@ -194,6 +207,14 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 elif i == 5:  # FPS indicator
                     show_title(ctx, part_x, h, 'FPS')
                     show_value(ctx, part_x, h, self.app.actual_frame_rate, color)
+
+            elif self.current_page == 3:  # HW devices
+                try:
+                    track = self.app.shepherd_interface.session.tracks[i]
+                    show_title(ctx, part_x, h, 'TRACK {}'.format(i+1))
+                    show_value(ctx, part_x, h, track.hardwaredevicename, color)
+                except:
+                    pass
 
         # After drawing all labels and values, draw other stuff if required
         if self.current_page == 1:  # Performance settings
@@ -292,7 +313,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 self.app.add_display_notification("Saved session in slot: {}".format(self.current_preset_save_number))
 
                 # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
-                self.current_page = 2
+                self.current_page = self.n_pages - 1
                 self.app.toggle_and_rotate_settings_mode()
 
                 return True
@@ -301,7 +322,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 self.app.add_display_notification("Loaded session from slot: {}".format(self.current_preset_load_number))
 
                 # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
-                self.current_page = 2
+                self.current_page = self.n_pages - 1
                 self.app.toggle_and_rotate_settings_mode()
                 
                 return True
@@ -329,6 +350,20 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 # Restart apps
                 restart_apps()
                 return True
+
+        elif self.current_page == 3:  # HW devices
+            if button_name in self.buttons_used:
+                track_num = self.buttons_used.index(button_name)
+                try:
+                    track = self.app.shepherd_interface.session.tracks[track_num]
+                    available_devices = self.app.shepherd_interface.session.get_available_hardwarew_device_names()
+                    current_hw_device = track.hardwaredevicename
+                    current_hw_device_index = available_devices.index(current_hw_device)
+                    next_device_name = available_devices[current_hw_device_index + 1 % len(available_devices)]
+                    track.set_hardware_device(next_device_name)
+                except Exception as e:
+                    print(e)
+            return True
 
 
 def restart_apps():

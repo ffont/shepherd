@@ -474,6 +474,9 @@ class Session(BaseShepherdClass):
     def load(self, load_session_name):
         self.send_msg_to_app('/settings/load', [load_session_name])
 
+    def new(self, num_tracks, num_scenes):
+        self.send_msg_to_app('/settings/new', [num_tracks, num_scenes])
+
     def scene_play(self, scene_number):
         self.send_msg_to_app('/scene/play', [scene_number])
 
@@ -497,6 +500,9 @@ class Session(BaseShepherdClass):
 
     def set_record_automation_on_off(self):
         self.send_msg_to_app('/settings/toggleRecordAutomation', [])
+
+    def get_available_hardwarew_device_names(self):
+        return self.availablehardwaredevicenames.split(';')
         
 
 class Track(BaseShepherdClass):
@@ -521,6 +527,8 @@ class Track(BaseShepherdClass):
     def set_active_ui_notes_monitoring(self):
         self.send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [self.uuid])
 
+    def set_hardware_device(self, device_name):
+        self.send_msg_to_app('/track/setHardwareDevice', [self.uuid, device_name])
 
 class Clip(BaseShepherdClass):
     sequence_events = []

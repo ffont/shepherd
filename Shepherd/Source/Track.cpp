@@ -50,6 +50,7 @@ void Track::setHardwareDevice(HardwareDevice* _device)
 {
     if (_device != nullptr){
         device = _device;
+        hardwareDeviceName = device->getShortName();
     }
 }
 
