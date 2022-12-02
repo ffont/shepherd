@@ -17,7 +17,8 @@
 class HardwareDevice
 {
 public:
-    HardwareDevice(juce::String name,
+    HardwareDevice(HardwareDeviceType type,
+                   juce::String name,
                    juce::String shortName,
                    std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
                    std::function<void(const juce::OSCMessage& message)> oscMessageSender,
@@ -43,6 +44,7 @@ public:
     void renderPendingMidiMessagesToRenderInBuffer();
     
 private:
+    HardwareDeviceType type;
     juce::String name = "Generic device";
     juce::String shortName = "Generic";
     

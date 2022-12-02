@@ -48,7 +48,9 @@ void Track::setHardwareDeviceByName(juce::String deviceName)
 
 void Track::setHardwareDevice(HardwareDevice* _device)
 {
-    device = _device;
+    if (_device != nullptr){
+        device = _device;
+    }
 }
 
 HardwareDevice* Track::getHardwareDevice()

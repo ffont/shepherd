@@ -11,12 +11,14 @@
 #include "HardwareDevice.h"
 
 
-HardwareDevice::HardwareDevice(juce::String _name,
-               juce::String _shortName,
-               std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
-               std::function<void(const juce::OSCMessage& message)> messageSender,
-               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
+HardwareDevice::HardwareDevice(HardwareDeviceType _type,
+                               juce::String _name,
+                               juce::String _shortName,
+                               std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
+                               std::function<void(const juce::OSCMessage& message)> messageSender,
+                               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
 {
+    type = _type;
     name = _name;
     shortName = _shortName;
     getMidiOutputDevice = outputMidiDeviceGetter;

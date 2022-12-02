@@ -40,6 +40,7 @@
 #define ACTION_ADDRESS_TRACK "/track"
 #define ACTION_ADDRESS_TRACK_SET_INPUT_MONITORING "/track/setInputMonitoring"
 #define ACTION_ADDRESS_TRACK_SET_ACTIVE_UI_NOTES_MONITORING_TRACK "/track/setActiveUiNotesMonitoringTrack"
+#define ACTION_ADDRESS_TRACK_SET_HARDWARE_DEVICE "/track/setHardwareDevice"
 
 #define ACTION_ADDRESS_DEVICE "/device"
 #define ACTION_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"
@@ -180,6 +181,8 @@ DECLARE_ID (chance)
 }
 
 enum SequenceEventType { midi, note };
+
+enum HardwareDeviceType { input, output };
 
 struct MidiOutputDeviceData {
     juce::String identifier;

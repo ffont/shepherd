@@ -349,6 +349,7 @@ class GenericStateSynchronizer(object):
 # ----------------
 
 parameters_types = {
+    'availablehardwaredevicenames': str,
     'barcount': int,
     'bpm': float,
     'chance': float,
