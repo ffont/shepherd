@@ -212,7 +212,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 try:
                     track = self.app.shepherd_interface.session.tracks[i]
                     show_title(ctx, part_x, h, 'TRACK {}'.format(i+1))
-                    show_value(ctx, part_x, h, track.hardwaredevicename, color)
+                    show_value(ctx, part_x, h, track.hardwaredevicename if len(track.hardwaredevicename) < 12 else '...{}'.format(track.hardwaredevicename[-9:]), color)
                 except:
                     pass
 
@@ -352,8 +352,18 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 return True
 
         elif self.current_page == 3:  # HW devices
-            if button_name in self.buttons_used:
-                track_num = self.buttons_used.index(button_name)
+            buttons_row = [
+                push2_python.constants.BUTTON_UPPER_ROW_1,
+                push2_python.constants.BUTTON_UPPER_ROW_2,
+                push2_python.constants.BUTTON_UPPER_ROW_3,
+                push2_python.constants.BUTTON_UPPER_ROW_4,
+                push2_python.constants.BUTTON_UPPER_ROW_5,
+                push2_python.constants.BUTTON_UPPER_ROW_6,
+                push2_python.constants.BUTTON_UPPER_ROW_7,
+                push2_python.constants.BUTTON_UPPER_ROW_8
+            ] 
+            if button_name in buttons_row:
+                track_num = buttons_row.index(button_name)
                 try:
                     track = self.app.shepherd_interface.session.tracks[track_num]
                     available_devices = self.app.shepherd_interface.session.get_available_hardwarew_device_names()
@@ -363,7 +373,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     track.set_hardware_device(next_device_name)
                 except Exception as e:
                     print(e)
-            return True
+                return True
 
 
 def restart_apps():
