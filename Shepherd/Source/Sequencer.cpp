@@ -111,7 +111,7 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
         outputFile = getDataLocation().getChildFile(filePath).withFileExtension("xml");
     }
     
-    // Remove things from state playhead positions, play/recording state and other things which are "voaltile"
+    // Remove things from state like playhead positions, play/recording state and other things which are "voaltile"
     juce::ValueTree savedState = state.createCopy();
     savedState.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
     savedState.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
@@ -139,25 +139,116 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
         }
     }
     
+    // Update version
+    savedState.setProperty (IDs::version, ProjectInfo::versionString , nullptr);
+    
     if (auto xml = std::unique_ptr<juce::XmlElement> (savedState.createXml())) {
         DBG("Saving session to: " << outputFile.getFullPathName());
         xml->writeTo(outputFile);
     }
 }
 
-void Sequencer::loadSessionFromFile(juce::String filePath)
+bool Sequencer::validateAndUpdateStateToLoad(juce::ValueTree& stateToCheck)
 {
-    if (sequencerInitialized){
-        // If sequencer has already been initialized, first stop playback (give some sleep time so 
-        // the RT thread has time to be executed and clips set to stop (with note offs sent)
-        if (musicalContext->playheadIsPlaying()){ shouldToggleIsPlaying = true; }
-        juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
-
-        // Remove current state VT listener
-        state.removeListener(this);
+    // Makes sure that the state VT can be loaded by doing some checks. Also makes changes to it
+    // which could be necessary for bakcwards compatiblity (e.g., adding missing properties which were
+    // not available in older versions of shepherd, etc
+    
+    // Check root element type
+    if (!stateToCheck.hasType(IDs::SESSION)){
+        DBG("Root element is not of type SESSION");
+        return false;
     }
     
-    // Then load the session from the specified file
+    // Make sure structure has correct child types
+    std::vector<int> numClipsPerTrack = {};
+    for (int i=0; i<stateToCheck.getNumChildren(); i++){
+        auto firstLevelChild = stateToCheck.getChild(i);
+        if (!firstLevelChild.hasType(IDs::TRACK)){
+            DBG("Session element contains child elements of type other than TRACK");
+            return false;
+        }
+        
+        if (firstLevelChild.hasType(IDs::TRACK)){
+            int nClips = 0;
+            for (int j=0; j<firstLevelChild.getNumChildren(); j++){
+                auto secondLevelChild = firstLevelChild.getChild(j);
+                if (!secondLevelChild.hasType(IDs::CLIP)){
+                    DBG("Track element contains child elements of type other than CLIP");
+                    return false;
+                }
+                
+                if (secondLevelChild.hasType(IDs::CLIP)){
+                    nClips += 1;
+                    for (int k=0; k<secondLevelChild.getNumChildren(); k++){
+                        auto thirdLevelChild = secondLevelChild.getChild(k);
+                        if (!thirdLevelChild.hasType(IDs::SEQUENCE_EVENT)){
+                            DBG("Clip element contains child elements of type other than SEQUENCE_EVENT");
+                            return false;
+                        }
+                    }
+                }
+            }
+            numClipsPerTrack.push_back(nClips);
+        }
+    }
+    
+    // Check that numClipsPerTrack is a vector in which all values are the same number
+    for (int i=0; i<numClipsPerTrack.size()-1; i++){
+        if (numClipsPerTrack[i] != numClipsPerTrack[i+1]){
+            DBG("Inconsistent number of clips per track");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+void Sequencer::loadSession(juce::ValueTree& stateToLoad)
+{
+    // Make some checks about the state which is about to be loaded, and if all is fine, proceed loading state
+    if (validateAndUpdateStateToLoad(stateToLoad)){
+        
+        // If sequencer is initialized remove event listeners, etc
+        if (sequencerInitialized){
+            // If sequencer is playing, first stop playback (give some sleep time so
+            // the RT thread has time to be executed and clips set to stop (with note offs sent)
+            if (musicalContext->playheadIsPlaying()){ shouldToggleIsPlaying = true; }
+            juce::Time::waitForMillisecondCounter(juce::Time::getMillisecondCounter() + 50);
+
+            // Remove current state VT listener
+            state.removeListener(this);
+        }
+        
+        // Assign state
+        state = stateToLoad;
+        
+        // Add state change listener and bind cached properties to state properties
+        bindState();
+        
+        // Initialize musical context
+        musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
+        
+        // Create tracks
+        initializeTracks();
+        
+        // Send OSC message to frontend indiating that Shepherd is ready to rock
+        sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
+    } else {
+        DBG("ERROR: Could not load session data as it is incompatible or it has inconsistencies...");
+        loadNewEmptySession(DEFAULT_NUM_TRACKS, DEFAULT_NUM_SCENES);
+    }
+}
+
+void Sequencer::loadNewEmptySession(int numTracks, int numScenes)
+{
+    DBG("Loading new empty state with " << numTracks << " tracks and " << numScenes << " scenes");
+    juce::ValueTree stateToLoad = Helpers::createDefaultSession(availableHardwareDeviceNames, numTracks, numScenes);
+    loadSession(stateToLoad);
+}
+
+void Sequencer::loadSessionFromFile(juce::String filePath)
+{
     bool stateLoadedFromFileSuccessfully = false;
     juce::File sessionFile;
     if (juce::File::isAbsolutePath(filePath)){
@@ -167,31 +258,16 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
         // File path is the name of the file only, save it in the default location
         sessionFile = getDataLocation().getChildFile(filePath).withFileExtension("xml");
     }
+    juce::ValueTree stateToLoad;
     if (sessionFile.existsAsFile()){
         if (auto xml = std::unique_ptr<juce::XmlElement> (juce::XmlDocument::parse (sessionFile))){
             DBG("Loading session from: " << sessionFile.getFullPathName());
             juce::ValueTree loadedState = juce::ValueTree::fromXml (*xml);  // Load new state into VT
-            state = loadedState; // Then set the new state
+            stateToLoad = loadedState; // Then set the new state
             stateLoadedFromFileSuccessfully = true;
         }
     }
-    if (!stateLoadedFromFileSuccessfully){
-        // If state could not be loaded from file, create a new default empty state
-        DBG("Loading new default empty state");
-        state = Helpers::createDefaultSession(availableHardwareDeviceNames);
-    }
-        
-    // Add state change listener and bind cached properties to state properties
-    bindState();
-    
-    // Initialize musical context
-    musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
-    
-    // Create tracks
-    initializeTracks();
-    
-    // Send OSC message to frontend indiating that Shepherd is ready to rock
-    sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
+    loadSession(stateToLoad);
 }
 
 juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
@@ -986,8 +1062,6 @@ GlobalSettingsStruct Sequencer::getGlobalSettings()
 {
     GlobalSettingsStruct settings;
     settings.fixedLengthRecordingBars = fixedLengthRecordingBars;
-    settings.maxScenes = MAX_NUM_SCENES;
-    settings.maxTracks = MAX_NUM_TRACKS;
     settings.sampleRate = sampleRate;
     settings.samplesPerSlice = samplesPerSlice;
     settings.recordAutomationEnabled = recordAutomationEnabled;
@@ -1031,26 +1105,27 @@ void Sequencer::timerCallback()
 //==============================================================================
 void Sequencer::playScene(int sceneN)
 {
-    jassert(sceneN < MAX_NUM_SCENES);
-    for (auto track: tracks->objects){
-        auto clip = track->getClipAt(sceneN);
-        track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
-        clip->clearStopCue();
-        if (!clip->isPlaying() && !clip->isCuedToPlay()){
-            clip->togglePlayStop();
+    if ((tracks->objects.size() > 0)  && (sceneN < tracks->objects[0]->getNumberOfClips())){
+        for (auto track: tracks->objects){
+            auto clip = track->getClipAt(sceneN);
+            track->stopAllPlayingClipsExceptFor(sceneN, false, true, false);
+            clip->clearStopCue();
+            if (!clip->isPlaying() && !clip->isCuedToPlay()){
+                clip->togglePlayStop();
+            }
         }
     }
 }
 
 void Sequencer::duplicateScene(int sceneN)
 {
-    // Assert we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
-    jassert(sceneN < MAX_NUM_SCENES - 1);
-    
-    // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
-    // sceneN.
-    for (auto track: tracks->objects){
-        track->duplicateClipAt(sceneN);
+    // Make sure we're not attempting to duplicate if the selected scene is the very last as there's no more space to accomodate new clips
+    if ((tracks->objects.size() > 0)  && (sceneN < tracks->objects[0]->getNumberOfClips() - 1)){
+        // Make a copy of the sceneN and insert it to the current position of sceneN. This will shift position of current
+        // sceneN.
+        for (auto track: tracks->objects){
+            track->duplicateClipAt(sceneN);
+        }
     }
 }
 
@@ -1319,6 +1394,12 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             jassert(parameters.size() == 1);
             juce::String filePath = parameters[0];
             saveCurrentSessionToFile(filePath);
+        
+        } else if (action == ACTION_ADDRESS_SETTINGS_NEW_SESSION){
+            jassert(parameters.size() == 2);
+            int numTracks = parameters[0].getIntValue();
+            int numScenes = parameters[1].getIntValue();
+            loadNewEmptySession(numTracks, numScenes);
             
         } else if (action == ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
             jassert(parameters.size() == 64);

@@ -381,6 +381,7 @@ parameters_types = {
     'type': int, # SequenceEventType {midi=0, note=1}
     'utime': float,
     'uuid': str,
+    'version': str,
     'willplayat': float,
     'willstartrecordingat': float,
     'willstopat': float,

@@ -90,8 +90,11 @@ private:
     bool sequencerInitialized = false;
     
     // Save/load
-    void saveCurrentSessionToFile(juce::String filePath);
+    void loadSession(juce::ValueTree& stateToLoad);
+    void loadNewEmptySession(int numTracks, int numScenes);
     void loadSessionFromFile(juce::String filePath);
+    bool validateAndUpdateStateToLoad(juce::ValueTree& state);
+    void saveCurrentSessionToFile(juce::String filePath);
 
     // Settings file
     juce::String getPropertyFromSettingsFile(juce::String propertyName);

@@ -36,10 +36,11 @@ namespace Helpers
         return v;
     }
 
-    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames)
+    inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
     {
         juce::ValueTree session (IDs::SESSION);
         Helpers::createUuidProperty (session);
+        session.setProperty (IDs::version, ProjectInfo::versionString , nullptr);
         session.setProperty (IDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
         session.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
         session.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
@@ -56,7 +57,7 @@ namespace Helpers
         // Hardcode some needed variables
         session.setProperty ("notesMonitoringDeviceName", SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME, nullptr);
         
-        for (int tn = 0; tn < MAX_NUM_TRACKS; ++tn)
+        for (int tn = 0; tn < numTracks; ++tn)
         {
             // Create track
             juce::ValueTree t (IDs::TRACK);
@@ -75,7 +76,7 @@ namespace Helpers
             }
             
             // Now add clips to track (for now clips are still empty and disabled)
-            for (int cn = 0; cn < MAX_NUM_SCENES; ++cn)
+            for (int cn = 0; cn < numScenes; ++cn)
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);

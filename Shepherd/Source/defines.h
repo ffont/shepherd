@@ -60,6 +60,7 @@
 #define ACTION_ADDRESS_SETTINGS "/settings"
 #define ACTION_ADDRESS_SETTINGS_LOAD_SESSION "/settings/load"
 #define ACTION_ADDRESS_SETTINGS_SAVE_SESSION "/settings/save"
+#define ACTION_ADDRESS_SETTINGS_NEW_SESSION "/settings/new"
 #define ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
 #define ACTION_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
 #define ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
@@ -82,8 +83,8 @@
 
 #define DEV_UI_SIMULATOR_URL "http://localhost:6128/"
 
-#define MAX_NUM_SCENES 8  // In the future we want to support more scenes but then we need to implement some sort of scrolling in UI
-#define MAX_NUM_TRACKS 8  // In the future we want to support more tracks but then we need to implement some sort of scrolling in UI
+#define DEFAULT_NUM_SCENES 8
+#define DEFAULT_NUM_TRACKS 8
 
 #define MIDI_SUSTAIN_PEDAL_CC 64
 #define MIDI_BANK_CHANGE_CC 0
@@ -136,6 +137,7 @@ DECLARE_ID (TRACK)
 DECLARE_ID (CLIP)
 DECLARE_ID (SEQUENCE_EVENT)
 
+DECLARE_ID (version)
 DECLARE_ID (name)
 DECLARE_ID (uuid)
 DECLARE_ID (order)
@@ -189,8 +191,6 @@ struct MidiOutputDeviceData {
 struct GlobalSettingsStruct {
     double sampleRate;
     int samplesPerSlice;
-    int maxScenes;  // This is the same of the maximum number of clips per track
-    int maxTracks;
     int fixedLengthRecordingBars;
     double playheadPositionInBeats;
     double countInPlayheadPositionInBeats;
