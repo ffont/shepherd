@@ -13,16 +13,16 @@ is_running_sw_update = ''
 
 class SettingsMode(definitions.ShepherdControllerMode):
 
+    # Various settings
+    # - Save session
+    # - Load session
+    # - Rerun MIDI initial configuration
+
     # Pad settings
     # - Root note
     # - Aftertouch mode
     # - Velocity curve
     # - Channel aftertouch range
-
-    # Various settings
-    # - Save session
-    # - Load session
-    # - Rerun MIDI initial configuration
 
     # About panel
     # - Save current settings
@@ -79,7 +79,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
         self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.BLACK)
 
     def update_buttons(self):
-        if self.current_page == 0:  # Performance settings
+        if self.current_page == 1:  # Performance settings
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.WHITE)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.WHITE)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.OFF_BTN_COLOR)
@@ -89,7 +89,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_7, definitions.OFF_BTN_COLOR)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_8, definitions.OFF_BTN_COLOR)
 
-        elif self.current_page == 1: # Various settings
+        elif self.current_page == 0: # Various settings
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, definitions.WHITE)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_2, definitions.WHITE)
             self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_3, definitions.GREEN, animation=definitions.DEFAULT_ANIMATION)
@@ -125,7 +125,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
             color = [1.0, 1.0, 1.0]
 
-            if self.current_page == 0:  # Performance settings
+            if self.current_page == 1:  # Performance settings
                 if i == 0:  # Root note
                     if not self.app.is_mode_active(self.app.melodic_mode):
                         color = definitions.get_color_rgb_float(definitions.FONT_COLOR_DISABLED)
@@ -161,7 +161,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     show_title(ctx, part_x, h, 'pAT CURVE')
                     show_value(ctx, part_x, h, self.app.melodic_mode.poly_at_curve_bending, color)
 
-            elif self.current_page == 1:  # Various settings
+            elif self.current_page == 0:  # Various settings
                 if i == 0:  # Save session
                     show_title(ctx, part_x, h, 'SAVE SESSION')
                     show_value(ctx, part_x, h, self.current_preset_save_number, color)
@@ -196,7 +196,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     show_value(ctx, part_x, h, self.app.actual_frame_rate, color)
 
         # After drawing all labels and values, draw other stuff if required
-        if self.current_page == 0:  # Performance settings
+        if self.current_page == 1:  # Performance settings
 
             # Draw polyAT velocity curve
             ctx.set_source_rgb(0.6, 0.6, 0.6)
@@ -229,7 +229,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
     def on_encoder_rotated(self, encoder_name, increment):
         self.encoders_state[encoder_name]['last_message_received'] = time.time()
-        if self.current_page == 0:  # Performance settings
+        if self.current_page == 1:  # Performance settings
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                 self.app.melodic_mode.set_root_midi_note(self.app.melodic_mode.root_midi_note + increment)
                 self.app.pads_need_update = True  # Using async update method because we don't really need immediate response here
@@ -257,7 +257,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
             elif encoder_name == push2_python.constants.ENCODER_TRACK6_ENCODER:
                 self.app.melodic_mode.set_poly_at_curve_bending(self.app.melodic_mode.poly_at_curve_bending + increment)
 
-        elif self.current_page == 1:  # Various settings
+        elif self.current_page == 0:  # Various settings
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                 self.current_preset_save_number += increment
                 if self.current_preset_save_number < 0:
@@ -271,7 +271,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
         return True  # Always return True because encoder should not be used in any other mode if this is first active
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
-        if self.current_page == 0:  # Performance settings
+        if self.current_page == 1:  # Performance settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
                 self.app.melodic_mode.set_root_midi_note(self.app.melodic_mode.root_midi_note + 1)
                 self.app.pads_need_update = True
@@ -286,14 +286,24 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 self.app.melodic_mode.set_lumi_pressure_mode()
                 return True
 
-        elif self.current_page == 1:  # Various settings
+        elif self.current_page == 0:  # Various settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
                 self.app.shepherd_interface.session.save(str(self.current_preset_save_number))
                 self.app.add_display_notification("Saved session in slot: {}".format(self.current_preset_save_number))
+
+                # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
+                self.current_page = 2
+                self.app.toggle_and_rotate_settings_mode()
+
                 return True
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_2:
                 self.app.shepherd_interface.session.load(str(self.current_preset_load_number))
                 self.app.add_display_notification("Loaded session from slot: {}".format(self.current_preset_load_number))
+
+                # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
+                self.current_page = 2
+                self.app.toggle_and_rotate_settings_mode()
+                
                 return True
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
                 self.app.on_midi_push_connection_established()
