@@ -603,10 +603,13 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
                     if not shift:
-                        new_timestamp = round(100.0 * self.event.timestamp + increment/10.0)/100.0
+                        new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.app.shepherd_interface.session.meter)))/1000.0
                     else:
-                        new_timestamp = self.event.timestamp + increment/100.0
-                    self.event.set_timestamp(clamp(new_timestamp, 0.0, self.clip.cliplengthinbeats))
+                        new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.app.shepherd_interface.session.meter*2)))/1000.0
+                    new_timestamp = clamp(new_timestamp, 0.0, self.clip.cliplengthinbeats)
+                    if new_timestamp == self.clip.cliplengthinbeats:
+                        new_timestamp = 0.0
+                    self.event.set_timestamp(new_timestamp)
                     return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
                     new_utime = self.event.utime + increment/1000.0
