@@ -129,9 +129,11 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
     MODE_EVENT
     Slot 1 = midi note
-    Slot 2 = duration (rotating ecoder sets quantized duration, encoder + shift sets without quantization)
-    Slot 3 = utime
-    Slot 4 = chance
+    Slot 2 = timestamp
+    Slot 3 = duration (rotating ecoder sets quantized duration, encoder + shift sets without quantization)
+    Slot 4 = utime
+    Slot 5 = chance
+    Slots 6-8 = clip preview 
 
     MODE_GENERATOR
     Slot 1 = algorithm (Slot 1 button triggers generation)
@@ -316,17 +318,21 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     show_title(ctx, part_w * 0, h, 'NOTE')
                     show_value(ctx, part_w * 0, h, self.event.midinote)
 
-                    # Slot 2, duration
-                    show_title(ctx, part_w * 1, h, 'DURATION')
-                    show_value(ctx, part_w * 1, h, '{:.3f}'.format(self.event.duration))
-
+                    # Slot 2, timesatamp
+                    show_title(ctx, part_w * 1, h, 'START')
+                    show_value(ctx, part_w * 1, h, '{:.3f}'.format(self.event.timestamp))
+                    
+                    # Slot 3, duration
+                    show_title(ctx, part_w * 2, h, 'DURATION')
+                    show_value(ctx, part_w * 2, h, '{:.3f}'.format(self.event.duration))
+                    
                     # Slot 3, micro time (utime)
-                    show_title(ctx, part_w * 2, h, 'uTIME')
-                    show_value(ctx, part_w * 2, h, '{:.3f}'.format(self.event.utime))
+                    show_title(ctx, part_w * 3, h, 'uTIME')
+                    show_value(ctx, part_w * 3, h, '{:.3f}'.format(self.event.utime))
 
                     # Slot 4, chance
-                    show_title(ctx, part_w * 3, h, 'CHANCE')
-                    show_value(ctx, part_w * 3, h, "{:.0%}".format(self.event.chance))
+                    show_title(ctx, part_w * 4, h, 'CHANCE')
+                    show_value(ctx, part_w * 4, h, "{:.0%}".format(self.event.chance))
                     
             elif self.mode == self.MODE_GENERATOR:
                 show_title(ctx, part_w * 0, h, 'ALGORITHM')
@@ -340,7 +346,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                         label = '{}'.format(parameter['value'])
                     show_value(ctx, part_w * (i + 1), h, label)
 
-            # For all modes, slots 5-8 show clip preview
+            # For all modes, slots 6-8 show clip preview
             if self.mode != self.MODE_GENERATOR or (self.mode == self.MODE_GENERATOR and len(self.generator_algorithm.get_algorithm_parameters()) <= 3):
                 if self.clip.cliplengthinbeats > 0.0:
                     highglight_notes_beat_frame = (
@@ -349,7 +355,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                         self.pads_pad_beats_offset,
                         self.pads_pad_beats_offset + 8 * self.pads_pad_beat_scale
                     )
-                    draw_clip(ctx, self.clip, frame=(0.5, 0.0, 0.5, 0.87), highglight_notes_beat_frame=highglight_notes_beat_frame, event_color=track_color + '_darker1', highlight_color=track_color)
+                    draw_clip(ctx, self.clip, frame=(5.0/8.0, 0.0, 3.0/8.0, 0.87), highglight_notes_beat_frame=highglight_notes_beat_frame, event_color=track_color + '_darker1', highlight_color=track_color)
                 
             beas_to_pad = self.beats_to_pad(self.clip.playheadpositioninbeats)
             if 0 <= beas_to_pad <= 7 and beas_to_pad is not self.last_beats_to_pad:
@@ -542,6 +548,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         return True
 
     def on_encoder_rotated(self, encoder_name, increment):
+        shift = self.app.is_button_being_pressed(push2_python.constants.BUTTON_SHIFT)
         if self.mode == self.MODE_CLIP:
             if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                 if self.available_clips:
@@ -587,15 +594,25 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
                     self.event.set_midi_note(self.event.midinote + increment)
                     return True  # Don't trigger this encoder moving in any other mode
-                elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
-                    new_duration = round(100.0 * max(0.1, self.event.duration + increment/10))/100.0
+                elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
+                    if not shift:
+                        new_duration = round(100.0 * max(0.1, self.event.duration + increment/10.0))/100.0
+                    else:
+                        new_duration = max(0.1, self.event.duration + increment/10)
                     self.event.set_duration(new_duration)
                     return True  # Don't trigger this encoder moving in any other mode
-                elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
+                elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
+                    if not shift:
+                        new_timestamp = round(100.0 * self.event.timestamp + increment/10.0)/100.0
+                    else:
+                        new_timestamp = self.event.timestamp + increment/100.0
+                    self.event.set_timestamp(clamp(new_timestamp, 0.0, self.clip.cliplengthinbeats))
+                    return True  # Don't trigger this encoder moving in any other mode
+                elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
                     new_utime = self.event.utime + increment/1000.0
                     self.event.set_utime(new_utime)
                     return True  # Don't trigger this encoder moving in any other mode
-                elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
+                elif encoder_name == push2_python.constants.ENCODER_TRACK5_ENCODER:
                     new_chance = self.event.chance + 5 * increment/100.0
                     self.event.set_chance(clamp01(new_chance))
                     return True  # Don't trigger this encoder moving in any other mode
