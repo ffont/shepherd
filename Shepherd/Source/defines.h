@@ -177,6 +177,7 @@ DECLARE_ID (duration)
 DECLARE_ID (renderedStartTimestamp)
 DECLARE_ID (renderedEndTimestamp)
 DECLARE_ID (chance)
+DECLARE_ID (dataLocation)
 
 #undef DECLARE_ID
 }

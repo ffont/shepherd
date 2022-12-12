@@ -98,6 +98,8 @@ void Sequencer::bindState()
     fixedLengthRecordingBars.referTo(sessionState, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
     recordAutomationEnabled.referTo(sessionState, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
+    
+    state.setProperty(IDs::dataLocation, getDataLocation().getFullPathName(), nullptr);
 }
 
 juce::File Sequencer::getDataLocation() {
