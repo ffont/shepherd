@@ -132,6 +132,7 @@ namespace IDs
 {
 #define DECLARE_ID(name) const juce::Identifier name (#name);
 
+DECLARE_ID (ROOT)
 DECLARE_ID (SESSION)
 DECLARE_ID (DEVICE)
 DECLARE_ID (TRACK)

@@ -187,7 +187,6 @@ private:
     std::vector<juce::String> sendPushMidiClockDeviceNames = {};
 
     // Tracks
-    void initializeTracks();
     std::unique_ptr<TrackList> tracks;
     juce::String activeUiNotesMonitoringTrack = "";
     Track* getTrackWithUUID(juce::String trackUUID);

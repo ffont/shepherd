@@ -14,6 +14,9 @@
 //==============================================================================
 Sequencer::Sequencer()
 {
+    // Initialize state as root
+    state = Helpers::createDefaultStateRoot();
+    
     // Make sure data location exists
     juce::File location = getDataLocation();
     if (!location.exists()){
@@ -90,9 +93,10 @@ void Sequencer::bindState()
 {
     state.addListener(this);
     
-    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
-    fixedLengthRecordingBars.referTo(state, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
-    recordAutomationEnabled.referTo(state, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
+    juce::ValueTree sessionState = state.getChildWithName(IDs::SESSION);
+    name.referTo(sessionState, IDs::name, nullptr, Defaults::emptyString);
+    fixedLengthRecordingBars.referTo(sessionState, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
+    recordAutomationEnabled.referTo(sessionState, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
 }
 
@@ -111,8 +115,9 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
         outputFile = getDataLocation().getChildFile(filePath).withFileExtension("xml");
     }
     
-    // Remove things from state like playhead positions, play/recording state and other things which are "voaltile"
-    juce::ValueTree savedState = state.createCopy();
+    // Get the part of the state that corresponds to the session, remove things from it like playhead positions,
+    // play/recording state and other things which are "voaltile"
+    juce::ValueTree savedState = state.getChildWithName(IDs::SESSION).createCopy();
     savedState.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
     savedState.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
     savedState.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
@@ -220,21 +225,33 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
             state.removeListener(this);
         }
         
-        // Assign state
-        state = stateToLoad;
-        
-        // Add information about available hardware devices
-        // NOTE: this is a temporary solution, in the future this will be better handled as part of the state
-        state.setProperty("availableHardwareDeviceNames", availableHardwareDeviceNames.joinIntoString(";"), nullptr);
+        // Remove current session state and assign new one
+        state.removeChild(state.getChildWithName(IDs::SESSION), nullptr);
+        state.addChild(stateToLoad, 0, nullptr);
         
         // Add state change listener and bind cached properties to state properties
         bindState();
         
         // Initialize musical context
-        musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state);
+        musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state.getChildWithName(IDs::SESSION));
         
-        // Create tracks
-        initializeTracks();
+        // Initialize tracks
+        tracks = std::make_unique<TrackList>(state.getChildWithName(IDs::SESSION),
+                                             [this]{
+                                                 return juce::Range<double>{musicalContext->getPlayheadPositionInBeats(), musicalContext->getPlayheadPositionInBeats() + musicalContext->getSliceLengthInBeats()};
+                                             },
+                                             [this]{
+                                                 return getGlobalSettings();
+                                             },
+                                             [this]{
+                                                 return musicalContext.get();
+                                             },
+                                             [this](juce::String deviceName){
+                                                 return getHardwareDeviceByName(deviceName);
+                                             },
+                                             [this](juce::String deviceName){
+                                                 return getMidiOutputDeviceBuffer(deviceName);
+                                             });
         
         // Send OSC message to frontend indiating that Shepherd is ready to rock
         sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
@@ -682,8 +699,9 @@ void Sequencer::initializeHardwareDevices()
         }
     }
     
-    
-
+    // Add information about available hardware devices
+    // NOTE: this is a temporary solution, in the future this will be better handled as part of the state
+    state.setProperty("availableHardwareDeviceNames", availableHardwareDeviceNames.joinIntoString(";"), nullptr);
 }
 
 HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name)
@@ -695,27 +713,6 @@ HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name)
     }
     // If no hardware device is available with that name, simply return null pointer
     return nullptr;
-}
-
-void Sequencer::initializeTracks()
-{
-    // Create some tracks according to state
-    tracks = std::make_unique<TrackList>(state,
-                                         [this]{
-                                             return juce::Range<double>{musicalContext->getPlayheadPositionInBeats(), musicalContext->getPlayheadPositionInBeats() + musicalContext->getSliceLengthInBeats()};
-                                         },
-                                         [this]{
-                                             return getGlobalSettings();
-                                         },
-                                         [this]{
-                                             return musicalContext.get();
-                                         },
-                                         [this](juce::String deviceName){
-                                             return getHardwareDeviceByName(deviceName);
-                                         },
-                                         [this](juce::String deviceName){
-                                             return getMidiOutputDeviceBuffer(deviceName);
-                                         });
 }
 
 Track* Sequencer::getTrackWithUUID(juce::String trackUUID)

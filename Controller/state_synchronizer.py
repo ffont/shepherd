@@ -48,7 +48,7 @@ if USE_STATE_DEBUGGER:
         if sss_instance is None or sss_instance.session is None:
             state = 'No state has been synced yet'
         else:
-            state = sss_instance.session.render_session(include_attributes=True)
+            state = '{}\n{}'.format(sss_instance.session.render(include_attributes=True), sss_instance.extra_state.render())
         return render_template('state_debugger.html', state=state, xml=False, state_debugger_autoreload_ms=state_debugger_autoreload_ms)
 
 
@@ -422,6 +422,13 @@ class BaseShepherdClass(object):
     def send_msg_to_app(self, address, values):
         self.state_synchronizer.send_msg_to_app(address, values)
 
+    def render_object_attributes(self, obj, num_spaces_offset=0):
+        text = ''
+        for attr_name in dir(obj):
+            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer' and attr_name != 'track' and attr_name != 'clip':
+                text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(obj, attr_name))
+        return text
+
 
 class Session(BaseShepherdClass):
     tracks = []
@@ -439,14 +446,7 @@ class Session(BaseShepherdClass):
     def remove_track_with_uuid(self, track_uuid):
         self.tracks = [track for track in self.tracks if track.uuid != track_uuid]
 
-    def render_object_attributes(self, obj, num_spaces_offset=0):
-        text = ''
-        for attr_name in dir(obj):
-            if not attr_name.startswith('_') and not callable(getattr(obj, attr_name)) and not type(getattr(obj, attr_name)) == list and attr_name != 'state_synchronizer' and attr_name != 'track' and attr_name != 'clip':
-                text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(obj, attr_name))
-        return text
-
-    def render_session(self, include_attributes=False):
+    def render(self, include_attributes=False):
         text = '------------------------------------------------\n'
         text += 'SESSION {} ({})\n'.format(self.name, self.uuid)
         if include_attributes:
@@ -500,9 +500,6 @@ class Session(BaseShepherdClass):
 
     def set_record_automation_on_off(self):
         self.send_msg_to_app('/settings/toggleRecordAutomation', [])
-
-    def get_available_hardwarew_device_names(self):
-        return self.availablehardwaredevicenames.split(';')
         
 
 class Track(BaseShepherdClass):
@@ -729,11 +726,26 @@ class SequenceEvent(BaseShepherdClass):
         if self.is_type_midi():
             self.clip.edit_sequence_event(self.uuid, midi_bytes=midi_bytes)
 
+
+class ExtraState(BaseShepherdClass):
+    
+    def get_available_hardwarew_device_names(self):
+        return self.availablehardwaredevicenames.split(';')
+
+    def render(self):
+        text = '------------------------------------------------\n'
+        text += 'EXTRA STATE:\n'
+        text += self.render_object_attributes(self)
+        return text
+
+
 class ShepherdStateSynchronizer(GenericStateSynchronizer):
 
     session = None
+    extra_state = None
     elements_uuids_map = {}
     showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface (see on_state_update below)
+
 
     def add_element_to_uuid_map(self, element):
         self.elements_uuids_map[element.uuid] = element
@@ -826,14 +838,22 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
             self.app.shepherd_interface.reactivate_modes()
 
     def on_full_state_received(self, full_state_soup):
-        self.build_session(full_state_soup)
+        self.build_objects_from_full_state(full_state_soup)
 
         # Trigger re-activation of modes in case pads need to be updated
         if self.app.shepherd_interface is not None:
             self.app.shepherd_interface.receive_shepherd_ready()
 
-    def build_session(self, full_state_soup):
+    def build_objects_from_full_state(self, full_state_soup):
         self.elements_uuids_map = {}
+
+        # build extra state
+        root_element_soup = full_state_soup.findAll("root")[0]
+        extra_state = ExtraState(root_element_soup, self)  # Add properties from state root object
+        self.add_element_to_uuid_map(extra_state)
+        self.extra_state = extra_state
+
+        # build session
         session_soup = full_state_soup.findAll("session")[0]
         session = Session(session_soup, self)
         self.add_element_to_uuid_map(session)

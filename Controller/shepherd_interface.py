@@ -34,6 +34,11 @@ class ShepherdInterface(object):
         # Will return None if no session state is loaded
         return self.sss.session
 
+    @property
+    def extra_state(self):
+        # Will return None if no session state is loaded
+        return self.sss.extra_state
+
     def reactivate_modes(self):
         self.app.active_modes_need_reactivate = True
 

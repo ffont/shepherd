@@ -36,6 +36,14 @@ namespace Helpers
         return v;
     }
 
+    inline juce::ValueTree createDefaultStateRoot()
+    {
+        juce::ValueTree root (IDs::ROOT);
+        Helpers::createUuidProperty (root);
+        return root;
+    }
+
+
     inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
     {
         juce::ValueTree session (IDs::SESSION);
