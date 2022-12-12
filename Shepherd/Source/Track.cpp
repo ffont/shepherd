@@ -43,7 +43,11 @@ void Track::bindState()
 
 void Track::setHardwareDeviceByName(juce::String deviceName)
 {
-    setHardwareDevice(getHardwareDeviceByName(deviceName));
+    auto device = getHardwareDeviceByName(deviceName);
+    if (device != nullptr) {
+        // If a device is found with that name, set it, otherwise do nothing
+        setHardwareDevice(device);
+    }
 }
 
 void Track::setHardwareDevice(HardwareDevice* _device)

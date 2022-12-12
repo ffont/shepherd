@@ -34,7 +34,6 @@ public:
     juce::String getName() { return name.get(); };
     
     void setHardwareDeviceByName(juce::String deviceName);
-    void setHardwareDevice(HardwareDevice* device);
     HardwareDevice* getHardwareDevice();
     
     juce::String getMidiOutputDeviceName();
@@ -77,6 +76,7 @@ private:
     juce::CachedValue<bool> inputMonitoring;
     
     HardwareDevice* device = nullptr;
+    void setHardwareDevice(HardwareDevice* device);
     
     juce::MidiBuffer lastSliceMidiBuffer;
     

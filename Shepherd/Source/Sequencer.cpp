@@ -1300,10 +1300,7 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             } else if (action == ACTION_ADDRESS_TRACK_SET_HARDWARE_DEVICE){
                 jassert(parameters.size() == 2);
                 juce::String deviceName = parameters[1];
-                auto device = getHardwareDeviceByName(deviceName);
-                if (device != nullptr) {
-                    track->setHardwareDevice(device);
-                } 
+                track->setHardwareDeviceByName(deviceName); // if device can't be found, it won't set it 
             }
         }
                
