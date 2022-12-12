@@ -356,6 +356,7 @@ parameters_types = {
     'cliplengthinbeats': float,
     'countinplayheadpositioninbeats': float,
     'currentquantizationstep': float,
+    'dataLocation': str,
     'doingcountin': bool,
     'doingcountin': bool, 
     'duration': float,
