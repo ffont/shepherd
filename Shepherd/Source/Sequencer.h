@@ -161,10 +161,9 @@ private:
     juce::MidiBuffer internalSynthCombinedBuffer; // Only used for debugging
     
     // Hardware devices
-    juce::OwnedArray<HardwareDevice> hardwareDevices;
+    std::unique_ptr<HardwareDeviceList> hardwareDevices;
     void initializeHardwareDevices();
     HardwareDevice* getHardwareDeviceByName(juce::String name);
-    juce::StringArray availableHardwareDeviceNames = {};
     
     // Transport and basic settings
     double sampleRate = 0.0;
@@ -200,7 +199,7 @@ private:
 
     // Other testing/debugging stuff
     juce::Synthesiser sineSynth;
-    bool renderWithInternalSynth = true;
+    juce::CachedValue<bool> renderWithInternalSynth;
     int nSynthVoices = 32;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Sequencer)

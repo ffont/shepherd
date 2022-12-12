@@ -11,55 +11,36 @@
 #include "HardwareDevice.h"
 
 
-HardwareDevice::HardwareDevice(HardwareDeviceType _type,
-                               juce::String _name,
-                               juce::String _shortName,
-                               std::function<juce::MidiOutput*(juce::String deviceName)> outputMidiDeviceGetter,
+HardwareDevice::HardwareDevice(const juce::ValueTree& _state,
                                std::function<void(const juce::OSCMessage& message)> messageSender,
-                               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
+                               std::function<juce::MidiOutput*(juce::String deviceName)> midiOutputDeviceGetter,
+                               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
+                               ): state(_state)
 {
-    type = _type;
-    name = _name;
-    shortName = _shortName;
-    getMidiOutputDevice = outputMidiDeviceGetter;
     sendMessageToController = messageSender;
+    getMidiOutputDevice = midiOutputDeviceGetter;
     getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     
     for (int i=0; i<midiCCParameterValues.size(); i++){
         midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (mid value)
     }
+    
+    bindState();
 }
 
-juce::String HardwareDevice::getName()
+void HardwareDevice::bindState()
 {
-    return name;
-}
-
-juce::String HardwareDevice::getShortName()
-{
-    return shortName;
-}
-
-void HardwareDevice::configureMidiOutput(juce::String deviceName, int channel)
-{
-    // Channel 0 to 16
-    midiOutputDeviceName = deviceName;
-    midiOutputChannel = channel;
-}
-
-int HardwareDevice::getMidiOutputChannel()
-{
-    return midiOutputChannel;
-}
-
-juce::String HardwareDevice::getMidiOutputDeviceName()
-{
-    return midiOutputDeviceName;
+    uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
+    type.referTo(state, IDs::type, nullptr, HardwareDeviceType::output);
+    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
+    shortName.referTo(state, IDs::shortName, nullptr, Defaults::emptyString);
+    midiOutputDeviceName.referTo(state, IDs::midiDeviceName, nullptr, Defaults::emptyString);
+    midiOutputChannel.referTo(state, IDs::midiChannel, nullptr, -1);
 }
 
 void HardwareDevice::sendMidi(juce::MidiMessage msg)
 {
-    auto midiDevice = getMidiOutputDevice(midiOutputDeviceName);
+    auto midiDevice = getMidiOutputDevice(getMidiOutputDeviceName());
     if (midiDevice != nullptr){
         addMidiMessageToRenderInBufferFifo(msg);
         if (msg.isController()){

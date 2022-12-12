@@ -356,7 +356,7 @@ parameters_types = {
     'cliplengthinbeats': float,
     'countinplayheadpositioninbeats': float,
     'currentquantizationstep': float,
-    'dataLocation': str,
+    'datalocation': str,
     'doingcountin': bool,
     'doingcountin': bool, 
     'duration': float,
@@ -368,6 +368,8 @@ parameters_types = {
     'isplaying': bool,
     'meter': int,
     'metronomeon': bool, 
+    'midichannel':int, 
+    'mididevicename':str, 
     'midinote':int, 
     'midivelocity': float,  # . 0.0-1.0
     'name': str,
@@ -379,8 +381,10 @@ parameters_types = {
     'recording': bool,
     'renderedendtimestamp': float,
     'renderedstarttimestamp': float,
+    'renderwithinternalsynth': bool,
+    'shortname': str,
     'timestamp': float,
-    'type': int, # SequenceEventType {midi=0, note=1}
+    'type': int, # SequenceEventType {midi=0, note=1} or HardwareDeviceType {input=0, output=1}
     'utime': float,
     'uuid': str,
     'version': str,
@@ -527,6 +531,7 @@ class Track(BaseShepherdClass):
 
     def set_hardware_device(self, device_name):
         self.send_msg_to_app('/track/setHardwareDevice', [self.uuid, device_name])
+
 
 class Clip(BaseShepherdClass):
     sequence_events = []
@@ -728,15 +733,41 @@ class SequenceEvent(BaseShepherdClass):
             self.clip.edit_sequence_event(self.uuid, midi_bytes=midi_bytes)
 
 
-class ExtraState(BaseShepherdClass):
+class HardwareDevice(BaseShepherdClass):
     
-    def get_available_hardwarew_device_names(self):
-        return self.availablehardwaredevicenames.split(';')
+    def is_type_output(self):
+        return self.type == 1
+
+    def is_type_input(self):
+        return self.type == 0
+
+
+class ExtraState(BaseShepherdClass):
+    hardware_devices = []
+
+    def __init__(self, *args, **kwargs):
+        self.hardware_devices = []
+        super().__init__(*args, **kwargs)
+
+    def add_hardware_device(self, hardware_device, position=None):
+        if position is None:
+            self.hardware_devices.append(hardware_device)
+        else:
+            self.hardware_devices.insert(position, hardware_device)
+
+    def remove_hardware_device_with_uuid(self, hardware_device_uuid):
+        self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices if hardware_device.uuid != hardware_device_uuid]
+    
+    def get_available_hardware_device_names(self):
+        return [device.shortname for device in self.hardware_devices]
 
     def render(self):
         text = '------------------------------------------------\n'
         text += 'EXTRA STATE:\n'
         text += self.render_object_attributes(self)
+        for hardware_device in self.hardware_devices:
+            text += '  * HARDWARE_DEVICE {} ({})\n'.format(hardware_device.name, hardware_device.uuid)
+            text += self.render_object_attributes(hardware_device, num_spaces_offset=4)
         return text
 
 
@@ -766,13 +797,13 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
             if update_type == "propertyChanged":
                 tree_uuid = update_data[0]
                 try:
-                    session_tree_element = self.get_element_with_uuid(tree_uuid)
+                    tree_element = self.get_element_with_uuid(tree_uuid)
                     property_name = update_data[2].lower()
                     new_value = update_data[3]
-                    if hasattr(session_tree_element, property_name):
-                        setattr(session_tree_element, property_name, backend_value_to_python_value(property_name, new_value))
+                    if hasattr(tree_element, property_name):
+                        setattr(tree_element, property_name, backend_value_to_python_value(property_name, new_value))
                     else:
-                        raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(property_name, session_tree_element.uuid))
+                        raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(property_name, tree_element.uuid))
                     # If we are trying to update an attribute that does not exist (or an element that does not exist), this will raise an error
                     # This is to be expected as we should never get here trying to update an attribute/element that does not exist
 
@@ -793,21 +824,25 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
             elif update_type == "addedChild":
                 parent_tree_uuid = update_data[0]
                 try:
-                    session_tree_element = self.get_element_with_uuid(parent_tree_uuid)
+                    parent_tree_element = self.get_element_with_uuid(parent_tree_uuid)
                     index_in_parent_childs = int(update_data[2])
                     child_soup =  next(BeautifulSoup(update_data[3], "lxml").find("body").children)
                     if child_soup.name == 'TRACK'.lower():
                         track = Track(child_soup, self)
-                        session_tree_element.add_track(track, position=index_in_parent_childs)
+                        parent_tree_element.add_track(track, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(track)
                     elif child_soup.name == 'CLIP'.lower():
-                        clip = Clip(child_soup, self, owning_track=session_tree_element)
-                        session_tree_element.add_clip(clip, position=index_in_parent_childs)
+                        clip = Clip(child_soup, self, owning_track=parent_tree_element)
+                        parent_tree_element.add_clip(clip, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(clip)
                     elif child_soup.name == 'SEQUENCE_EVENT'.lower():
-                        sequence_event = SequenceEvent(child_soup, self, owning_clip=session_tree_element)
-                        session_tree_element.add_sequence_event(sequence_event, position=index_in_parent_childs)
+                        sequence_event = SequenceEvent(child_soup, self, owning_clip=parent_tree_element)
+                        parent_tree_element.add_sequence_event(sequence_event, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(sequence_event)
+                    elif child_soup.name == 'HARDWARE_DEVICE'.lower():
+                        hardware_device = HardwareDevice(child_soup, self)
+                        parent_tree_element.add_hardware_device(hardware_device, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(hardware_device)
                     else:
                         print('WARNING: trying to add child of a type that can\'t be handled: {}'.format(child_soup))
 
@@ -819,15 +854,17 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
             elif update_type == "removedChild":
                 child_to_remove_tree_uuid = update_data[0]
                 try:
-                    session_tree_element = self.get_element_with_uuid(child_to_remove_tree_uuid)
-                    if isinstance(session_tree_element, Track):
+                    tree_element = self.get_element_with_uuid(child_to_remove_tree_uuid)
+                    if isinstance(tree_element, Track):
                         self.session.remove_track_with_uuid(child_to_remove_tree_uuid)
-                    elif isinstance(session_tree_element, Clip):
-                        session_tree_element.track.remove_clip_with_uuid(child_to_remove_tree_uuid)
-                    elif isinstance(session_tree_element, SequenceEvent):
-                        session_tree_element.clip.remove_sequence_event_with_uuid(child_to_remove_tree_uuid)
+                    elif isinstance(tree_element, Clip):
+                        tree_element.track.remove_clip_with_uuid(child_to_remove_tree_uuid)
+                    elif isinstance(tree_element, SequenceEvent):
+                        tree_element.clip.remove_sequence_event_with_uuid(child_to_remove_tree_uuid)
+                    elif isinstance(tree_element, HardwareDevice):
+                        self.extra_state.remove_hardware_device_with_uuid(child_to_remove_tree_uuid)
                     else:
-                        print('WARNING: Trying to remove element of a type that can\'t be handled: {}'.format(session_tree_element))
+                        print('WARNING: Trying to remove element of a type that can\'t be handled: {}'.format(tree_element))
                     self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
                 except KeyError as e:
                     print('WARNING: triying to remove child with uuid that does not exist: {} ({})'.format(update_data, e))
@@ -852,6 +889,11 @@ class ShepherdStateSynchronizer(GenericStateSynchronizer):
         root_element_soup = full_state_soup.findAll("root")[0]
         extra_state = ExtraState(root_element_soup, self)  # Add properties from state root object
         self.add_element_to_uuid_map(extra_state)
+        hardware_devices_soup = root_element_soup.findAll("hardware_devices")[0]
+        for hardware_device_soup in hardware_devices_soup.findAll("hardware_device"):
+            hardware_device = HardwareDevice(hardware_device_soup, self)
+            self.add_element_to_uuid_map(hardware_device)
+            extra_state.add_hardware_device(hardware_device)
         self.extra_state = extra_state
 
         # build session

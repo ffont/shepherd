@@ -40,9 +40,10 @@ namespace Helpers
     {
         juce::ValueTree root (IDs::ROOT);
         Helpers::createUuidProperty (root);
+        root.setProperty (IDs::renderWithInternalSynth, Defaults::renderWithInternalSynth, nullptr);
+        root.setProperty (IDs::dataLocation, Defaults::emptyString, nullptr);
         return root;
     }
-
 
     inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
     {
@@ -108,6 +109,18 @@ namespace Helpers
         }
 
         return session;
+    }
+
+    inline juce::ValueTree createOutputHardwareDevice(juce::String name, juce::String shortName, juce::String midiDeviceName, int midiChannel)
+    {
+        juce::ValueTree device {IDs::HARDWARE_DEVICE};
+        Helpers::createUuidProperty (device);
+        device.setProperty(IDs::type, HardwareDeviceType::output, nullptr);
+        device.setProperty(IDs::name, name, nullptr);
+        device.setProperty(IDs::shortName, shortName, nullptr);
+        device.setProperty(IDs::midiDeviceName, midiDeviceName, nullptr);
+        device.setProperty(IDs::midiChannel, midiChannel, nullptr);
+        return device;
     }
 
     inline juce::ValueTree createSequenceEventFromMidiMessage(juce::MidiMessage msg)

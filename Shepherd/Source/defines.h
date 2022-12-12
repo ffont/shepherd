@@ -126,6 +126,7 @@ inline double uTime = 0.0;
 inline juce::String eventType = "midi";
 inline juce::String eventMidiBytes = "128,64,64";
 inline float chance = 1.0;
+inline bool renderWithInternalSynth = true;
 }
 
 namespace IDs
@@ -138,9 +139,12 @@ DECLARE_ID (DEVICE)
 DECLARE_ID (TRACK)
 DECLARE_ID (CLIP)
 DECLARE_ID (SEQUENCE_EVENT)
+DECLARE_ID (HARDWARE_DEVICES)
+DECLARE_ID (HARDWARE_DEVICE)
 
 DECLARE_ID (version)
 DECLARE_ID (name)
+DECLARE_ID (shortName)
 DECLARE_ID (uuid)
 DECLARE_ID (order)
 DECLARE_ID (type)
@@ -178,6 +182,9 @@ DECLARE_ID (renderedStartTimestamp)
 DECLARE_ID (renderedEndTimestamp)
 DECLARE_ID (chance)
 DECLARE_ID (dataLocation)
+DECLARE_ID (midiDeviceName)
+DECLARE_ID (midiChannel)
+DECLARE_ID (renderWithInternalSynth)
 
 #undef DECLARE_ID
 }

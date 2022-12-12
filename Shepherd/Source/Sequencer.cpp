@@ -100,6 +100,7 @@ void Sequencer::bindState()
     fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
     
     state.setProperty(IDs::dataLocation, getDataLocation().getFullPathName(), nullptr);
+    renderWithInternalSynth.referTo(state, IDs::renderWithInternalSynth, nullptr, Defaults::renderWithInternalSynth);
 }
 
 juce::File Sequencer::getDataLocation() {
@@ -228,7 +229,9 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
         }
         
         // Remove current session state and assign new one
-        state.removeChild(state.getChildWithName(IDs::SESSION), nullptr);
+        if (state.getChildWithName(IDs::SESSION).isValid()){
+            state.removeChild(state.getChildWithName(IDs::SESSION), nullptr);
+        }
         state.addChild(stateToLoad, 0, nullptr);
         
         // Add state change listener and bind cached properties to state properties
@@ -266,7 +269,7 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
 void Sequencer::loadNewEmptySession(int numTracks, int numScenes)
 {
     DBG("Loading new empty state with " << numTracks << " tracks and " << numScenes << " scenes");
-    juce::ValueTree stateToLoad = Helpers::createDefaultSession(availableHardwareDeviceNames, numTracks, numScenes);
+    juce::ValueTree stateToLoad = Helpers::createDefaultSession(hardwareDevices->getAvailableHardwareDeviceNames(), numTracks, numScenes);
     loadSession(stateToLoad);
 }
 
@@ -493,7 +496,7 @@ void Sequencer::initializeMIDIOutputs()
     bool someFailedInitialization = false;
     
     // Initialize all MIDI devices required by available hardware devices
-    for (auto hwDevice: hardwareDevices){
+    for (auto hwDevice: hardwareDevices->objects){
         if (!midiDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
             auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
             if (midiDevice == nullptr) {
@@ -636,7 +639,7 @@ void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vect
 
 void Sequencer::initializeHardwareDevices()
 {
-    availableHardwareDeviceNames.clear();
+    juce::ValueTree hardwareDevicesState (IDs::HARDWARE_DEVICES);
     
     // First also initialize OUTPUT hardware devices from the definitions file (if any)
     juce::File hardwareDeviceDefinitionsLocation = getDataLocation().getChildFile("hardwareDevices").withFileExtension("json");
@@ -662,17 +665,7 @@ void Sequencer::initializeHardwareDevices()
                     juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
                     juce::String midiDeviceName = deviceInfo.getProperty("midi_out_device", "NoMIDIOutDevice").toString();
                     int midiChannel = (int)deviceInfo.getProperty("midi_out_channel", "NoMIDIOutDevice");
-                    HardwareDevice* device = new HardwareDevice(HardwareDeviceType::output,
-                                                                name,
-                                                                shortName,
-                                                                [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                                [this](const juce::OSCMessage &message){sendMessageToController(message);},
-                                                                [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
-                                                                );
-                    device->configureMidiOutput(midiDeviceName, midiChannel);
-                    hardwareDevices.add(device);
-                    availableHardwareDeviceNames.add(shortName);
-                    std::cout << "- " << name << std::endl;
+                    hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name, shortName, midiDeviceName, midiChannel), -1, nullptr);
                 }
             }
         }
@@ -687,28 +680,30 @@ void Sequencer::initializeHardwareDevices()
         for (int i=0; i<16; i++) {
             juce::String name = midiOutputDevice.name + " ch " + juce::String(i + 1);
             juce::String shortName = midiOutputDevice.name.substring(0, 10) + " ch" + juce::String(i + 1);
-            HardwareDevice* device = new HardwareDevice(HardwareDeviceType::output,
-                                                        name,
-                                                        shortName,
-                                                        [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                        [this](const juce::OSCMessage &message){sendMessageToController(message);},
-                                                        [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
-                                                        );
-            device->configureMidiOutput(midiOutputDevice.name, i + 1);
-            hardwareDevices.add(device);
-            availableHardwareDeviceNames.add(shortName);
-            std::cout << "- " << name << std::endl;
+            hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name, shortName, midiOutputDevice.name, i + 1), -1, nullptr);
         }
     }
     
-    // Add information about available hardware devices
-    // NOTE: this is a temporary solution, in the future this will be better handled as part of the state
-    state.setProperty("availableHardwareDeviceNames", availableHardwareDeviceNames.joinIntoString(";"), nullptr);
+    // Now do create the actual HardwareDevice objects
+    if (state.getChildWithName(IDs::HARDWARE_DEVICES).isValid()){
+        // Remove existing child (if any?)
+        state.removeChild(state.getChildWithName(IDs::HARDWARE_DEVICES), nullptr);
+    }
+    state.addChild(hardwareDevicesState, -1, nullptr);
+    hardwareDevices = std::make_unique<HardwareDeviceList>(state.getChildWithName(IDs::HARDWARE_DEVICES),
+                                                           [this](const juce::OSCMessage &message){sendMessageToController(message);},
+                                                           [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
+                                                           [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
+                                                           );
+    std::cout << "Hardware Devices initialized:" << std::endl;
+    for (auto deviceName: hardwareDevices->getAvailableHardwareDeviceNames()){
+        std::cout << "- " << deviceName << std::endl;
+    }
 }
 
 HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name)
 {
-    for (auto device: hardwareDevices){
+    for (auto device: hardwareDevices->objects){
         if (device->getShortName() == name || device->getName() == name){
             return device;
         }
@@ -982,7 +977,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         track->writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
     }
     
-    for (auto device: hardwareDevices){
+    for (auto device: hardwareDevices->objects){
         // Send "arbitrary" messages pending to be sent in every hardware device
         // NOTE: iterating hardwareDevices could be problematic without a lock if devices are
         // added/removed. However this not something that will be happening as hw devices should
