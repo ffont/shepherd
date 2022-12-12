@@ -33,10 +33,18 @@
                 return txt.value;
             }
 
-            var autoReload = true;
+            var autoReload = false;
             var autoReloadTimer = undefined;
 
             window.addEventListener('DOMContentLoaded', (event) => {
+
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+                const shouldAutoReload = urlParams.get('ar');
+                if (shouldAutoReload){
+                    autoReload = true;
+                }
+
                 {% if xml %}
                 var xml = decodeHtml("{{ state }}");
                 if (xml !== ''){
@@ -56,9 +64,8 @@
                     clearTimeout(autoReloadTimer);
                     autoReload = false;
                 } else {
-                    location.reload();
+                    window.location.replace('/?ar=1');
                 }
-
             }
 
         </script>
