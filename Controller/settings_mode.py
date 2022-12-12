@@ -289,6 +289,31 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 if self.current_preset_load_number < 0:
                     self.current_preset_load_number = 0
 
+        elif self.current_page == 3:  # HW devices
+            track_encoders = [
+                push2_python.constants.ENCODER_TRACK1_ENCODER,
+                push2_python.constants.ENCODER_TRACK2_ENCODER,
+                push2_python.constants.ENCODER_TRACK3_ENCODER,
+                push2_python.constants.ENCODER_TRACK4_ENCODER,
+                push2_python.constants.ENCODER_TRACK5_ENCODER,
+                push2_python.constants.ENCODER_TRACK6_ENCODER,
+                push2_python.constants.ENCODER_TRACK7_ENCODER,
+                push2_python.constants.ENCODER_TRACK8_ENCODER,
+            ]
+            track_num = track_encoders.index(encoder_name)
+            try:
+                track = self.app.shepherd_interface.session.tracks[track_num]
+                available_devices = self.app.shepherd_interface.extra_state.get_available_hardwarew_device_names()
+                current_hw_device = track.hardwaredevicename
+                current_hw_device_index = available_devices.index(current_hw_device)
+                next_device_name = available_devices[(current_hw_device_index + increment) % len(available_devices)]
+                track.set_hardware_device(next_device_name)
+            except Exception as e:
+                print(e)
+            return True
+
+
+
         return True  # Always return True because encoder should not be used in any other mode if this is first active
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
