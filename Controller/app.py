@@ -5,7 +5,6 @@ import traceback
 import subprocess
 
 import cairo
-from push2_python.constants import BUTTON_SELECT
 import definitions
 import mido
 import numpy
@@ -13,17 +12,17 @@ import push2_python
 
 from collections import defaultdict
 
-from melodic_mode import MelodicMode
-from track_selection_mode import TrackSelectionMode
-from clip_triggering_mode import ClipTriggeringMode
-from clip_edit_mode import ClipEditgMode
-from rhythmic_mode import RhythmicMode
-from slice_notes_mode import SliceNotesMode
-from settings_mode import SettingsMode
-from main_controls_mode import MainControlsMode
-from midi_cc_mode import MIDICCMode
-from preset_selection_mode import PresetSelectionMode
-from ddrm_tone_selector_mode import DDRMToneSelectorMode
+from modes.melodic_mode import MelodicMode
+from modes.track_selection_mode import TrackSelectionMode
+from modes.clip_triggering_mode import ClipTriggeringMode
+from modes.clip_edit_mode import ClipEditgMode
+from modes.rhythmic_mode import RhythmicMode
+from modes.slice_notes_mode import SliceNotesMode
+from modes.settings_mode import SettingsMode
+from modes.main_controls_mode import MainControlsMode
+from modes.midi_cc_mode import MIDICCMode
+from modes.preset_selection_mode import PresetSelectionMode
+from modes.ddrm_tone_selector_mode import DDRMToneSelectorMode
 from shepherd_interface import ShepherdInterface
 from display_utils import show_notification
 

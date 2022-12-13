@@ -1,6 +1,5 @@
 import definitions
 import push2_python
-import time
 import random
 import math
 

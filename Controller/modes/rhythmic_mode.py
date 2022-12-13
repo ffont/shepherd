@@ -1,7 +1,7 @@
 import definitions
 import push2_python.constants
 
-from melodic_mode import MelodicMode
+from .melodic_mode import MelodicMode
 
 
 class RhythmicMode(MelodicMode):
