@@ -13,7 +13,6 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
     xor_group = 'pads'
     
     favourtie_presets = {}
-    favourtie_presets_filename = 'favourite_presets.json'
     
     current_page = 0
 
@@ -23,8 +22,8 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
     buttons_used = [page_left_button, page_right_button]
 
     def initialize(self, settings=None):
-        if os.path.exists(self.favourtie_presets_filename):
-            self.favourtie_presets = json.load(open(self.favourtie_presets_filename))
+        if os.path.exists(definitions.FAVOURITE_PRESETS_FILE_PATH):
+            self.favourtie_presets = json.load(open(definitions.FAVOURITE_PRESETS_FILE_PATH))
 
     def new_track_selected(self):
         self.current_page = 0
@@ -36,7 +35,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
         if device_short_name not in self.favourtie_presets:
             self.favourtie_presets[device_short_name] = []
         self.favourtie_presets[device_short_name].append((preset_number, bank_number))
-        json.dump(self.favourtie_presets, open(self.favourtie_presets_filename, 'w'))  # Save to file
+        json.dump(self.favourtie_presets, open(definitions.FAVOURITE_PRESETS_FILE_PATH, 'w'))  # Save to file
 
     def remove_favourite_preset(self, preset_number, bank_number):
         device_short_name = self.app.track_selection_mode.get_current_track_device_short_name() 
@@ -44,7 +43,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
             self.favourtie_presets[device_short_name] = \
                 [(fp_preset_number, fp_bank_number) for fp_preset_number, fp_bank_number in self.favourtie_presets[device_short_name] 
                 if preset_number != fp_preset_number or bank_number != fp_bank_number]
-            json.dump(self.favourtie_presets, open(self.favourtie_presets_filename, 'w'))  # Save to file
+            json.dump(self.favourtie_presets, open(definitions.FAVOURITE_PRESETS_FILE_PATH, 'w'))  # Save to file
 
     def preset_num_in_favourites(self, preset_number, bank_number):
         device_short_name = self.app.track_selection_mode.get_current_track_device_short_name() 

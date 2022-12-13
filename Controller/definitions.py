@@ -95,8 +95,9 @@ NOTE_ON_COLOR = GREEN
 
 DEFAULT_ANIMATION = push2_python.constants.ANIMATION_PULSING_QUARTER
 
-DEVICE_DEFINITION_FOLDER = 'device_definitions'
-TRACK_LISTING_PATH = 'track_listing.json'
+SETTINGS_FILE_PATH = 'app_data/settings.json'
+DEVICE_DEFINITION_FOLDER = 'app_data/device_definitions'
+FAVOURITE_PRESETS_FILE_PATH = 'app_data/favourite_presets.json'
 
 BUTTON_LONG_PRESS_TIME = 0.25
 BUTTON_DOUBLE_PRESS_TIME = 0.2

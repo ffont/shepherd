@@ -64,8 +64,8 @@ class ShepherdControllerApp(object):
     shepherd_interface = None
 
     def __init__(self):
-        if os.path.exists('settings.json'):
-            settings = json.load(open('settings.json'))
+        if os.path.exists(definitions.SETTINGS_FILE_PATH):
+            settings = json.load(open(definitions.SETTINGS_FILE_PATH))
         else:
             settings = {}
 
@@ -237,7 +237,7 @@ class ShepherdControllerApp(object):
             mode_settings = mode.get_settings_to_save()
             if mode_settings:
                 settings.update(mode_settings)
-        json.dump(settings, open('settings.json', 'w'))
+        json.dump(settings, open(definitions.SETTINGS_FILE_PATH, 'w'))
 
     def init_notes_midi_in(self, device_name=None):
         print('Configuring notes MIDI in to {}...'.format(device_name))

@@ -169,10 +169,12 @@ class MelodicMode(definitions.ShepherdControllerMode):
         for i in range(0, 8):
             for j in range(0, 8):
                 mapping.append(self.pad_ij_to_midi_note((7 - i, j)))
-        self.app.shepherd_interface.sbi.state.set_push_pads_mapping(mapping)
+        if self.app.shepherd_interface.sbi.state is not None:
+            self.app.shepherd_interface.sbi.state.set_push_pads_mapping(mapping)
 
     def clear_pads_backend_mapping(self):
-        self.app.shepherd_interface.sbi.state.set_push_pads_mapping([-1 for i in range(0, 64)])
+        if self.app.shepherd_interface.sbi.state is not None:
+            self.app.shepherd_interface.sbi.state.set_push_pads_mapping([-1 for i in range(0, 64)])
 
     def activate(self):
 
