@@ -120,6 +120,7 @@ namespace Helpers
         device.setProperty(IDs::shortName, shortName, nullptr);
         device.setProperty(IDs::midiDeviceName, midiDeviceName, nullptr);
         device.setProperty(IDs::midiChannel, midiChannel, nullptr);
+        device.setProperty(IDs::midiCCParameterValuesList, "", nullptr);
         return device;
     }
 

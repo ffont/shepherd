@@ -21,11 +21,12 @@ HardwareDevice::HardwareDevice(const juce::ValueTree& _state,
     getMidiOutputDevice = midiOutputDeviceGetter;
     getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
     
+    bindState();
+    
     for (int i=0; i<midiCCParameterValues.size(); i++){
         midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (mid value)
     }
-    
-    bindState();
+    stateMidiCCParameterValues = serializeMidiCCParameterValues(); // Update the state version of the midiCCParameterValues list so change is reflected in state
 }
 
 void HardwareDevice::bindState()
@@ -36,7 +37,47 @@ void HardwareDevice::bindState()
     shortName.referTo(state, IDs::shortName, nullptr, Defaults::emptyString);
     midiOutputDeviceName.referTo(state, IDs::midiDeviceName, nullptr, Defaults::emptyString);
     midiOutputChannel.referTo(state, IDs::midiChannel, nullptr, -1);
+
+    stateMidiCCParameterValues.referTo(state, IDs::midiCCParameterValuesList, nullptr, Defaults::emptyString);
+    // NOTE: unlike other stateXXX properties in other objects like Clip, midiCCParameterValues should never be loaded from state, so we don't do it here
 }
+
+void HardwareDevice::updateStateMemberVersions()
+{
+    stateMidiCCParameterValues = serializeMidiCCParameterValues();
+}
+
+
+juce::String HardwareDevice::serializeMidiCCParameterValues()
+{
+    juce::StringArray splittedValues;
+    for (int i=0; i<midiCCParameterValues.size(); i++){
+        splittedValues.add(juce::String(midiCCParameterValues[i]));
+    }
+    return splittedValues.joinIntoString(",");
+}
+
+std::array<int, 128> HardwareDevice::deserializeMidiCCParameterValues()
+{
+    std::array<int, 128> parameterValues = {0};
+    if (stateMidiCCParameterValues == ""){
+        // Return array with default midi CC values
+        for (int i=0; i<parameterValues.size(); i++){
+            parameterValues[i] = 64;
+        }
+    } else {
+        juce::StringArray splittedValues;
+        splittedValues.addTokens (stateMidiCCParameterValues.get(), ",", "");
+        int i=0;
+        for (auto value: splittedValues) {
+            parameterValues[i] = value.getIntValue();
+            i+=1;
+        }
+    }
+    jassert(parameterValues.size() == 128);
+    return parameterValues;
+}
+    
 
 void HardwareDevice::sendMidi(juce::MidiMessage msg)
 {
@@ -83,6 +124,7 @@ void HardwareDevice::setMidiCCParameterValue(int index, int value, bool notifyCo
     // this value to the hardware device
     jassert(index >= 0 && index < 128);
     midiCCParameterValues[index] = value;
+    stateMidiCCParameterValues = serializeMidiCCParameterValues(); // Update the state version of the midiCCParameterValues list so change is reflected in state
     
     if (notifyController){
         juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);

@@ -1314,25 +1314,6 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             jassert(parameters.size() == 4);
             juce::MidiMessage msg = juce::MidiMessage(parameters[1].getIntValue(), parameters[2].getIntValue(), parameters[3].getIntValue());
             device->sendMidi(msg);
-        } else if (action ==  ACTION_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS){
-            jassert(parameters.size() > 1);
-            for (int i=1; i<parameters.size(); i=i+2){
-                int index = parameters[i].getIntValue();
-                int value = parameters[i + 1].getIntValue();
-                device->setMidiCCParameterValue(index, value, false);
-                // Don't notify controller about the cc value change as the change is most probably comming from the controller itself
-            }
-        } else if (action ==  ACTION_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS){
-            jassert(parameters.size() > 1);
-            juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
-            returnMessage.addString(device->getShortName());
-            for (int i=1; i<parameters.size(); i++){
-                int index = parameters[i].getIntValue();
-                int value = device->getMidiCCParameterValue(index);
-                returnMessage.addInt32(index);
-                returnMessage.addInt32(value);
-            }
-            sendMessageToController(returnMessage);
         }
     
     } else if (action.startsWith(ACTION_ADDRESS_SCENE)) {

@@ -22,6 +22,7 @@ public:
                    std::function<juce::MidiOutput*(juce::String deviceName)> midiOutputDeviceGetter,
                    std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter);
     void bindState();
+    void updateStateMemberVersions();
     juce::ValueTree state;
     
     juce::String getUUID() { return uuid.get(); };
@@ -49,11 +50,13 @@ private:
     juce::CachedValue<juce::String> midiOutputDeviceName;
     juce::CachedValue<int> midiOutputChannel;
     
+    std::array<int, 128> midiCCParameterValues = {0};
+    juce::CachedValue<juce::String> stateMidiCCParameterValues;
+    juce::String serializeMidiCCParameterValues();
+    std::array<int, 128> deserializeMidiCCParameterValues();
+    
     std::function<juce::MidiOutput*(juce::String deviceName)> getMidiOutputDevice;
     std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
-    
-    std::array<int, 128> midiCCParameterValues = {0};
-    
     std::function<void(const juce::OSCMessage& message)> sendMessageToController;
     
     Fifo<juce::MidiMessage, 100> midiMessagesToRenderInBuffer;

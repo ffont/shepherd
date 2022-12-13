@@ -46,8 +46,6 @@
 #define ACTION_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"
 #define ACTION_ADDRESS_DEVICE_LOAD_DEVICE_PRESET "/device/loadDevicePreset"
 #define ACTION_ADDRESS_DEVICE_SEND_MIDI "/device/sendMidi"
-#define ACTION_ADDRESS_DEVICE_SET_MIDI_CC_PARAMETERS "/device/setMidiCCParameterValues"
-#define ACTION_ADDRESS_DEVICE_GET_MIDI_CC_PARAMETERS "/device/getMidiCCParameterValues"
 
 #define ACTION_ADDRESS_SCENE "/scene"
 #define ACTION_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
@@ -185,6 +183,7 @@ DECLARE_ID (dataLocation)
 DECLARE_ID (midiDeviceName)
 DECLARE_ID (midiChannel)
 DECLARE_ID (renderWithInternalSynth)
+DECLARE_ID (midiCCParameterValuesList)
 
 #undef DECLARE_ID
 }
