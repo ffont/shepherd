@@ -209,64 +209,62 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):
         track_num = pad_ij[1]
         clip_num = pad_ij[0]
-
-        if self.session is not None:
-            clip = self.session.get_clip_by_idx(track_num, clip_num)
-            if clip is not None:
-                if long_press:
-                    self.app.clip_edit_mode.set_clip_mode(clip.uuid)
-                    self.app.set_clip_edit_mode()
-                    return True
+        clip = self.session.get_clip_by_idx(track_num, clip_num)
+        if clip is not None:
+            if long_press:
+                self.app.clip_edit_mode.set_clip_mode(clip.uuid)
+                self.app.set_clip_edit_mode()
+                return True
+            else:
+                if self.app.is_button_being_pressed(self.app.main_controls_mode.record_button):
+                    # Toggle record on/off for that clip if record button is being pressed
+                    clip.record_on_off()
+                    self.app.set_button_ignore_next_action_if_not_yet_triggered(
+                        self.app.main_controls_mode.record_button)
                 else:
-                    if self.app.is_button_being_pressed(self.app.main_controls_mode.record_button):
-                        # Toggle record on/off for that clip if record button is being pressed
-                        clip.record_on_off()
-                        self.app.set_button_ignore_next_action_if_not_yet_triggered(
-                            self.app.main_controls_mode.record_button)
+                    if self.app.is_button_being_pressed(self.clear_clip_button):
+                        if not clip.is_empty():
+                            clip.clear()
+                            self.app.add_display_notification(
+                                "Cleared clip: {0}-{1}".format(track_num + 1, clip_num + 1))
+
+                    elif self.app.is_button_being_pressed(self.double_clip_button):
+                        if not clip.is_empty():
+                            clip.double()
+                            self.app.add_display_notification(
+                                "Doubled clip: {0}-{1}".format(track_num + 1, clip_num + 1))
+
+                    elif self.app.is_button_being_pressed(self.quantize_button):
+                        if not clip.is_empty():
+                            current_quantization_step = clip.currentquantizationstep
+                            if (current_quantization_step == 0.0):
+                                next_quantization_step = 4.0/16.0
+                            elif (current_quantization_step == 4.0/16.0):
+                                next_quantization_step = 4.0/8.0
+                            elif (current_quantization_step == 4.0/8.0):
+                                next_quantization_step = 4.0/4.0
+                            elif (current_quantization_step == 4.0/4.0):
+                                next_quantization_step = 0.0
+                            else:
+                                next_quantization_step = 0.0
+                            clip.quantize(next_quantization_step)
+                            quantization_step_labels = {
+                                0.25: '16th note',
+                                0.5: '8th note',
+                                1.0: '4th note',
+                                0.0: 'no quantization'
+                            }
+                            self.app.add_display_notification("Quantized clip to {0}: {1}-{2}".format(
+                                quantization_step_labels.get(next_quantization_step,
+                                                             next_quantization_step), track_num + 1, clip_num + 1))
+
+                    elif self.app.is_button_being_pressed(self.undo_button):
+                        clip.undo()
+                        self.app.add_display_notification("Undo clip: {0}-{1}".format(track_num + 1, clip_num + 1))
+
                     else:
-                        if self.app.is_button_being_pressed(self.clear_clip_button):
-                            if not clip.is_empty():
-                                clip.clear()
-                                self.app.add_display_notification(
-                                    "Cleared clip: {0}-{1}".format(track_num + 1, clip_num + 1))
-
-                        elif self.app.is_button_being_pressed(self.double_clip_button):
-                            if not clip.is_empty():
-                                clip.double()
-                                self.app.add_display_notification(
-                                    "Doubled clip: {0}-{1}".format(track_num + 1, clip_num + 1))
-
-                        elif self.app.is_button_being_pressed(self.quantize_button):
-                            if not clip.is_empty():
-                                current_quantization_step = clip.currentquantizationstep
-                                if (current_quantization_step == 0.0):
-                                    next_quantization_step = 4.0/16.0
-                                elif (current_quantization_step == 4.0/16.0):
-                                    next_quantization_step = 4.0/8.0
-                                elif (current_quantization_step == 4.0/8.0):
-                                    next_quantization_step = 4.0/4.0
-                                elif (current_quantization_step == 4.0/4.0):
-                                    next_quantization_step = 0.0
-                                else:
-                                    next_quantization_step = 0.0
-                                clip.quantize(next_quantization_step)
-                                quantization_step_labels = {
-                                    0.25: '16th note',
-                                    0.5: '8th note',
-                                    1.0: '4th note',
-                                    0.0: 'no quantization'
-                                }
-                                self.app.add_display_notification("Quantized clip to {0}: {1}-{2}".format(
-                                    quantization_step_labels.get(next_quantization_step,
-                                                                 next_quantization_step), track_num + 1, clip_num + 1))
-
-                        elif self.app.is_button_being_pressed(self.undo_button):
-                            clip.undo()
-                            self.app.add_display_notification("Undo clip: {0}-{1}".format(track_num + 1, clip_num + 1))
-
-                        else:
-                            # No "option" button pressed, do play/stop
-                            clip.play_stop()
+                        # No "option" button pressed, do play/stop
+                        clip.play_stop()
 
     def on_encoder_rotated(self, encoder_name, increment):
         try:

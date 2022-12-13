@@ -33,18 +33,16 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.update_buttons()
 
     def get_transport_buttons_state(self):
-        if self.session:
-            is_playing = self.session.isplaying
-            is_recording = False
-            for track in self.session.tracks:
-                for clip in track.clips:
-                    clip_state = clip.get_status()
-                    if 'r' in clip_state or 'w' in clip_state or 'W' in clip_state:
-                        is_recording = True
-                        break
-            metronome_on = self.session.metronomeon
-            return is_playing, is_recording, metronome_on
-        return False, False, False
+        is_playing = self.session.isplaying
+        is_recording = False
+        for track in self.session.tracks:
+            for clip in track.clips:
+                clip_state = clip.get_status()
+                if 'r' in clip_state or 'w' in clip_state or 'W' in clip_state:
+                    is_recording = True
+                    break
+        metronome_on = self.session.metronomeon
+        return is_playing, is_recording, metronome_on
 
     def update_buttons(self):
         # Shift and select button
@@ -90,25 +88,24 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     def global_record(self):
         # Stop all clips that are being recorded
         # If the currently played clip in currently selected track is not recording, start recording it
-        if self.session:
-            selected_trak_num = self.app.track_selection_mode.selected_track
-            for track_num, track in enumerate(self.session.tracks):
-                if track_num == selected_trak_num:
-                    clip_num = -1
-                    for i, clip in enumerate(track.clips):
-                        clip_state = clip.get_status()
-                        if 'p' in clip_state or 'w' in clip_state:
-                            # clip is playing or cued to record, toggle recording on that clip
-                            clip_num = i
-                            break
-                    if clip_num > -1:
-                        self.session.get_clip_by_idx(track_num, clip_num).record_on_off()
-                else:
-                    for clip_num, clip in enumerate(track.clips):
-                        clip_state = clip.get_status()
-                        if 'r' in clip_state or 'w' in clip_state:
-                            # if clip is recording or cued to record, toggle record so recording/cue are cleared
-                            clip.record_on_off()
+        selected_trak_num = self.app.track_selection_mode.selected_track
+        for track_num, track in enumerate(self.session.tracks):
+            if track_num == selected_trak_num:
+                clip_num = -1
+                for i, clip in enumerate(track.clips):
+                    clip_state = clip.get_status()
+                    if 'p' in clip_state or 'w' in clip_state:
+                        # clip is playing or cued to record, toggle recording on that clip
+                        clip_num = i
+                        break
+                if clip_num > -1:
+                    self.session.get_clip_by_idx(track_num, clip_num).record_on_off()
+            else:
+                for clip_num, clip in enumerate(track.clips):
+                    clip_state = clip.get_status()
+                    if 'r' in clip_state or 'w' in clip_state:
+                        # if clip is recording or cued to record, toggle record so recording/cue are cleared
+                        clip.record_on_off()
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if button_name == self.melodic_rhythmic_toggle_button:

@@ -92,21 +92,20 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         # Selects a track
         # Note that if this is called from a mode from the same xor group with melodic/rhythmic modes,
         # that other mode will be deactivated.
-        if self.session is not None:
-            track = self.session.get_track_by_idx(track_idx)
-            if track is not None:
-                self.selected_track = track_idx
-                self.send_select_track(self.selected_track)
-                self.clean_currently_notes_being_played()
-                try:
-                    self.app.midi_cc_mode.new_track_selected()
-                    self.app.preset_selection_mode.new_track_selected()
-                    self.app.clip_triggering_mode.new_track_selected()
-                    self.app.melodic_mode.send_all_note_offs_to_lumi()
-                except AttributeError:
-                    # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
-                    pass
-                track.set_active_ui_notes_monitoring()
+        track = self.session.get_track_by_idx(track_idx)
+        if track is not None:
+            self.selected_track = track_idx
+            self.send_select_track(self.selected_track)
+            self.clean_currently_notes_being_played()
+            try:
+                self.app.midi_cc_mode.new_track_selected()
+                self.app.preset_selection_mode.new_track_selected()
+                self.app.clip_triggering_mode.new_track_selected()
+                self.app.melodic_mode.send_all_note_offs_to_lumi()
+            except AttributeError:
+                # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
+                pass
+            track.set_active_ui_notes_monitoring()
             
     def activate(self):
         self.update_buttons()
