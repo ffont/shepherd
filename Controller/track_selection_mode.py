@@ -25,6 +25,9 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     ]
     selected_track = 0
 
+    def get_selected_track(self):
+        self.app.shepherd_interface.session.get_track_by_idx(self.selected_track)
+
     def initialize(self, settings=None):
         if settings is not None:
             pass
@@ -83,25 +86,30 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             self.app.rhyhtmic_mode.remove_all_notes_being_played()
 
     def send_select_track(self, track_idx):
-        self.app.shepherd_interface.track_select(track_idx)
+        # Enabled input monitoring for the selected track only
+        tracks = self.app.shepherd_interface.session.tracks
+        for i in range(0, len(tracks)):
+            tracks[i].set_input_monitoring(i == track_idx)
 
     def select_track(self, track_idx):
         # Selects a track
         # Note that if this is called from a mode from the same xor group with melodic/rhythmic modes,
         # that other mode will be deactivated.
-        if track_idx < self.app.shepherd_interface.get_num_tracks():
-            self.selected_track = track_idx
-            self.send_select_track(self.selected_track)
-            self.clean_currently_notes_being_played()
-            try:
-                self.app.midi_cc_mode.new_track_selected()
-                self.app.preset_selection_mode.new_track_selected()
-                self.app.clip_triggering_mode.new_track_selected()
-                self.app.melodic_mode.send_all_note_offs_to_lumi()
-            except AttributeError:
-                # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
-                pass
-            self.app.shepherd_interface.track_set_active_ui_notes_monitoring(track_idx)
+        if self.app.shepherd_interface.session is not None:
+            track = self.app.shepherd_interface.session.get_track_by_idx(track_idx)
+            if track is not None:
+                self.selected_track = track_idx
+                self.send_select_track(self.selected_track)
+                self.clean_currently_notes_being_played()
+                try:
+                    self.app.midi_cc_mode.new_track_selected()
+                    self.app.preset_selection_mode.new_track_selected()
+                    self.app.clip_triggering_mode.new_track_selected()
+                    self.app.melodic_mode.send_all_note_offs_to_lumi()
+                except AttributeError:
+                    # Might fail if MIDICCMode/PresetSelectionMode/ClipTriggeringMode not initialized
+                    pass
+                track.set_active_ui_notes_monitoring()
             
     def activate(self):
         self.update_buttons()
@@ -137,22 +145,24 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
        if button_name in self.track_button_names:
             track_idx = self.track_button_names.index(button_name)
-            if long_press:
-                # Toggle input monitoring
-                if self.app.shepherd_interface.get_track_is_input_monitoring(track_idx):
-                    self.app.shepherd_interface.track_set_input_monitoring(track_idx, False)
+            track = self.app.shepherd_interface.session.get_track_by_idx(track_idx)
+            if track is not None:
+                if long_press:
+                    # Toggle input monitoring
+                    if track.inputmonitoring:
+                        track.set_input_monitoring(False)
+                    else:
+                        track.set_input_monitoring(True)
                 else:
-                    self.app.shepherd_interface.track_set_input_monitoring(track_idx, True)
-            else:
-                if not shift:
-                    # If button shift not pressed, select the track
-                    self.select_track(self.track_button_names.index(button_name))
-                else:
-                    # If button shift pressed, send all notes off to that track
-                    try:
-                        track = self.app.shepherd_interface.session.tracks[track_idx]
-                        hardware_device = track.get_hardware_device()
-                        if hardware_device is not None:
-                            hardware_device.all_notes_off()
-                    except IndexError:
-                        pass
+                    if not shift:
+                        # If button shift not pressed, select the track
+                        self.select_track(self.track_button_names.index(button_name))
+                    else:
+                        # If button shift pressed, send all notes off to that track
+                        try:
+                            track = self.app.shepherd_interface.session.tracks[track_idx]
+                            hardware_device = track.get_hardware_device()
+                            if hardware_device is not None:
+                                hardware_device.all_notes_off()
+                        except IndexError:
+                            pass

@@ -15,7 +15,6 @@ class ShepherdInterface(object):
 
     def __init__(self, app):
         self.app = app
-
         self.sbi = ShepherdBackendInterface(app, ws_port=8126, verbose=False, debugger_port=5100)
         self.sbi.send_msg_to_app('/shepherdControllerReady', [])
 
@@ -38,74 +37,6 @@ class ShepherdInterface(object):
         self.reactivate_modes()
         self.app.midi_cc_mode.initialize()
         #self.app.notes_midi_in = None # This used to be here in previous controller implementation, not sure if it is needed
-        
-    def track_select(self, track_num):
-        if not self.session: return
-        num_tracks = self.get_num_tracks()
-        if num_tracks > -1:
-            for i in range(0, num_tracks):
-                self.session.tracks[i].set_input_monitoring(i==track_num)
-
-    def track_set_input_monitoring(self, track_num, enabled):
-        if not self.session: return
-        self.session.tracks[track_num].set_input_monitoring(enabled)
-
-    def track_set_active_ui_notes_monitoring(self, track_num):
-        if not self.session: return
-        self.session.tracks[track_num].set_active_ui_notes_monitoring()
-        
-    def clip_play_stop(self, track_num, clip_num):
-        if not self.session: return
-        self.session.tracks[track_num].clips[clip_num].play_stop()
-
-    def clip_record_on_off(self, track_num, clip_num):
-        if not self.session: return
-        self.session.tracks[track_num].clips[clip_num].record_on_off()
-
-    def clip_clear(self, track_num, clip_num):
-        if not self.session: return
-        clip = self.session.tracks[track_num].clips[clip_num]
-        if not clip.is_empty():
-            clip.clear()
-            self.app.add_display_notification("Cleared clip: {0}-{1}".format(track_num + 1, clip_num + 1))
-
-    def clip_double(self, track_num, clip_num):
-        if not self.session: return
-        clip = self.session.tracks[track_num].clips[clip_num]
-        if not clip.is_empty():
-            clip.double()
-            self.app.add_display_notification("Doubled clip: {0}-{1}".format(track_num + 1, clip_num + 1))
-
-    def clip_quantize(self, track_num, clip_num, quantization_step):
-        if not self.session: return
-        clip = self.session.tracks[track_num].clips[clip_num]
-        if not clip.is_empty():
-            clip.quantize(quantization_step)
-            quantization_step_labels = {
-                0.25: '16th note',
-                0.5: '8th note',
-                1.0: '4th note',
-                0.0: 'no quantization'
-            }
-            self.app.add_display_notification("Quantized clip to {0}: {1}-{2}".format(quantization_step_labels.get(quantization_step,
-                                                                                                           quantization_step), track_num + 1, clip_num + 1))
-    def clip_undo(self, track_num, clip_num):
-        if not self.session: return
-        clip = self.session.tracks[track_num].clips[clip_num]
-        if not clip.is_empty():
-            clip.undo()
-            self.app.add_display_notification("Undo clip: {0}-{1}".format(track_num + 1, clip_num + 1))
-
-    def clip_set_length(self, track_num, clip_num, new_length):
-        if not self.session: return
-        clip = self.session.tracks[track_num].clips[clip_num]
-        if not clip.is_empty():
-            clip.set_length(new_length)
-
-    def clip_is_empty(self, track_num, clip_num):
-        if self.session:
-            return self.session.tracks[track_num].clips[clip_num].is_empty()
-        return True
 
     def get_clip_state(self, track_num, clip_num):
         if self.session:
@@ -115,11 +46,6 @@ class ShepherdInterface(object):
     def get_clip_length(self, track_num, clip_num):
         if self.session:
             return self.session.tracks[track_num].clips[clip_num].cliplengthinbeats
-        return 0.0
-
-    def get_clip_quantization_step(self, track_num, clip_num):
-        if self.session:
-            return self.session.tracks[track_num].clips[clip_num].currentquantizationstep
         return 0.0
 
     def get_clip_playhead(self, track_num, clip_num):

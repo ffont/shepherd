@@ -205,6 +205,20 @@ class Session(BaseShepherdClass):
         # the backend
         self.tracks = [track for track in self.tracks if track.uuid != track_uuid]
 
+    def get_track_by_idx(self, track_idx=None):
+        try:
+            return self.tracks[track_idx]
+        except Exception as e:
+            print('ERROR selecting track: {}'.format(e))
+        return None
+
+    def get_clip_by_idx(self, track_idx=None, clip_idx=None):
+        try:
+            return self.tracks[track_idx].clips[clip_idx]
+        except Exception as e:
+            print('ERROR selecting track: {}'.format(e))
+        return None
+
     def save(self, save_session_name):
         self.send_msg_to_app('/settings/save', [save_session_name])
 
