@@ -101,13 +101,13 @@ class BaseShepherdClass(object):
                     and attr_name != 'parent' \
                     and attr_name != 'track' \
                     and attr_name != 'clip' \
-                    and attr_name != 'root' \
+                    and attr_name != 'state' \
                     and attr_name != 'session':
                 text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(self, attr_name))
         return text
 
 
-class Root(BaseShepherdClass):
+class State(BaseShepherdClass):
     hardware_devices = []
     session = None
 
@@ -116,7 +116,7 @@ class Root(BaseShepherdClass):
         super().__init__(*args, **kwargs)
 
     def add_hardware_device(self, hardware_device, position=None):
-        # Note this method adds a HardwareDevice object in the local Root state object but does not create a hardware
+        # Note this method adds a HardwareDevice object in the local State state object but does not create a hardware
         # device in the backend
         if position is None:
             self.hardware_devices.append(hardware_device)
@@ -124,7 +124,7 @@ class Root(BaseShepherdClass):
             self.hardware_devices.insert(position, hardware_device)
 
     def remove_hardware_device_with_uuid(self, hardware_device_uuid):
-        # Note this method removes a HardwareDevice object from the local Root state object but does not remove a
+        # Note this method removes a HardwareDevice object from the local State state object but does not remove a
         # hardware device from the backend
         self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices
                                  if hardware_device.uuid != hardware_device_uuid]
@@ -136,7 +136,7 @@ class Root(BaseShepherdClass):
         return None
 
     def render(self, include_attributes=False):
-        text = 'ROOT\n'
+        text = 'SHEPHERD BACKEND STATE\n'
         if include_attributes:
             text += self.render_object_attributes()
 
@@ -164,12 +164,15 @@ class Root(BaseShepherdClass):
                 if include_attributes:
                     text += hardware_device.render_object_attributes(num_spaces_offset=4)
         return text
+
+    def send_controller_ready_message_to_backend(self):
+        self.send_msg_to_app('/shepherdControllerReady', [])
     
     def get_available_output_hardware_device_names(self):
         return [device.shortname for device in self.hardware_devices if device.is_type_output()]
 
     def toggle_shepherd_backend_debug_synth(self):
-        self.sbi.send_msg_to_app('/settings/debugSynthOnOff', [])
+        self.send_msg_to_app('/settings/debugSynthOnOff', [])
 
     def set_push_pads_mapping(self, new_mapping=[]):
         if new_mapping:
@@ -186,7 +189,7 @@ class Session(BaseShepherdClass):
     tracks = []
 
     @property
-    def root(self):
+    def state(self):
         return self.parent
 
     def __init__(self, *args, **kwargs):
@@ -279,7 +282,7 @@ class Track(BaseShepherdClass):
         self.clips = [clip for clip in self.clips if clip.uuid != clip_uuid]
 
     def get_hardware_device(self):
-        return self.session.root.get_hardware_device_by_name(self.hardwaredevicename)
+        return self.session.state.get_hardware_device_by_name(self.hardwaredevicename)
 
     def set_input_monitoring(self, enabled):
         self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
@@ -636,25 +639,21 @@ class ShepherdBackendInterface(StateSynchronizer):
                           .format(update_data, e))
                     self.should_request_full_state = True
 
-        # Trigger re-activation of modes in case pads need to be updated
-        # TODO: this should be optimized, and the different modes should "subscribe" to object changes so they know
-        #  when they need to update
-        if self.app.shepherd_interface is not None:
-            self.app.shepherd_interface.reactivate_modes()
+        # Notify app that state was updated
+        self.app.on_state_update_received()
 
     def on_full_state_received(self, full_state_soup):
         self.build_objects_from_full_state(full_state_soup)
 
-        # Trigger re-activation of modes in case pads need to be updated
-        if self.app.shepherd_interface is not None:
-            self.app.shepherd_interface.receive_shepherd_ready()
+        # Notify app that new state has been fully loaded
+        self.app.on_backend_state_ready()
 
     def build_objects_from_full_state(self, full_state_soup):
         self.elements_uuids_map = {}
 
         # build state root object
-        root_element_soup = full_state_soup.findAll("root")[0]
-        state = Root(root_element_soup, self)  # Add properties from state root object
+        root_element_soup = full_state_soup.findAll("state")[0]
+        state = State(root_element_soup, self)  # Add properties from state root object
         self.add_element_to_uuid_map(state)
 
         # add hardware devices
@@ -682,3 +681,5 @@ class ShepherdBackendInterface(StateSynchronizer):
                 track.add_clip(clip)
             session.add_track(track)
         self.state.session = session
+
+        self.state.send_controller_ready_message_to_backend()

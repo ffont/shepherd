@@ -33,16 +33,16 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.update_buttons()
 
     def get_transport_buttons_state(self):
-        if self.app.shepherd_interface.session:
-            is_playing = self.app.shepherd_interface.session.isplaying
+        if self.session:
+            is_playing = self.session.isplaying
             is_recording = False
-            for track in self.app.shepherd_interface.session.tracks:
+            for track in self.session.tracks:
                 for clip in track.clips:
                     clip_state = clip.get_status()
                     if 'r' in clip_state or 'w' in clip_state or 'W' in clip_state:
                         is_recording = True
                         break
-            metronome_on = self.app.shepherd_interface.session.metronomeon
+            metronome_on = self.session.metronomeon
             return is_playing, is_recording, metronome_on
         return False, False, False
 
@@ -80,19 +80,19 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.set_button_color(self.tap_tempo_button)
 
         # Fixed length button
-        fixed_length_amount = self.app.shepherd_interface.session.fixedlengthrecordingbars
+        fixed_length_amount = self.session.fixedlengthrecordingbars
         self.set_button_color_if_expression(self.fixed_length_button, fixed_length_amount > 0.0, animation=definitions.DEFAULT_ANIMATION)
         
         # Record automation button
-        record_automation_enabled = self.app.shepherd_interface.session.recordautomationenabled
+        record_automation_enabled = self.session.recordautomationenabled
         self.set_button_color_if_expression(self.record_automation_button, record_automation_enabled, color=definitions.RED)
 
     def global_record(self):
         # Stop all clips that are being recorded
         # If the currently played clip in currently selected track is not recording, start recording it
-        if self.app.shepherd_interface.session:
+        if self.session:
             selected_trak_num = self.app.track_selection_mode.selected_track
-            for track_num, track in enumerate(self.app.shepherd_interface.session.tracks):
+            for track_num, track in enumerate(self.session.tracks):
                 if track_num == selected_trak_num:
                     clip_num = -1
                     for i, clip in enumerate(track.clips):
@@ -102,7 +102,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                             clip_num = i
                             break
                     if clip_num > -1:
-                        self.app.shepherd_interface.session.get_clip_by_idx(track_num, clip_num).record_on_off()
+                        self.session.get_clip_by_idx(track_num, clip_num).record_on_off()
                 else:
                     for clip_num, clip in enumerate(track.clips):
                         clip_state = clip.get_status()
@@ -132,7 +132,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             return True
 
         elif button_name == self.play_button:
-            self.app.shepherd_interface.session.global_play_stop()
+            self.session.global_play_stop()
             return True 
             
         elif button_name == self.record_button:
@@ -142,9 +142,9 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             return True  
 
         elif button_name == self.metronome_button:
-            self.app.shepherd_interface.session.metronome_on_off()
+            self.session.metronome_on_off()
             self.app.add_display_notification(
-                "Metronome: {0}".format('On' if not self.app.shepherd_interface.session.metronomeon else 'Off'))
+                "Metronome: {0}".format('On' if not self.session.metronomeon else 'Off'))
             return True  
 
         elif button_name == self.tap_tempo_button:
@@ -155,7 +155,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                     intervals.append(t1 - t2)
                 bpm = 60.0 / (sum(intervals)/len(intervals))
                 if 30 <= bpm <= 300:
-                    self.app.shepherd_interface.session.set_bpm(float(int(bpm)))
+                    self.session.set_bpm(float(int(bpm)))
                     self.last_tap_tempo_times = self.last_tap_tempo_times[-3:]
                     self.app.add_display_notification("Tempo: {0} bpm".format(int(bpm)))
             return True
@@ -164,25 +164,25 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             if long_press:
                 next_fixed_length = 0
             else:
-                current_fixed_length = self.app.shepherd_interface.session.fixedlengthrecordingbars
+                current_fixed_length = self.session.fixedlengthrecordingbars
                 next_fixed_length = current_fixed_length + 1
                 if next_fixed_length > 8:
                     next_fixed_length = 0
-            self.app.shepherd_interface.session.set_fix_length_recording_bars(next_fixed_length)
+            self.session.set_fix_length_recording_bars(next_fixed_length)
 
             if next_fixed_length > 0:
                 self.app.add_display_notification(
                     "Fixed length bars: {0} ({1} beats)"
-                        .format(next_fixed_length, next_fixed_length * self.app.shepherd_interface.session.meter))
+                        .format(next_fixed_length, next_fixed_length * self.session.meter))
             else:
                 self.app.add_display_notification("No fixed length recording")
 
         elif button_name == self.record_automation_button:
-            self.app.shepherd_interface.session.set_record_automation_enabled()
+            self.session.set_record_automation_enabled()
 
         elif button_name == push2_python.constants.BUTTON_MASTER:
             # Toggle backend sine-wave debug synth
-            self.app.shepherd_interface.sbi.state.toggle_shepherd_backend_debug_synth()
+            self.state.toggle_shepherd_backend_debug_synth()
 
     def on_button_pressed_raw(self, button_name):    
         if button_name == self.track_triggering_button:
@@ -245,16 +245,16 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     def on_encoder_rotated(self, encoder_name, increment):
         if encoder_name == push2_python.constants.ENCODER_TEMPO_ENCODER:
             if not self.app.is_button_being_pressed(push2_python.constants.BUTTON_SHIFT):
-                new_bpm = self.app.shepherd_interface.session.bpm + increment
+                new_bpm = self.session.bpm + increment
                 if new_bpm < 10.0:
                     new_bpm = 10.0
-                self.app.shepherd_interface.session.set_bpm(new_bpm)
+                self.session.set_bpm(new_bpm)
                 self.app.add_display_notification("Tempo: {0} bpm".format(int(new_bpm)))
                 return True
             else:
-                new_meter = self.app.shepherd_interface.session.meter + increment
+                new_meter = self.session.meter + increment
                 if new_meter < 1:
                     new_meter = 1
-                self.app.shepherd_interface.session.set_meter(new_meter)
+                self.session.set_meter(new_meter)
                 self.app.add_display_notification("Meter: {0} beats".format(new_meter))
                 return True

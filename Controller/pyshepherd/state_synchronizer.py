@@ -11,22 +11,22 @@ from oscpy.server import OSCThreadServer
 
 
 state_request_hz = 10  # Only used to check if request for full state should be sent
-sss_instance = None
+ss_instance = None
 
 
 def state_update_handler(*values):
     update_type = values[0]
     update_id = values[1]
     update_data = values[2:]
-    if sss_instance is not None:
-        sss_instance.apply_update(update_id, update_type, update_data)
+    if ss_instance is not None:
+        ss_instance.apply_update(update_id, update_type, update_data)
     
 
 def full_state_handler(*values):
     update_id = values[0]
     new_state_raw = values[1]
-    if sss_instance is not None:
-        sss_instance.set_full_state(update_id, new_state_raw)
+    if ss_instance is not None:
+        ss_instance.set_full_state(update_id, new_state_raw)
 
 
 def osc_state_update_handler(*values):
@@ -61,21 +61,21 @@ class OSCReceiverThread(threading.Thread):
         osc = OSCThreadServer()
         print('* Listening OSC messages in port {}'.format(self.port))
         osc.listen(address='0.0.0.0', port=self.port, default=True)
-        osc.bind(b'/app_started', lambda: sss_instance.app_has_started())
+        osc.bind(b'/app_started', lambda: ss_instance.app_has_started())
         osc.bind(b'/state_update', osc_state_update_handler)
         osc.bind(b'/full_state', osc_full_state_handler)
-        osc.bind(b'/alive', lambda: sss_instance.app_is_alive())
+        osc.bind(b'/alive', lambda: ss_instance.app_is_alive())
 
 
 def ws_on_message(ws, message):
-    if sss_instance is not None:
-        sss_instance.ws_connection_ok = True
+    if ss_instance is not None:
+        ss_instance.ws_connection_ok = True
 
     address = message[:message.find(':')]
     data = message[message.find(':') + 1:]
-    
+
     if address == '/app_started':
-        sss_instance.app_has_started()
+        ss_instance.app_has_started()
 
     elif address == '/state_update':
         data_parts = data.split(';')
@@ -109,21 +109,21 @@ def ws_on_error(ws, error):
     if 'Connection refused' not in str(error) and 'WebSocketConnectionClosedException' not in str(error):
         print(traceback.format_exc())
         
-    if sss_instance is not None:
-        sss_instance.ws_connection_ok = False
+    if ss_instance is not None:
+        ss_instance.ws_connection_ok = False
 
 
 def ws_on_close(ws, close_status_code, close_msg):
     print("* WS connection closed: {} - {}".format(close_status_code, close_msg))
-    if sss_instance is not None:
-        sss_instance.ws_connection_ok = False
+    if ss_instance is not None:
+        ss_instance.ws_connection_ok = False
 
 
 def ws_on_open(ws):
     print("* WS connection opened")
-    if sss_instance is not None:
-        sss_instance.ws_connection_ok = True
-        sss_instance.app_has_started()
+    if ss_instance is not None:
+        ss_instance.ws_connection_ok = True
+        ss_instance.app_has_started()
 
 
 class WSConnectionThread(threading.Thread):
@@ -203,8 +203,8 @@ class StateSynchronizer(object):
                  verbose=True):
         self.app = app
         
-        global sss_instance
-        sss_instance = self
+        global ss_instance
+        ss_instance = self
         self.verbose = verbose
 
         if (osc_port_receive is None or osc_port_send is None or osc_ip is None) is None and ws_port is None:
@@ -230,9 +230,8 @@ class StateSynchronizer(object):
 
         # Start Thread to request state to app
         # This thread will request the full state if self.should_request_full_state is set to True
+        # (which by default is false)
         RequestStateThread(self).start()
-
-        time.sleep(0.5)  # Give time for threads to start
         self.should_request_full_state = True
 
     def send_msg_to_app(self, address, values):

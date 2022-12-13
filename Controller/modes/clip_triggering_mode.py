@@ -48,12 +48,12 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         Each clip tuple contains following information: (clip_num, clip_length, playhead_position)
         """
         playing_clips_info = {}
-        for track_num in range(0, len(self.app.shepherd_interface.session.tracks)):
+        for track_num in range(0, len(self.session.tracks)):
             current_track_playing_clips_info = []
             current_track_will_play_clips_info = []
-            track = self.app.shepherd_interface.session.get_track_by_idx(track_num)
+            track = self.session.get_track_by_idx(track_num)
             for clip_num in range(0, len(track.clips)):
-                clip = self.app.shepherd_interface.session.get_clip_by_idx(track_num, clip_num)
+                clip = self.session.get_clip_by_idx(track_num, clip_num)
                 clip_state = clip.get_status()
                 if 'p' in clip_state or 'C' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
@@ -138,7 +138,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         '''
         if not self.app.is_mode_active(self.app.settings_mode):
             # If settings mode is active, don't update the upper buttons as these are also used by settings
-            for count, track in enumerate(self.app.shepherd_interface.session.tracks):
+            for count, track in enumerate(self.session.tracks):
                 clip_from_selected_scene = track.clips[self.selected_scene]
                 if not clip_from_selected_scene.is_empty():
                     self.push.buttons.set_button_color(self.upper_row_buttons[count], definitions.WHITE)
@@ -153,7 +153,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             row_colors = []
             row_animation = []
             for j in range(0, 8):
-                clip = self.app.shepherd_interface.session.get_clip_by_idx(j, i)
+                clip = self.session.get_clip_by_idx(j, i)
                 state = clip.get_status()
 
                 track_color = self.app.track_selection_mode.get_track_color(j)
@@ -192,7 +192,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if button_name in self.scene_trigger_buttons:
             triggered_scene_row = self.scene_trigger_buttons.index(button_name)
-            self.app.shepherd_interface.session.scene_play(triggered_scene_row)
+            self.session.scene_play(triggered_scene_row)
             self.selected_scene = triggered_scene_row
             self.app.buttons_need_update = True
             return True
@@ -200,7 +200,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         elif button_name == self.duplicate_button:
             if self.selected_scene < self.num_scenes - 1:
                 # Do not duplicate scene if we're at the last one (no more space!)
-                self.app.shepherd_interface.session.scene_duplicate(self.selected_scene)
+                self.session.scene_duplicate(self.selected_scene)
                 self.selected_scene += 1
                 self.app.buttons_need_update = True
                 self.app.add_display_notification("Duplicated scene: {0}".format(self.selected_scene + 1))
@@ -210,10 +210,10 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         track_num = pad_ij[1]
         clip_num = pad_ij[0]
 
-        if self.app.shepherd_interface.session is not None:
-            clip = self.app.shepherd_interface.session.get_clip_by_idx(track_num, clip_num)
+        if self.session is not None:
+            clip = self.session.get_clip_by_idx(track_num, clip_num)
             if clip is not None:
-                if not long_press:
+                if long_press:
                     self.app.clip_edit_mode.set_clip_mode(clip.uuid)
                     self.app.set_clip_edit_mode()
                     return True
@@ -301,6 +301,6 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 if new_length < 1.0:
                     new_length = 1.0
 
-                clip = self.app.shepherd_interface.session.get_clip_by_idx(track_num, clip_num, new_length)
+                clip = self.session.get_clip_by_idx(track_num, clip_num, new_length)
                 if clip is not None and not clip.is_empty():
                     clip.set_length(new_length)

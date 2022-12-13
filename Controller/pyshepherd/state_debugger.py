@@ -10,7 +10,7 @@ state_debugger_autoreload_ms = 1000
 disable_flask_logging = True
 
 state_debugger_server = Flask(__name__)
-sss_instance = None
+ss_instance = None
 
 if disable_flask_logging:
     log = logging.getLogger('werkzeug')
@@ -19,10 +19,10 @@ if disable_flask_logging:
 
 @state_debugger_server.route('/')
 def state_debugger():
-    if sss_instance is None or sss_instance.state is None:
+    if ss_instance is None or ss_instance.state is None:
         state = 'No state has been synced yet'
     else:
-        state = '{}'.format(sss_instance.state.render(include_attributes=True))
+        state = '{}'.format(ss_instance.state.render(include_attributes=True))
     return render_template('state_debugger.html',
                            state=state,
                            xml=False,
@@ -41,9 +41,9 @@ class StateDebuggerServerThread(threading.Thread):
         state_debugger_server.run(host='0.0.0.0', port=self.port, debug=True, use_reloader=False)
 
 
-def start_state_debugger(_sss_instance, port=5100):
-    global sss_instance
-    sss_instance = _sss_instance
+def start_state_debugger(_ss_instance, port=5100):
+    global ss_instance
+    ss_instance = _ss_instance
     StateDebuggerServerThread(port).start()
 
 

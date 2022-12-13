@@ -38,11 +38,11 @@ namespace Helpers
 
     inline juce::ValueTree createDefaultStateRoot()
     {
-        juce::ValueTree root (IDs::ROOT);
-        Helpers::createUuidProperty (root);
-        root.setProperty (IDs::renderWithInternalSynth, Defaults::renderWithInternalSynth, nullptr);
-        root.setProperty (IDs::dataLocation, Defaults::emptyString, nullptr);
-        return root;
+        juce::ValueTree state (IDs::STATE);
+        Helpers::createUuidProperty (state);
+        state.setProperty (IDs::renderWithInternalSynth, Defaults::renderWithInternalSynth, nullptr);
+        state.setProperty (IDs::dataLocation, Defaults::emptyString, nullptr);
+        return state;
     }
 
     inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)

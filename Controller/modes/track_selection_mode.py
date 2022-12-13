@@ -26,7 +26,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     selected_track = 0
 
     def get_selected_track(self):
-        self.app.shepherd_interface.session.get_track_by_idx(self.selected_track)
+        return self.session.get_track_by_idx(self.selected_track)
 
     def initialize(self, settings=None):
         if settings is not None:
@@ -51,7 +51,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         return {}
 
     def get_all_distinct_device_short_names(self):
-        return list(set([track.hardwaredevicename for track in self.app.shepherd_interface.session.tracks]))
+        return list(set([track.hardwaredevicename for track in self.session.tracks]))
 
     def get_current_track_device_info(self):
         return self.devices_info.get(self.get_selected_track().hardwaredevicename, {})
@@ -84,7 +84,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
 
     def send_select_track(self, track_idx):
         # Enabled input monitoring for the selected track only
-        tracks = self.app.shepherd_interface.session.tracks
+        tracks = self.session.tracks
         for i in range(0, len(tracks)):
             tracks[i].set_input_monitoring(i == track_idx)
 
@@ -92,8 +92,8 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         # Selects a track
         # Note that if this is called from a mode from the same xor group with melodic/rhythmic modes,
         # that other mode will be deactivated.
-        if self.app.shepherd_interface.session is not None:
-            track = self.app.shepherd_interface.session.get_track_by_idx(track_idx)
+        if self.session is not None:
+            track = self.session.get_track_by_idx(track_idx)
             if track is not None:
                 self.selected_track = track_idx
                 self.send_select_track(self.selected_track)
@@ -125,7 +125,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def update_display(self, ctx, w, h):
         # Draw track selector labels
         height = 20
-        for i in range(0, len(self.app.shepherd_interface.session.tracks)):
+        for i in range(0, len(self.session.tracks)):
             track_color = self.get_track_color(i)
             if self.selected_track == i:
                 background_color = track_color
@@ -133,7 +133,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             else:
                 background_color = definitions.BLACK
                 font_color = track_color
-            track = self.app.shepherd_interface.session.get_track_by_idx(i)
+            track = self.session.get_track_by_idx(i)
             device_short_name = track.hardwaredevicename
             if track.inputmonitoring:
                 device_short_name = '+' + device_short_name
@@ -143,7 +143,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
        if button_name in self.track_button_names:
             track_idx = self.track_button_names.index(button_name)
-            track = self.app.shepherd_interface.session.get_track_by_idx(track_idx)
+            track = self.session.get_track_by_idx(track_idx)
             if track is not None:
                 if long_press:
                     # Toggle input monitoring
@@ -158,7 +158,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                     else:
                         # If button shift pressed, send all notes off to that track
                         try:
-                            track = self.app.shepherd_interface.session.tracks[track_idx]
+                            track = self.session.tracks[track_idx]
                             hardware_device = track.get_hardware_device()
                             if hardware_device is not None:
                                 hardware_device.all_notes_off()

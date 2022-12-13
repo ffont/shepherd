@@ -210,7 +210,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
             elif self.current_page == 3:  # HW devices
                 try:
-                    track = self.app.shepherd_interface.session.tracks[i]
+                    track = self.session.tracks[i]
                     show_title(ctx, part_x, h, 'TRACK {}'.format(i+1))
                     show_value(ctx, part_x, h, track.hardwaredevicename if len(track.hardwaredevicename) < 12 else '...{}'.format(track.hardwaredevicename[-9:]), color)
                 except:
@@ -302,8 +302,8 @@ class SettingsMode(definitions.ShepherdControllerMode):
             ]
             track_num = track_encoders.index(encoder_name)
             try:
-                track = self.app.shepherd_interface.session.tracks[track_num]
-                available_devices = self.app.shepherd_interface.state.get_available_output_hardware_device_names()
+                track = self.session.tracks[track_num]
+                available_devices = self.state.get_available_output_hardware_device_names()
                 current_hw_device = track.hardwaredevicename
                 current_hw_device_index = available_devices.index(current_hw_device)
                 next_device_name = available_devices[(current_hw_device_index + increment) % len(available_devices)]
@@ -334,7 +334,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
         elif self.current_page == 0:  # Various settings
             if button_name == push2_python.constants.BUTTON_UPPER_ROW_1:
-                self.app.shepherd_interface.session.save(str(self.current_preset_save_number))
+                self.session.save(str(self.current_preset_save_number))
                 self.app.add_display_notification("Saved session in slot: {}".format(self.current_preset_save_number))
 
                 # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
@@ -343,7 +343,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
 
                 return True
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_2:
-                self.app.shepherd_interface.session.load(str(self.current_preset_load_number))
+                self.session.load(str(self.current_preset_load_number))
                 self.app.add_display_notification("Loaded session from slot: {}".format(self.current_preset_load_number))
 
                 # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
@@ -390,8 +390,8 @@ class SettingsMode(definitions.ShepherdControllerMode):
             if button_name in buttons_row:
                 track_num = buttons_row.index(button_name)
                 try:
-                    track = self.app.shepherd_interface.session.tracks[track_num]
-                    available_devices = self.app.shepherd_interface.state.get_available_output_hardware_device_names()
+                    track = self.session.tracks[track_num]
+                    available_devices = self.state.get_available_output_hardware_device_names()
                     current_hw_device = track.hardwaredevicename
                     current_hw_device_index = available_devices.index(current_hw_device)
                     next_device_name = available_devices[current_hw_device_index + 1 % len(available_devices)]

@@ -199,13 +199,12 @@ class MIDICCMode(ShepherdControllerMode):
                 mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
             except IndexError:
                 mapping.append(-1)
-        if self.app.shepherd_interface.sbi.state is not None:
-            self.app.shepherd_interface.sbi.state\
-                .set_push_encoders_mapping(self.get_current_track_device_short_name_helper(), mapping)
+        if self.state is not None:
+            self.state.set_push_encoders_mapping(self.get_current_track_device_short_name_helper(), mapping)
 
     def clear_encoders_backend_mapping(self):
-        if self.app.shepherd_interface.sbi.state is not None:
-            self.app.shepherd_interface.sbi.state.set_push_encoders_mapping("", [-1 for i in range(0, 8)])
+        if self.state is not None:
+            self.state.set_push_encoders_mapping("", [-1 for i in range(0, 8)])
 
     def activate(self):
         self.update_buttons()
@@ -256,8 +255,8 @@ class MIDICCMode(ShepherdControllerMode):
             # Draw MIDI CC controls
             if self.active_midi_control_ccs:
                 for i in range(0, min(len(self.active_midi_control_ccs), 8)):
-                    hardware_device = self.app.shepherd_interface.sbi.state\
-                        .get_hardware_device_by_name(self.get_current_track_device_short_name_helper())
+                    hardware_device = \
+                        self.state.get_hardware_device_by_name(self.get_current_track_device_short_name_helper())
                     if hardware_device is not None:
                         value = hardware_device.get_current_midi_cc_parameter_value(
                             self.active_midi_control_ccs[i].cc_number)
@@ -266,7 +265,7 @@ class MIDICCMode(ShepherdControllerMode):
                         continue
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
-        if  button_name in self.midi_cc_button_names:
+        if button_name in self.midi_cc_button_names:
             current_track_sections = self.get_current_track_midi_cc_sections()
             n_sections = len(current_track_sections)
             idx = self.midi_cc_button_names.index(button_name)

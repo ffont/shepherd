@@ -4,6 +4,7 @@ import colorsys
 import os
 import subprocess
 import threading
+import traceback
 
 from functools import wraps
 
@@ -141,6 +142,7 @@ class Timer():
     def setClearTimer(self):
         self.toClearTimer = True
 
+
 class ShepherdControllerMode(object):
     """
     """
@@ -152,6 +154,24 @@ class ShepherdControllerMode(object):
     def __init__(self, app, settings=None):
         self.app = app
         self.initialize(settings=settings)
+
+    @property
+    def state(self):
+        # handy property to retrieve backend's full state
+        try:
+            return self.app.shepherd_interface.state
+        except Exception as e:
+            pass
+        return None
+
+    @property
+    def session(self):
+        # handy property to retrieve backend's session state
+        try:
+            return self.app.shepherd_interface.state.session
+        except Exception as e:
+            pass
+        return None
 
     @property
     def push(self):

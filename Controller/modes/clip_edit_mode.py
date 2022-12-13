@@ -149,7 +149,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     @property
     def clip(self):
         if self.selected_clip_uuid is not None:
-            return self.app.shepherd_interface.sbi.get_element_with_uuid(self.selected_clip_uuid)
+            return self.app.shepherd_interface.get_element_with_uuid(self.selected_clip_uuid)
         else:
             return None
 
@@ -157,7 +157,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def event(self):
         if self.selected_event_uuid is not None:
             try:
-                return self.app.shepherd_interface.sbi.get_element_with_uuid(self.selected_event_uuid)
+                return self.app.shepherd_interface.get_element_with_uuid(self.selected_event_uuid)
             except KeyError:
                 return None
         else:
@@ -366,7 +366,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         self.update_pads()
 
         self.available_clips = []
-        for track in self.app.shepherd_interface.session.tracks:
+        for track in self.session.tracks:
             for clip in track.clips:
                 self.available_clips.append(clip.uuid)
 
@@ -602,9 +602,9 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
                     if not shift:
-                        new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.app.shepherd_interface.session.meter)))/1000.0
+                        new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.session.meter)))/1000.0
                     else:
-                        new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.app.shepherd_interface.session.meter*2)))/1000.0
+                        new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.session.meter*2)))/1000.0
                     new_timestamp = clamp(new_timestamp, 0.0, self.clip.cliplengthinbeats)
                     if new_timestamp == self.clip.cliplengthinbeats:
                         new_timestamp = 0.0
