@@ -199,10 +199,13 @@ class MIDICCMode(ShepherdControllerMode):
                 mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
             except IndexError:
                 mapping.append(-1)
-        self.app.shepherd_interface.sbi.state.set_push_encoders_mapping(self.get_current_track_device_short_name_helper(), mapping)
+        if self.app.shepherd_interface.sbi.state is not None:
+            self.app.shepherd_interface.sbi.state\
+                .set_push_encoders_mapping(self.get_current_track_device_short_name_helper(), mapping)
 
     def clear_encoders_backend_mapping(self):
-        self.app.shepherd_interface.sbi.state.set_push_encoders_mapping("", [-1 for i in range(0, 8)])
+        if self.app.shepherd_interface.sbi.state is not None:
+            self.app.shepherd_interface.sbi.state.set_push_encoders_mapping("", [-1 for i in range(0, 8)])
 
     def activate(self):
         self.update_buttons()

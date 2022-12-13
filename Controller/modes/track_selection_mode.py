@@ -51,16 +51,13 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         return {}
 
     def get_all_distinct_device_short_names(self):
-        return list(set([self.app.shepherd_interface.get_track_device_short_name(i) for i in range(0, self.app.shepherd_interface.get_num_tracks())]))
+        return list(set([track.hardwaredevicename for track in self.app.shepherd_interface.session.tracks]))
 
     def get_current_track_device_info(self):
-        return self.devices_info.get(self.app.shepherd_interface.get_track_device_short_name(self.selected_track), {})
-
-    def get_track_device_short_name(self, i):
-        return self.app.shepherd_interface.get_track_device_short_name(i)
+        return self.devices_info.get(self.get_selected_track().hardwaredevicename, {})
 
     def get_current_track_device_short_name(self):
-        return self.app.shepherd_interface.get_track_device_short_name(self.selected_track)
+        return self.get_selected_track().hardwaredevicename
     
     def get_track_color(self, i):
         return definitions.COLORS_NAMES[i % 8]
@@ -128,7 +125,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def update_display(self, ctx, w, h):
         # Draw track selector labels
         height = 20
-        for i in range(0, self.app.shepherd_interface.get_num_tracks()):
+        for i in range(0, len(self.app.shepherd_interface.session.tracks)):
             track_color = self.get_track_color(i)
             if self.selected_track == i:
                 background_color = track_color
@@ -136,8 +133,9 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             else:
                 background_color = definitions.BLACK
                 font_color = track_color
-            device_short_name = self.get_track_device_short_name(i)
-            if self.app.shepherd_interface.get_track_is_input_monitoring(i):
+            track = self.app.shepherd_interface.session.get_track_by_idx(i)
+            device_short_name = track.hardwaredevicename
+            if track.inputmonitoring:
                 device_short_name = '+' + device_short_name
             show_text(ctx, i, h - height, device_short_name, height=height,
                     font_color=font_color, background_color=background_color)

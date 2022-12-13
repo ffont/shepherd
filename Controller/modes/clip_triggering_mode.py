@@ -48,19 +48,20 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         Each clip tuple contains following information: (clip_num, clip_length, playhead_position)
         """
         playing_clips_info = {}
-        for track_num in range(0, self.app.shepherd_interface.get_num_tracks()):
+        for track_num in range(0, len(self.app.shepherd_interface.session.tracks)):
             current_track_playing_clips_info = []
             current_track_will_play_clips_info = []
-            for clip_num in range(0, self.app.shepherd_interface.get_track_num_clips(track_num)):
-                clip = self.app.shepherd_interface.session.tracks[track_num].clips[clip_num]
-                clip_state = self.app.shepherd_interface.get_clip_state(track_num, clip_num)
+            track = self.app.shepherd_interface.session.get_track_by_idx(track_num)
+            for clip_num in range(0, len(track.clips)):
+                clip = self.app.shepherd_interface.session.get_clip_by_idx(track_num, clip_num)
+                clip_state = clip.get_status()
                 if 'p' in clip_state or 'C' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
-                    playhead_position = self.app.shepherd_interface.get_clip_playhead(track_num, clip_num)
+                    playhead_position = clip.playheadpositioninbeats
                     current_track_playing_clips_info.append((clip_num, clip_length, playhead_position, clip))
                 if 'c' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
-                    playhead_position = self.app.shepherd_interface.get_clip_playhead(track_num, clip_num)
+                    playhead_position = clip.playheadpositioninbeats
                     current_track_will_play_clips_info.append((clip_num, clip_length, playhead_position, clip))
             if current_track_playing_clips_info:
                 if not track_num in playing_clips_info:
@@ -152,7 +153,8 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
             row_colors = []
             row_animation = []
             for j in range(0, 8):
-                state = self.app.shepherd_interface.get_clip_state(j, i)
+                clip = self.app.shepherd_interface.session.get_clip_by_idx(j, i)
+                state = clip.get_status()
 
                 track_color = self.app.track_selection_mode.get_track_color(j)
                 cell_animation = 0
@@ -190,7 +192,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if button_name in self.scene_trigger_buttons:
             triggered_scene_row = self.scene_trigger_buttons.index(button_name)
-            self.app.shepherd_interface.scene_play(triggered_scene_row)
+            self.app.shepherd_interface.session.scene_play(triggered_scene_row)
             self.selected_scene = triggered_scene_row
             self.app.buttons_need_update = True
             return True
@@ -198,9 +200,10 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         elif button_name == self.duplicate_button:
             if self.selected_scene < self.num_scenes - 1:
                 # Do not duplicate scene if we're at the last one (no more space!)
-                self.app.shepherd_interface.scene_duplicate(self.selected_scene)
+                self.app.shepherd_interface.session.scene_duplicate(self.selected_scene)
                 self.selected_scene += 1
                 self.app.buttons_need_update = True
+                self.app.add_display_notification("Duplicated scene: {0}".format(self.selected_scene + 1))
             return True
 
     def on_pad_pressed(self, pad_n, pad_ij, velocity, shift=False, select=False, long_press=False, double_press=False):

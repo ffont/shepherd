@@ -32,6 +32,20 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     def activate(self):
         self.update_buttons()
 
+    def get_transport_buttons_state(self):
+        if self.app.shepherd_interface.session:
+            is_playing = self.app.shepherd_interface.session.isplaying
+            is_recording = False
+            for track in self.app.shepherd_interface.session.tracks:
+                for clip in track.clips:
+                    clip_state = clip.get_status()
+                    if 'r' in clip_state or 'w' in clip_state or 'W' in clip_state:
+                        is_recording = True
+                        break
+            metronome_on = self.app.shepherd_interface.session.metronomeon
+            return is_playing, is_recording, metronome_on
+        return False, False, False
+
     def update_buttons(self):
         # Shift and select button
         self.set_button_color_if_pressed(self.shift_button, animation=definitions.DEFAULT_ANIMATION)
@@ -59,20 +73,42 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             self.set_button_color(self.ddrm_tone_selection_mode_button, definitions.BLACK)
 
         # Play/stop/metronome buttons
-        is_playing, is_recording, metronome_on = self.app.shepherd_interface.get_buttons_state()
+        is_playing, is_recording, metronome_on = self.get_transport_buttons_state()
         self.set_button_color_if_expression(self.play_button, is_playing, definitions.GREEN, false_color=definitions.WHITE)
         self.set_button_color_if_expression(self.record_button, is_recording, definitions.RED, false_color=definitions.WHITE, animation=definitions.DEFAULT_ANIMATION if self.app.is_button_being_pressed(self.record_button) else definitions.ANIMATION_STATIC, also_include_is_pressed=True)
         self.set_button_color_if_expression(self.metronome_button, metronome_on, definitions.WHITE)
         self.set_button_color(self.tap_tempo_button)
 
         # Fixed length button
-        fixed_length_amount = self.app.shepherd_interface.get_fixed_length_amount()
+        fixed_length_amount = self.app.shepherd_interface.session.fixedlengthrecordingbars
         self.set_button_color_if_expression(self.fixed_length_button, fixed_length_amount > 0.0, animation=definitions.DEFAULT_ANIMATION)
         
         # Record automation button
-        record_automation_enabled = self.app.shepherd_interface.get_record_automation_enabled()
+        record_automation_enabled = self.app.shepherd_interface.session.recordautomationenabled
         self.set_button_color_if_expression(self.record_automation_button, record_automation_enabled, color=definitions.RED)
-        
+
+    def global_record(self):
+        # Stop all clips that are being recorded
+        # If the currently played clip in currently selected track is not recording, start recording it
+        if self.app.shepherd_interface.session:
+            selected_trak_num = self.app.track_selection_mode.selected_track
+            for track_num, track in enumerate(self.app.shepherd_interface.session.tracks):
+                if track_num == selected_trak_num:
+                    clip_num = -1
+                    for i, clip in enumerate(track.clips):
+                        clip_state = clip.get_status()
+                        if 'p' in clip_state or 'w' in clip_state:
+                            # clip is playing or cued to record, toggle recording on that clip
+                            clip_num = i
+                            break
+                    if clip_num > -1:
+                        self.app.shepherd_interface.session.get_clip_by_idx(track_num, clip_num).record_on_off()
+                else:
+                    for clip_num, clip in enumerate(track.clips):
+                        clip_state = clip.get_status()
+                        if 'r' in clip_state or 'w' in clip_state:
+                            # if clip is recording or cued to record, toggle record so recording/cue are cleared
+                            clip.record_on_off()
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
         if button_name == self.melodic_rhythmic_toggle_button:
@@ -96,17 +132,19 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             return True
 
         elif button_name == self.play_button:
-            self.app.shepherd_interface.global_play_stop()
+            self.app.shepherd_interface.session.global_play_stop()
             return True 
             
         elif button_name == self.record_button:
             if not long_press:
                 # Ignore long press event as it can be triggered while making a rec+pad button combination
-                self.app.shepherd_interface.global_record()
+                self.global_record()
             return True  
 
         elif button_name == self.metronome_button:
-            self.app.shepherd_interface.metronome_on_off()
+            self.app.shepherd_interface.session.metronome_on_off()
+            self.app.add_display_notification(
+                "Metronome: {0}".format('On' if not self.app.shepherd_interface.session.metronomeon else 'Off'))
             return True  
 
         elif button_name == self.tap_tempo_button:
@@ -117,22 +155,30 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                     intervals.append(t1 - t2)
                 bpm = 60.0 / (sum(intervals)/len(intervals))
                 if 30 <= bpm <= 300:
-                    self.app.shepherd_interface.set_bpm(int(bpm))
+                    self.app.shepherd_interface.session.set_bpm(float(int(bpm)))
                     self.last_tap_tempo_times = self.last_tap_tempo_times[-3:]
+                    self.app.add_display_notification("Tempo: {0} bpm".format(int(bpm)))
             return True
 
         elif button_name == self.fixed_length_button:
             if long_press:
                 next_fixed_length = 0
             else:
-                current_fixed_length = self.app.shepherd_interface.get_fixed_length_amount()
+                current_fixed_length = self.app.shepherd_interface.session.fixedlengthrecordingbars
                 next_fixed_length = current_fixed_length + 1
                 if next_fixed_length > 8:
                     next_fixed_length = 0
-            self.app.shepherd_interface.set_fixed_length_amount(next_fixed_length)
+            self.app.shepherd_interface.session.set_fix_length_recording_bars(next_fixed_length)
+
+            if next_fixed_length > 0:
+                self.app.add_display_notification(
+                    "Fixed length bars: {0} ({1} beats)"
+                        .format(next_fixed_length, next_fixed_length * self.app.shepherd_interface.session.meter))
+            else:
+                self.app.add_display_notification("No fixed length recording")
 
         elif button_name == self.record_automation_button:
-            self.app.shepherd_interface.set_record_automation_enabled()
+            self.app.shepherd_interface.session.set_record_automation_enabled()
 
         elif button_name == push2_python.constants.BUTTON_MASTER:
             # Toggle backend sine-wave debug synth
@@ -199,14 +245,16 @@ class MainControlsMode(definitions.ShepherdControllerMode):
     def on_encoder_rotated(self, encoder_name, increment):
         if encoder_name == push2_python.constants.ENCODER_TEMPO_ENCODER:
             if not self.app.is_button_being_pressed(push2_python.constants.BUTTON_SHIFT):
-                new_bpm = int(self.app.shepherd_interface.get_bpm()) + increment
+                new_bpm = self.app.shepherd_interface.session.bpm + increment
                 if new_bpm < 10.0:
                     new_bpm = 10.0
-                self.app.shepherd_interface.set_bpm(new_bpm)
+                self.app.shepherd_interface.session.set_bpm(new_bpm)
+                self.app.add_display_notification("Tempo: {0} bpm".format(int(new_bpm)))
                 return True
             else:
-                new_meter = int(self.app.shepherd_interface.get_meter()) + increment
+                new_meter = self.app.shepherd_interface.session.meter + increment
                 if new_meter < 1:
                     new_meter = 1
-                self.app.shepherd_interface.set_meter(new_meter)
+                self.app.shepherd_interface.session.set_meter(new_meter)
+                self.app.add_display_notification("Meter: {0} beats".format(new_meter))
                 return True
