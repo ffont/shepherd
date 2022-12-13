@@ -5,3 +5,4 @@ oscpy
 websocket-client
 lxml
 bs4
+mido

@@ -149,4 +149,10 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                     self.select_track(self.track_button_names.index(button_name))
                 else:
                     # If button shift pressed, send all notes off to that track
-                    self.app.shepherd_interface.device_send_all_notes_off(self.get_track_device_short_name(track_idx))
+                    try:
+                        track = self.app.shepherd_interface.session.tracks[track_idx]
+                        hardware_device = track.get_hardware_device()
+                        if hardware_device is not None:
+                            hardware_device.all_notes_off()
+                    except IndexError:
+                        pass

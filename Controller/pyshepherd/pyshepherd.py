@@ -1,5 +1,6 @@
 import json
 import math
+import mido
 
 from bs4 import BeautifulSoup
 
@@ -73,16 +74,21 @@ def backend_value_to_python_value(attr_name, value):
 
 class BaseShepherdClass(object):
 
-    def __init__(self, soup, state_synchronizer):
-        # Set state syncronizer (will be used to be able to send messages to backend)
-        self.state_synchronizer = state_synchronizer
+    parent = None
+
+    def __init__(self, soup, backend_interface, parent=None):
+        # Set parent
+        self.parent = parent
+
+        # Set state synchronizer (will be used to be able to send messages to backend)
+        self.backend_interface = backend_interface
 
         # Set initial attributes and methods to set these attributes in the backend
         for attr_name, value in soup.attrs.items():
             setattr(self, attr_name, backend_value_to_python_value(attr_name, value))
     
     def send_msg_to_app(self, address, values):
-        self.state_synchronizer.send_msg_to_app(address, values)
+        self.backend_interface.send_msg_to_app(address, values)
 
     def render_object_attributes(self, num_spaces_offset=0):
         text = ''
@@ -90,7 +96,7 @@ class BaseShepherdClass(object):
             if not attr_name.startswith('_') \
                     and not callable(getattr(self, attr_name)) \
                     and not type(getattr(self, attr_name)) == list \
-                    and attr_name != 'state_synchronizer' \
+                    and attr_name != 'backend_interface' \
                     and attr_name != 'track' \
                     and attr_name != 'clip' \
                     and attr_name != 'session':
@@ -107,15 +113,24 @@ class Root(BaseShepherdClass):
         super().__init__(*args, **kwargs)
 
     def add_hardware_device(self, hardware_device, position=None):
-        # Note this method adds a HardwareDevie object in the local Root state object but does not create a hardware device in the backend
+        # Note this method adds a HardwareDevice object in the local Root state object but does not create a hardware
+        # device in the backend
         if position is None:
             self.hardware_devices.append(hardware_device)
         else:
             self.hardware_devices.insert(position, hardware_device)
 
     def remove_hardware_device_with_uuid(self, hardware_device_uuid):
-        # Note this method removes a HardwareDevie object from the local Root state object but does not remove a hardware device from the backend
-        self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices if hardware_device.uuid != hardware_device_uuid]
+        # Note this method removes a HardwareDevice object from the local Root state object but does not remove a
+        # hardware device from the backend
+        self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices
+                                 if hardware_device.uuid != hardware_device_uuid]
+
+    def get_hardware_device_by_name(self, hardware_device_name):
+        for hardware_device in self.hardware_devices:
+            if hardware_device.name == hardware_device_name or hardware_device.shortname == hardware_device_name:
+                return hardware_device
+        return None
 
     def render(self, include_attributes=False):
         text = 'ROOT\n'
@@ -154,6 +169,10 @@ class Root(BaseShepherdClass):
 class Session(BaseShepherdClass):
     tracks = []
 
+    @property
+    def root(self):
+        return self.parent
+
     def __init__(self, *args, **kwargs):
         self.tracks = []
         super().__init__(*args, **kwargs)
@@ -166,7 +185,8 @@ class Session(BaseShepherdClass):
             self.tracks.insert(position, track)
 
     def remove_track_with_uuid(self, track_uuid):
-        # Note this method removes a Track object from the local Session object but does not remove a track from the backend
+        # Note this method removes a Track object from the local Session object but does not remove a track from
+        # the backend
         self.tracks = [track for track in self.tracks if track.uuid != track_uuid]
 
     def save(self, save_session_name):
@@ -205,6 +225,10 @@ class Session(BaseShepherdClass):
 
 class Track(BaseShepherdClass):
     clips = []
+
+    @property
+    def session(self):
+        return self.parent
     
     def __init__(self, *args, **kwargs):
         self.clips = []
@@ -221,6 +245,9 @@ class Track(BaseShepherdClass):
         # Note this method removes a Clip object from the local Track object but does not remove a clip from the backend
         self.clips = [clip for clip in self.clips if clip.uuid != clip_uuid]
 
+    def get_hardware_device(self):
+        return self.session.root.get_hardware_device_by_name(self.hardwaredevicename)
+
     def set_input_monitoring(self, enabled):
         self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
 
@@ -234,22 +261,23 @@ class Track(BaseShepherdClass):
 class Clip(BaseShepherdClass):
     sequence_events = []
 
-    def __init__(self, *args, **kwargs):
-        self.sequence_events = []
-        self.track = kwargs['owning_track']  # Save a reference to the owning track
-        del kwargs['owning_track']
-        super().__init__(*args, **kwargs)
+    @property
+    def track(self):
+        return self.parent
 
     def add_sequence_event(self, sequence_event, position=None):
-        # Note this method adds a SequenceEvent object in the local Clip object but does not create a sequence event in the backend
+        # Note this method adds a SequenceEvent object in the local Clip object but does not create a sequence event
+        # in the backend
         if position is None:
             self.sequence_events.append(sequence_event)
         else:
             self.sequence_events.insert(position, sequence_event)
 
     def remove_sequence_event_with_uuid(self, sequence_event_uuid):
-        # Note this method removes a SequenceEvent object from the local Clip object but does not remove a sequence event from the backend
-        self.sequence_events = [sequence_event for sequence_event in self.sequence_events if sequence_event.uuid != sequence_event_uuid]
+        # Note this method removes a SequenceEvent object from the local Clip object but does not remove a sequence
+        # event from the backend
+        self.sequence_events = [sequence_event for sequence_event in self.sequence_events
+                                if sequence_event.uuid != sequence_event_uuid]
 
     def get_status(self):
         CLIP_STATUS_PLAYING = "p"
@@ -312,21 +340,21 @@ class Clip(BaseShepherdClass):
         self.send_msg_to_app('/clip/setLength', [self.track.uuid, self.uuid, new_length])
 
     def set_sequence(self, new_sequence):
-        '''new_sequence must be passed as a dictionary with this form:
+        """new_sequence must be passed as a dictionary with this form:
         {
             "clipLength": 6,
             "sequenceEvents": [
-                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65, ...},  # type 1 = note event
+                {"type": 1, "midiNote": 79, "midiVelocity": 1.0, "timestamp": 0.29, "duration": 0.65, ...},
                 {"type": 1, "midiNote": 73, "midiVelocity": 1.0, "timestamp": 2.99, "duration": 1.42, ...},
                 {"type": 0, "eventMidiBytes": "73,21,56", "timestamp": 2.99, ...},  # type 0 = generic midi message
                 ...
             ]
         }
-        '''
+        """
         self.send_msg_to_app("/clip/setSequence", [self.track.uuid, self.uuid, json.dumps(new_sequence)])
 
     def edit_sequence(self, edit_sequence_data):
-        '''edit_sequence_data should be a dictionary with this form:
+        """edit_sequence_data should be a dictionary with this form:
         {
             "action": "removeEvent" | "editEvent" | "addEvent",  // One of these three options
             "eventUUID":  "356cbbdjgf...", // Used by "removeEvent" and "editEvent" only
@@ -337,7 +365,7 @@ class Clip(BaseShepherdClass):
                 ... // All the event properties that should be updated or "added" (in case of a new event)
         }
         Note that there are more specialized methods that will call "edit_sequence" and will have easier interface
-        '''
+        """
         self.send_msg_to_app("/clip/editSequence", [self.track.uuid, self.uuid, json.dumps(edit_sequence_data)])
 
     def remove_sequence_event(self, event_uuid):
@@ -370,7 +398,8 @@ class Clip(BaseShepherdClass):
             }, 
         })
 
-    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None, midi_bytes=None, utime=None, chance=None):
+    def edit_sequence_event(self, event_uuid, midi_note=None, midi_velocity=None, timestamp=None, duration=None,
+                            midi_bytes=None, utime=None, chance=None):
         event_data = {}
         if midi_note is not None:
             event_data['midiNote'] = midi_note
@@ -394,11 +423,10 @@ class Clip(BaseShepherdClass):
 
 
 class SequenceEvent(BaseShepherdClass):
-    
-    def __init__(self, *args, **kwargs):
-        self.clip = kwargs['owning_clip']  # Save a reference to the owning clip
-        del kwargs['owning_clip']
-        super().__init__(*args, **kwargs)
+
+    @property
+    def clip(self):
+        return self.parent
 
     def is_type_note(self):
         return self.type == 1
@@ -441,12 +469,21 @@ class HardwareDevice(BaseShepherdClass):
     def is_type_input(self):
         return self.type == 0
 
+    def send_midi(self, msg: mido.Message):
+        self.send_msg_to_app('/device/sendMidi', [self.name] + msg.bytes())
 
-class ShepherdBackend(StateSynchronizer):
+    def all_notes_off(self):
+        self.send_msg_to_app('/device/sendAllNotesOff', [self.name])
+
+    def load_preset(self, bank, preset):
+        self.send_msg_to_app('/device/loadDevicePreset', [self.name, bank, preset])
+
+
+class ShepherdBackendInterface(StateSynchronizer):
 
     state = None
     elements_uuids_map = {}
-    showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface (see on_state_update below)
+    showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface
 
     def __init__(self, *args, **kwargs):
         debugger_port = kwargs.get('debugger_port', None)
@@ -482,22 +519,28 @@ class ShepherdBackend(StateSynchronizer):
                     if hasattr(tree_element, property_name):
                         setattr(tree_element, property_name, backend_value_to_python_value(property_name, new_value))
                     else:
-                        raise Exception('Trying to update state value for an attribute that does not exist ({} of object {})'.format(property_name, tree_element.uuid))
-                    # If we are trying to update an attribute that does not exist (or an element that does not exist), this will raise an error
-                    # This is to be expected as we should never get here trying to update an attribute/element that does not exist
+                        raise Exception('Trying to update state value for an attribute that does not exist '
+                                        '({} of object {})'.format(property_name, tree_element.uuid))
+                    # If we are trying to update an attribute that does not exist (or an element that does not exist),
+                    # this will raise an error. This is to be expected as we should never get here trying to update
+                    # an attribute/element that does not exist
 
-                    # TODO: the code below is app-specific code that should not be implemented here but with some sort of property listener somehwere in app or shepherd interface
+                    # TODO: the code below is app-specific code that should not be implemented here but with some sort
+                    #  of property listener somehwere in app or shepherd interface
                     if property_name == 'playheadpositioninbeats' or property_name == 'countinplayheadpositioninbeats':
                         if self.state.session.doingcountin:
                             self.showing_countin_message = True
-                            self.app.add_display_notification("Will start recording in: {0:.0f}".format(math.ceil(4 - self.state.session.countinplayheadpositioninbeats)))
+                            self.app.add_display_notification(
+                                "Will start recording in: {0:.0f}"
+                                    .format(math.ceil(4 - self.state.session.countinplayheadpositioninbeats)))
                         else:
                             if self.showing_countin_message:
                                 self.app.clear_display_notification()
                                 self.showing_countin_message = False
 
                 except KeyError as e:
-                    print('WARNING: triying to update property of object that does not exist: {} ({})'.format(update_data, e))
+                    print('WARNING: triying to update property of object that does not exist: {} ({})'
+                          .format(update_data, e))
                     self.should_request_full_state = True
 
             elif update_type == "addedChild":
@@ -511,11 +554,11 @@ class ShepherdBackend(StateSynchronizer):
                         parent_tree_element.add_track(track, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(track)
                     elif child_soup.name == 'CLIP'.lower():
-                        clip = Clip(child_soup, self, owning_track=parent_tree_element)
+                        clip = Clip(child_soup, self, parent=parent_tree_element)
                         parent_tree_element.add_clip(clip, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(clip)
                     elif child_soup.name == 'SEQUENCE_EVENT'.lower():
-                        sequence_event = SequenceEvent(child_soup, self, owning_clip=parent_tree_element)
+                        sequence_event = SequenceEvent(child_soup, self, parent=parent_tree_element)
                         parent_tree_element.add_sequence_event(sequence_event, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(sequence_event)
                     elif child_soup.name == 'HARDWARE_DEVICE'.lower():
@@ -543,14 +586,17 @@ class ShepherdBackend(StateSynchronizer):
                     elif isinstance(tree_element, HardwareDevice):
                         self.state.remove_hardware_device_with_uuid(child_to_remove_tree_uuid)
                     else:
-                        print('WARNING: Trying to remove element of a type that can\'t be handled: {}'.format(tree_element))
+                        print('WARNING: Trying to remove element of a type that can\'t be handled: {}'
+                              .format(tree_element))
                     self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
                 except KeyError as e:
-                    print('WARNING: triying to remove child with uuid that does not exist: {} ({})'.format(update_data, e))
+                    print('WARNING: triying to remove child with uuid that does not exist: {} ({})'
+                          .format(update_data, e))
                     self.should_request_full_state = True
 
         # Trigger re-activation of modes in case pads need to be updated
-        # TODO: this should be optimized, and the different modes should "subscribe" to object changes so they know when they need to update
+        # TODO: this should be optimized, and the different modes should "subscribe" to object changes so they know
+        #  when they need to update
         if self.app.shepherd_interface is not None:
             self.app.shepherd_interface.reactivate_modes()
 
@@ -579,16 +625,16 @@ class ShepherdBackend(StateSynchronizer):
 
         # add session and all related objects
         session_soup = root_element_soup.findAll("session")[0]
-        session = Session(session_soup, self)
+        session = Session(session_soup, self, parent=self.state)
         self.add_element_to_uuid_map(session)
         for track_soup in session_soup.findAll("track"):
-            track = Track(track_soup, self)
+            track = Track(track_soup, self, parent=session)
             self.add_element_to_uuid_map(track)
             for count, clip_soup in enumerate(track_soup.findAll("clip")):
-                clip = Clip(clip_soup, self, owning_track=track)
+                clip = Clip(clip_soup, self, parent=track)
                 self.add_element_to_uuid_map(clip)
                 for sequence_event_soup in clip_soup.findAll("sequence_event"):
-                    sequence_event = SequenceEvent(sequence_event_soup, self, owning_clip=clip)
+                    sequence_event = SequenceEvent(sequence_event_soup, self, parent=clip)
                     clip.add_sequence_event(sequence_event)
                     self.add_element_to_uuid_map(sequence_event)
                 track.add_clip(clip)

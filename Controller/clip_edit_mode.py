@@ -150,7 +150,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     @property
     def clip(self):
         if self.selected_clip_uuid is not None:
-            return self.app.shepherd_interface.sss.get_element_with_uuid(self.selected_clip_uuid)
+            return self.app.shepherd_interface.sbi.get_element_with_uuid(self.selected_clip_uuid)
         else:
             return None
 
@@ -158,7 +158,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def event(self):
         if self.selected_event_uuid is not None:
             try:
-                return self.app.shepherd_interface.sss.get_element_with_uuid(self.selected_event_uuid)
+                return self.app.shepherd_interface.sbi.get_element_with_uuid(self.selected_event_uuid)
             except KeyError:
                 return None
         else:

@@ -1,4 +1,4 @@
-from pyshepherd.pyshepherd import ShepherdBackend
+from pyshepherd.pyshepherd import ShepherdBackendInterface
 
 
 class ShepherdInterface(object):
@@ -16,20 +16,20 @@ class ShepherdInterface(object):
     def __init__(self, app):
         self.app = app
 
-        self.sss = ShepherdBackend(app, ws_port=8126, verbose=False, debugger_port=5100)
-        self.sss.send_msg_to_app('/shepherdControllerReady', [])
+        self.sbi = ShepherdBackendInterface(app, ws_port=8126, verbose=False, debugger_port=5100)
+        self.sbi.send_msg_to_app('/shepherdControllerReady', [])
 
     @property
     def session(self):
         # Will return None if no session state is loaded
-        if self.sss.state is None:
+        if self.sbi.state is None:
             return None
-        return self.sss.state.session
+        return self.sbi.state.session
 
     @property
     def state(self):
         # Will return None if no state is loaded
-        return self.sss.state
+        return self.sbi.state
 
     def reactivate_modes(self):
         self.app.active_modes_need_reactivate = True
@@ -62,7 +62,7 @@ class ShepherdInterface(object):
                 self.session.tracks[i].set_input_monitoring(i==track_num)
 
     def settings_toggle_internal_debug_synth(self):
-        self.sss.send_msg_to_app('/settings/debugSynthOnOff', [])
+        self.sbi.send_msg_to_app('/settings/debugSynthOnOff', [])
 
     def track_set_input_monitoring(self, track_num, enabled):
         if not self.session: return
@@ -71,15 +71,6 @@ class ShepherdInterface(object):
     def track_set_active_ui_notes_monitoring(self, track_num):
         if not self.session: return
         self.session.tracks[track_num].set_active_ui_notes_monitoring()
-
-    def device_send_all_notes_off(self, device_name):
-        self.sss.send_msg_to_app('/device/sendAllNotesOff', [device_name])
-
-    def device_load_preset(self, device_name, bank, preset):
-        self.sss.send_msg_to_app('/device/loadDevicePreset', [device_name, bank, preset])
-
-    def device_send_midi(self, device_name, msg):
-        self.sss.send_msg_to_app('/device/sendMidi', [device_name] + msg.bytes())
 
     def device_get_midi_cc_parameter_value(self, device_name, midi_cc_parameter):
         if 'devices' in self.parsed_state:
@@ -212,16 +203,16 @@ class ShepherdInterface(object):
 
     def set_push_pads_mapping(self, new_mapping=[]):
         if new_mapping:
-            self.sss.send_msg_to_app('/settings/pushNotesMapping', new_mapping)
+            self.sbi.send_msg_to_app('/settings/pushNotesMapping', new_mapping)
 
     def set_push_encoders_mapping(self, device_name, new_mapping=[]):
         if device_name == "":
             device_name = "-"
         if new_mapping:
-            self.sss.send_msg_to_app('/settings/pushEncodersMapping', [device_name] + new_mapping)
+            self.sbi.send_msg_to_app('/settings/pushEncodersMapping', [device_name] + new_mapping)
 
     def set_fixed_velocity(self, velocity):
-        self.sss.send_msg_to_app('/settings/fixedVelocity', [velocity])
+        self.sbi.send_msg_to_app('/settings/fixedVelocity', [velocity])
         
     def get_buttons_state(self):
         if self.session:

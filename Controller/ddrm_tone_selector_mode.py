@@ -696,7 +696,13 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                     values_to_send = [midi_val]
                 for val in values_to_send:
                     msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)
-                    self.app.shepherd_interface.device_send_midi(DDRM_DEVICE_NAME, msg)
+                    try:
+                        hardware_device = \
+                            self.app.shepherd_interface.sbi.state.get_hardware_device_by_name(DDRM_DEVICE_NAME)
+                        if hardware_device is not None:
+                            hardware_device.send_midi(msg)
+                    except IndexError:
+                        pass
                     if self.inter_message_message_min_time_ms:
                         time.sleep(self.inter_message_message_min_time_ms*1.0/1000)
 
@@ -709,7 +715,13 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                     values_to_send = [midi_val]
                 for val in values_to_send:
                     msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)
-                    self.app.shepherd_interface.device_send_midi(DDRM_DEVICE_NAME, msg)
+                    try:
+                        hardware_device = \
+                            self.app.shepherd_interface.sbi.state.get_hardware_device_by_name(DDRM_DEVICE_NAME)
+                        if hardware_device is not None:
+                            hardware_device.send_midi(msg)
+                    except IndexError:
+                        pass
                     if self.inter_message_message_min_time_ms:
                         time.sleep(self.inter_message_message_min_time_ms*1.0/1000)
 

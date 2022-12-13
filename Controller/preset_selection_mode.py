@@ -161,17 +161,25 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
             else:
                 self.remove_favourite_preset(preset_num, bank_num)
         else:
-            # Send midi message to select the bank and preset preset
-            self.app.shepherd_interface.device_load_preset(self.app.track_selection_mode.get_current_track_device_short_name(), bank_num, preset_num)
-            bank_names = self.get_bank_names()
-            if bank_names is not None:
-                bank_name = bank_names[bank_num]
-            else:
-                bank_name = bank_num + 1
-            self.app.add_display_notification("Selected bank {0}, preset {1}".format(
-                bank_name,  # Show 1-indexed value
-                preset_num + 1  # Show 1-indexed value
-            ))
+            # Send midi message to select the bank and preset
+            try:
+                track = self.app.shepherd_interface.session.tracks[self.app.track_selection_mode.selected_track]
+                hardware_device = track.get_hardware_device()
+                if hardware_device is not None:
+                    hardware_device.load_preset(bank_num, preset_num)
+
+                bank_names = self.get_bank_names()
+                if bank_names is not None:
+                    bank_name = bank_names[bank_num]
+                else:
+                    bank_name = bank_num + 1
+                self.app.add_display_notification("Selected bank {0}, preset {1}".format(
+                    bank_name,  # Show 1-indexed value
+                    preset_num + 1  # Show 1-indexed value
+                ))
+            except IndexError:
+                pass
+
         self.app.pads_need_update = True
         return True  # Prevent other modes to get this event
 
