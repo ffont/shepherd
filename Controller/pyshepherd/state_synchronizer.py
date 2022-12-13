@@ -65,8 +65,7 @@ class OSCReceiverThread(threading.Thread):
         osc.bind(b'/state_update', osc_state_update_handler)
         osc.bind(b'/full_state', osc_full_state_handler)
         osc.bind(b'/alive', lambda: sss_instance.app_is_alive())
-        osc.bind(b'/midiCCParameterValuesForDevice', lambda *values: sss_instance.app.shepherd_interface.receive_midi_cc_values_for_device(*values))
-    
+
 
 def ws_on_message(ws, message):
     if sss_instance is not None:
@@ -103,11 +102,6 @@ def ws_on_message(ws, message):
     elif address == '/alive':
         # When using WS communication we don't need the /alive message to know the connection is alive as WS manages that
         pass
-
-    elif address == '/midiCCParameterValuesForDevice':
-        # This is used for the midi CC mode so that it knows the current values of each of the encoders
-        data_values = data.split(';')
-        sss_instance.app.shepherd_interface.receive_midi_cc_values_for_device(*data_values)
 
 
 def ws_on_error(ws, error):

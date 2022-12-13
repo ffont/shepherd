@@ -169,10 +169,10 @@ class MelodicMode(definitions.ShepherdControllerMode):
         for i in range(0, 8):
             for j in range(0, 8):
                 mapping.append(self.pad_ij_to_midi_note((7 - i, j)))
-        self.app.shepherd_interface.set_push_pads_mapping(mapping)
+        self.app.shepherd_interface.sbi.state.set_push_pads_mapping(mapping)
 
     def clear_pads_backend_mapping(self):
-        self.app.shepherd_interface.set_push_pads_mapping([-1 for i in range(0, 64)])
+        self.app.shepherd_interface.sbi.state.set_push_pads_mapping([-1 for i in range(0, 64)])
 
     def activate(self):
 
@@ -302,7 +302,7 @@ class MelodicMode(definitions.ShepherdControllerMode):
             else:
                 # Toggle accept mode
                 self.fixed_velocity_mode = not self.fixed_velocity_mode
-                self.app.shepherd_interface.set_fixed_velocity(127 if self.fixed_velocity_mode else -1) 
+                self.app.shepherd_interface.sbi.state.session.set_fixed_velocity(127 if self.fixed_velocity_mode else -1)
                 self.app.pads_need_update = True
                 self.app.add_display_notification("Fixed velocity: {0}".format('On' if self.fixed_velocity_mode else 'Off'))
                 return True

@@ -38,21 +38,6 @@ class ShepherdInterface(object):
         self.reactivate_modes()
         self.app.midi_cc_mode.initialize()
         #self.app.notes_midi_in = None # This used to be here in previous controller implementation, not sure if it is needed
-
-    def receive_midi_cc_values_for_device(self, *values):
-        try:
-            device_name = values[0].decode("utf-8")        
-        except AttributeError:
-            device_name = values[0]
-        if 'devices' not in self.parsed_state:
-            self.parsed_state['devices'] = {}
-        if device_name not in self.parsed_state['devices']:
-            self.parsed_state['devices'][device_name] = {}
-        if 'midi_cc' not in self.parsed_state['devices'][device_name]:
-            self.parsed_state['devices'][device_name]['midi_cc'] = [64 for i in range(0, 128)]
-        if len(values) > 1:
-            for i in range(1, len(values) - 1):
-                self.parsed_state['devices'][device_name]['midi_cc'][int(values[i])] = int(values[i + 1])
         
     def track_select(self, track_num):
         if not self.session: return
@@ -61,9 +46,6 @@ class ShepherdInterface(object):
             for i in range(0, num_tracks):
                 self.session.tracks[i].set_input_monitoring(i==track_num)
 
-    def settings_toggle_internal_debug_synth(self):
-        self.sbi.send_msg_to_app('/settings/debugSynthOnOff', [])
-
     def track_set_input_monitoring(self, track_num, enabled):
         if not self.session: return
         self.session.tracks[track_num].set_input_monitoring(enabled)
@@ -71,13 +53,6 @@ class ShepherdInterface(object):
     def track_set_active_ui_notes_monitoring(self, track_num):
         if not self.session: return
         self.session.tracks[track_num].set_active_ui_notes_monitoring()
-
-    def device_get_midi_cc_parameter_value(self, device_name, midi_cc_parameter):
-        if 'devices' in self.parsed_state:
-            if device_name in self.parsed_state['devices']:
-                if 'midi_cc' in self.parsed_state['devices'][device_name]:
-                    return self.parsed_state['devices'][device_name]['midi_cc'][midi_cc_parameter]
-        return 0
         
     def clip_play_stop(self, track_num, clip_num):
         if not self.session: return
@@ -200,20 +175,7 @@ class ShepherdInterface(object):
     def metronome_on_off(self):
         self.session.metronome_on_off()
         self.app.add_display_notification("Metronome: {0}".format('On' if not self.parsed_state.get('metronomeOn', False) else 'Off'))
-
-    def set_push_pads_mapping(self, new_mapping=[]):
-        if new_mapping:
-            self.sbi.send_msg_to_app('/settings/pushNotesMapping', new_mapping)
-
-    def set_push_encoders_mapping(self, device_name, new_mapping=[]):
-        if device_name == "":
-            device_name = "-"
-        if new_mapping:
-            self.sbi.send_msg_to_app('/settings/pushEncodersMapping', [device_name] + new_mapping)
-
-    def set_fixed_velocity(self, velocity):
-        self.sbi.send_msg_to_app('/settings/fixedVelocity', [velocity])
-        
+    
     def get_buttons_state(self):
         if self.session:
             is_playing = self.session.isplaying

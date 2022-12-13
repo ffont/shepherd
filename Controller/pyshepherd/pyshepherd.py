@@ -25,7 +25,8 @@ parameters_types = {
     'inputmonitoring': bool,
     'isplaying': bool,
     'meter': int,
-    'metronomeon': bool, 
+    'metronomeon': bool,
+    'midiccparametervalueslist': str,
     'midichannel': int,
     'mididevicename': str,
     'midinote': int,
@@ -76,19 +77,19 @@ class BaseShepherdClass(object):
 
     parent = None
 
-    def __init__(self, soup, backend_interface, parent=None):
+    def __init__(self, soup, shepherd_backend_interface, parent=None):
         # Set parent
         self.parent = parent
 
         # Set state synchronizer (will be used to be able to send messages to backend)
-        self.backend_interface = backend_interface
+        self.shepherd_backend_interface = shepherd_backend_interface
 
         # Set initial attributes and methods to set these attributes in the backend
         for attr_name, value in soup.attrs.items():
             setattr(self, attr_name, backend_value_to_python_value(attr_name, value))
     
     def send_msg_to_app(self, address, values):
-        self.backend_interface.send_msg_to_app(address, values)
+        self.shepherd_backend_interface.send_msg_to_app(address, values)
 
     def render_object_attributes(self, num_spaces_offset=0):
         text = ''
@@ -96,9 +97,11 @@ class BaseShepherdClass(object):
             if not attr_name.startswith('_') \
                     and not callable(getattr(self, attr_name)) \
                     and not type(getattr(self, attr_name)) == list \
-                    and attr_name != 'backend_interface' \
+                    and attr_name != 'shepherd_backend_interface' \
+                    and attr_name != 'parent' \
                     and attr_name != 'track' \
                     and attr_name != 'clip' \
+                    and attr_name != 'root' \
                     and attr_name != 'session':
                 text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(self, attr_name))
         return text
@@ -165,6 +168,19 @@ class Root(BaseShepherdClass):
     def get_available_output_hardware_device_names(self):
         return [device.shortname for device in self.hardware_devices if device.is_type_output()]
 
+    def toggle_shepherd_backend_debug_synth(self):
+        self.sbi.send_msg_to_app('/settings/debugSynthOnOff', [])
+
+    def set_push_pads_mapping(self, new_mapping=[]):
+        if new_mapping:
+            self.send_msg_to_app('/settings/pushNotesMapping', new_mapping)
+
+    def set_push_encoders_mapping(self, device_name, new_mapping=[]):
+        if device_name == "":
+            device_name = "-"
+        if new_mapping:
+            self.send_msg_to_app('/settings/pushEncodersMapping', [device_name] + new_mapping)
+
 
 class Session(BaseShepherdClass):
     tracks = []
@@ -218,6 +234,9 @@ class Session(BaseShepherdClass):
 
     def set_fix_length_recording_bars(self, new_fixed_length_recording_bars):
         self.send_msg_to_app('/settings/fixedLength', [new_fixed_length_recording_bars])
+
+    def set_fixed_velocity(self, velocity):
+        self.send_msg_to_app('/settings/fixedVelocity', [velocity])
 
     def set_record_automation_on_off(self):
         self.send_msg_to_app('/settings/toggleRecordAutomation', [])
@@ -462,6 +481,9 @@ class SequenceEvent(BaseShepherdClass):
 
 
 class HardwareDevice(BaseShepherdClass):
+
+    _midiccparametervalueslist_used_for_splitting = None
+    _midiccparametervalueslist_splitted = []
     
     def is_type_output(self):
         return self.type == 1
@@ -477,6 +499,12 @@ class HardwareDevice(BaseShepherdClass):
 
     def load_preset(self, bank, preset):
         self.send_msg_to_app('/device/loadDevicePreset', [self.name, bank, preset])
+
+    def get_current_midi_cc_parameter_value(self, midi_cc_num):
+        if self.midiccparametervalueslist != self._midiccparametervalueslist_used_for_splitting:
+            self._midiccparametervalueslist_used_for_splitting = self.midiccparametervalueslist
+            self._midiccparametervalueslist_splitted = self.midiccparametervalueslist.split(',')
+        return int(self._midiccparametervalueslist_splitted[midi_cc_num])
 
 
 class ShepherdBackendInterface(StateSynchronizer):
