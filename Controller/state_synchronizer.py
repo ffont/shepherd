@@ -758,8 +758,8 @@ class ExtraState(BaseShepherdClass):
     def remove_hardware_device_with_uuid(self, hardware_device_uuid):
         self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices if hardware_device.uuid != hardware_device_uuid]
     
-    def get_available_hardware_device_names(self):
-        return [device.shortname for device in self.hardware_devices]
+    def get_available_output_hardware_device_names(self):
+        return [device.shortname for device in self.hardware_devices if device.is_type_output()]
 
     def render(self):
         text = '------------------------------------------------\n'
