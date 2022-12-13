@@ -303,7 +303,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
             track_num = track_encoders.index(encoder_name)
             try:
                 track = self.app.shepherd_interface.session.tracks[track_num]
-                available_devices = self.app.shepherd_interface.extra_state.get_available_output_hardware_device_names()
+                available_devices = self.app.shepherd_interface.state.get_available_output_hardware_device_names()
                 current_hw_device = track.hardwaredevicename
                 current_hw_device_index = available_devices.index(current_hw_device)
                 next_device_name = available_devices[(current_hw_device_index + increment) % len(available_devices)]
@@ -391,7 +391,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 track_num = buttons_row.index(button_name)
                 try:
                     track = self.app.shepherd_interface.session.tracks[track_num]
-                    available_devices = self.app.shepherd_interface.extra_state.get_available_output_hardware_device_names()
+                    available_devices = self.app.shepherd_interface.state.get_available_output_hardware_device_names()
                     current_hw_device = track.hardwaredevicename
                     current_hw_device_index = available_devices.index(current_hw_device)
                     next_device_name = available_devices[current_hw_device_index + 1 % len(available_devices)]

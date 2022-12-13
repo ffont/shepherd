@@ -1,11 +1,4 @@
-import threading
-import time
-import math
-
-from state_synchronizer import ShepherdStateSynchronizer
-
-tracks_state_fps = 4.0
-transport_state_fps = 10.0
+from pyshepherd.pyshepherd import ShepherdBackend
 
 
 class ShepherdInterface(object):
@@ -23,21 +16,20 @@ class ShepherdInterface(object):
     def __init__(self, app):
         self.app = app
 
-        self.sss = ShepherdStateSynchronizer(app, verbose=False)
-        
-        # Send first message notifying backend that controller is ready and start threads that 
-        # request periodic state updates
+        self.sss = ShepherdBackend(app, ws_port=8126, verbose=False, debugger_port=5100)
         self.sss.send_msg_to_app('/shepherdControllerReady', [])
 
     @property
     def session(self):
         # Will return None if no session state is loaded
-        return self.sss.session
+        if self.sss.state is None:
+            return None
+        return self.sss.state.session
 
     @property
-    def extra_state(self):
-        # Will return None if no session state is loaded
-        return self.sss.extra_state
+    def state(self):
+        # Will return None if no state is loaded
+        return self.sss.state
 
     def reactivate_modes(self):
         self.app.active_modes_need_reactivate = True
