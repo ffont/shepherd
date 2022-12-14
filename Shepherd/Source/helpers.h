@@ -220,4 +220,33 @@ namespace Helpers
         return messages;
     }
 
+    inline juce::String serialize128IntArray(std::array<int, 128> array)
+    {
+        juce::StringArray splittedValues;
+        for (int i=0; i<array.size(); i++){
+            splittedValues.add(juce::String(array[i]));
+        }
+        return splittedValues.joinIntoString(",");
+    }
+
+    inline std::array<int, 128> deserialize128IntArray(juce::String serializedArray)
+    {
+        std::array<int, 128> array = {0};
+        if (serializedArray == ""){
+            // Return array with default midi CC values
+            for (int i=0; i<array.size(); i++){
+                array[i] = 64;
+            }
+        } else {
+            juce::StringArray splittedValues;
+            splittedValues.addTokens (serializedArray, ",", "");
+            int i=0;
+            for (auto value: splittedValues) {
+                array[i] = value.getIntValue();
+                i+=1;
+            }
+        }
+        jassert(array.size() == 128);
+        return array;
+    }
 }

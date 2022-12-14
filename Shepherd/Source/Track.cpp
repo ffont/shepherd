@@ -15,14 +15,14 @@ Track::Track(const juce::ValueTree& _state,
              std::function<GlobalSettingsStruct()> globalSettingsGetter,
              std::function<MusicalContext*()> musicalContextGetter,
              std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
-             std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
+             std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter
              ): state(_state)
 {
     getPlayheadParentSlice = playheadParentSliceGetter;
     getGlobalSettings = globalSettingsGetter;
     getMusicalContext = musicalContextGetter;
     getHardwareDeviceByName = hardwareDeviceGetter;
-    getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
+    getMidiOutputDeviceData = midiOutputDeviceDataGetter;
     bindState();
     
     if (hardwareDeviceName != ""){
@@ -70,7 +70,7 @@ juce::MidiBuffer* Track::getMidiOutputDeviceBufferIfDevice()
         return nullptr;
     }
     
-    juce::MidiBuffer* bufferToFill = getMidiOutputDeviceBuffer(device->getMidiOutputDeviceName());
+    juce::MidiBuffer* bufferToFill = &getMidiOutputDeviceData(device->getMidiOutputDeviceName())->buffer;
     if (bufferToFill == nullptr){
         // If the buffer to fill is null pointer, it means the corresponding MIDI device could not be initialized and there's no corresponding MIDI buffer
         return nullptr;

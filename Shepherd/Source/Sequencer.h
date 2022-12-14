@@ -123,20 +123,25 @@ private:
     
     void initializeMIDIInputs();
     juce::int64 lastTimeMidiInputInitializationAttempted = 0;
+    // old
     std::unique_ptr<juce::MidiInput> midiIn;
     bool midiInIsConnected = false;
     juce::MidiMessageCollector midiInCollector;
     std::unique_ptr<juce::MidiInput> midiInPush;
     bool midiInPushIsConnected = false;
     juce::MidiMessageCollector pushMidiInCollector;
+    // new
+    /*
+    juce::OwnedArray<MidiInputDeviceData> midiInDevices = {};
+    MidiInputDeviceData* initializeMidiInputDevice(juce::String deviceName);
+    MidiInputDeviceData* getMidiInputDeviceData(juce::String deviceName);*/
     
     void initializeMIDIOutputs();
     bool shouldTryInitializeMidiOutputs = false;
     juce::int64 lastTimeMidiOutputInitializationAttempted = 0;
-    MidiOutputDeviceData* initializeMidiOutputDevice(juce::String deviceName);
     juce::OwnedArray<MidiOutputDeviceData> midiOutDevices = {};
-    juce::MidiOutput* getMidiOutputDevice(juce::String deviceName);
-    juce::MidiBuffer* getMidiOutputDeviceBuffer(juce::String deviceName);
+    MidiOutputDeviceData* initializeMidiOutputDevice(juce::String deviceName);
+    MidiOutputDeviceData* getMidiOutputDeviceData(juce::String deviceName);
     void clearMidiDeviceOutputBuffers();
     void clearMidiTrackBuffers();
     void sendMidiDeviceOutputBuffers();

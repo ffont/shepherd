@@ -56,8 +56,9 @@ Sequencer::Sequencer()
     }
     
     // Init MIDI
+    // Better to do it after hardware devices so we init devices needed in hardware devices as well
     initializeMIDIInputs();
-    initializeMIDIOutputs();  // Better to do it after hardware devices so we init devices needed in hardware devices as well
+    initializeMIDIOutputs();
     notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
     
     // Init OSC and WebSockets
@@ -255,7 +256,7 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
                                                  return getHardwareDeviceByName(deviceName);
                                              },
                                              [this](juce::String deviceName){
-                                                 return getMidiOutputDeviceBuffer(deviceName);
+                                                 return getMidiOutputDeviceData(deviceName);
                                              });
         
         // Send OSC message to frontend indiating that Shepherd is ready to rock
@@ -497,11 +498,13 @@ void Sequencer::initializeMIDIOutputs()
     
     // Initialize all MIDI devices required by available hardware devices
     for (auto hwDevice: hardwareDevices->objects){
-        if (!midiDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
-            auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
-            if (midiDevice == nullptr) {
-                DBG("Failed to initialize midi device for hardware device: " << hwDevice->getMidiOutputDeviceName());
-                someFailedInitialization = true;
+        if (hwDevice->isTypeOutput()){
+            if (!midiDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
+                auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
+                if (midiDevice == nullptr) {
+                    DBG("Failed to initialize midi device for hardware device: " << hwDevice->getMidiOutputDeviceName());
+                    someFailedInitialization = true;
+                }
             }
         }
     }
@@ -590,36 +593,6 @@ MidiOutputDeviceData* Sequencer::getMidiOutputDeviceData(juce::String deviceName
 }
 
 
-juce::MidiOutput* Sequencer::getMidiOutputDevice(juce::String deviceName)
-{
-    for (auto deviceData: midiOutDevices){
-        if (deviceData->name == deviceName){
-            return deviceData->device.get();
-        }
-    }
-    // If function did not yet return, it means the requested output device has not yet been initialized
-    // Set a flag so the device gets initialized in the message thread and return null pointer.
-    // NOTE: we could check if we're in the message thread and, if this is the case, initialize the device
-    // instead of setting a flag, but this optimization is probably not necessary.
-    shouldTryInitializeMidiOutputs = true;
-    return nullptr;
-}
-
-juce::MidiBuffer* Sequencer::getMidiOutputDeviceBuffer(juce::String deviceName)
-{
-    for (auto deviceData: midiOutDevices){
-        if (deviceData->name == deviceName){
-            return &deviceData->buffer;
-        }
-    }
-    // If the above code does not return, this means we're trying to access a buffer of a MIDI device that has
-    // not yet been initialized. Set a flag so the device gets initialized in the message thread and return null pointer.
-    // NOTE: we could check if we're in the message thread and, if this is the case, initialize the device
-    // instead of setting a flag, but this optimization is probably not necessary.
-    shouldTryInitializeMidiOutputs = true;
-    return nullptr;
-}
-
 void Sequencer::clearMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
@@ -644,7 +617,7 @@ void Sequencer::sendMidiDeviceOutputBuffers()
 void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames)
 {
     for (auto deviceName: midiOutDeviceNames){
-        auto bufferToWrite = getMidiOutputDeviceBuffer(deviceName);
+        auto bufferToWrite = &getMidiOutputDeviceData(deviceName)->buffer;
         if (bufferToWrite != nullptr){
             if (buffer.getNumEvents() > 0){
                 bufferToWrite->addEvents(buffer, 0, samplesPerSlice, 0);
