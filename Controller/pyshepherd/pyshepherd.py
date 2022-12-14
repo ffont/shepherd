@@ -301,6 +301,10 @@ class Clip(BaseShepherdClass):
     def track(self):
         return self.parent
 
+    def __init__(self, *args, **kwargs):
+        self.sequence_events = []
+        super().__init__(*args, **kwargs)
+
     def add_sequence_event(self, sequence_event, position=None):
         # Note this method adds a SequenceEvent object in the local Clip object but does not create a sequence event
         # in the backend
@@ -550,7 +554,6 @@ class ShepherdBackendInterface(StateSynchronizer):
         return self.elements_uuids_map[uuid]
 
     def on_state_update(self, update_type, update_data):
-
         if self.state is None:
             # If we don't have a session built, request new full state and ignore current state update
             self.should_request_full_state = True
@@ -668,13 +671,13 @@ class ShepherdBackendInterface(StateSynchronizer):
         session_soup = root_element_soup.findAll("session")[0]
         session = Session(session_soup, self, parent=self.state)
         self.add_element_to_uuid_map(session)
-        for track_soup in session_soup.findAll("track"):
+        for tn, track_soup in enumerate(session_soup.findAll("track")):
             track = Track(track_soup, self, parent=session)
             self.add_element_to_uuid_map(track)
-            for count, clip_soup in enumerate(track_soup.findAll("clip")):
+            for cn, clip_soup in enumerate(track_soup.findAll("clip")):
                 clip = Clip(clip_soup, self, parent=track)
                 self.add_element_to_uuid_map(clip)
-                for sequence_event_soup in clip_soup.findAll("sequence_event"):
+                for sen, sequence_event_soup in enumerate(clip_soup.findAll("sequence_event")):
                     sequence_event = SequenceEvent(sequence_event_soup, self, parent=clip)
                     clip.add_sequence_event(sequence_event)
                     self.add_element_to_uuid_map(sequence_event)

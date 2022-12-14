@@ -87,7 +87,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     playing_clips = playing_clips_info['playing']
 
                 num_clips = len(playing_clips)  # There should normally be only 1 clip playing per track at a time, but this supports multiple clips playing
-                for i , (clip_num, clip_length, playhead_position, clip) in enumerate(playing_clips):
+                for i, (clip_num, clip_length, playhead_position, clip) in enumerate(playing_clips):
                     # Add playing percentage with background bar
                     height = (h - 20) // num_clips
                     y = height * i
