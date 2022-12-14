@@ -131,7 +131,7 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
                 // If message is of type controller, also update the internal stored state of the controller
                 if (msg.isController()){
                     if (device != nullptr){
-                        device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+                        device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());
                     }
                 }
             }

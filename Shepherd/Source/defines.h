@@ -72,7 +72,6 @@
 #define ACTION_ADDRESS_STATE_UPDATE "/state_update"
 
 #define ACTION_ADDRESS_SHEPHERD_CONTROLLER_READY "/shepherdControllerReady"
-#define ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE "/midiCCParameterValuesForDevice"
 #define ACTION_ADDRESS_ALIVE_MESSAGE "/alive"
 #define ACTION_ADDRESS_STARTED_MESSAGE "/app_started"
 
@@ -197,6 +196,14 @@ struct MidiOutputDeviceData {
     juce::String name;
     std::unique_ptr<juce::MidiOutput> device;
     juce::MidiBuffer buffer;
+};
+
+struct MidiInputDeviceData {
+    juce::String identifier;
+    juce::String name;
+    std::unique_ptr<juce::MidiInput> device;
+    juce::MidiMessageCollector collector;
+    juce::MidiBuffer buffer; // to store results of removeNextBlockOfMessages
 };
 
 struct GlobalSettingsStruct {

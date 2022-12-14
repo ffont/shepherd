@@ -673,7 +673,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                     if (msg.isController()){
                         auto device = getTrackSettings().device;
                         if (device != nullptr){
-                            device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue(), true);
+                            device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());
                         }
                     }
                     

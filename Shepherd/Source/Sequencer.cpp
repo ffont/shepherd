@@ -269,7 +269,7 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
 void Sequencer::loadNewEmptySession(int numTracks, int numScenes)
 {
     DBG("Loading new empty state with " << numTracks << " tracks and " << numScenes << " scenes");
-    juce::ValueTree stateToLoad = Helpers::createDefaultSession(hardwareDevices->getAvailableHardwareDeviceNames(), numTracks, numScenes);
+    juce::ValueTree stateToLoad = Helpers::createDefaultSession(hardwareDevices->getAvailableOutputHardwareDeviceNames(), numTracks, numScenes);
     loadSession(stateToLoad);
 }
 
@@ -574,6 +574,22 @@ MidiOutputDeviceData* Sequencer::initializeMidiOutputDevice(juce::String deviceN
     }
 }
 
+MidiOutputDeviceData* Sequencer::getMidiOutputDeviceData(juce::String deviceName)
+{
+    for (auto deviceData: midiOutDevices){
+        if (deviceData->name == deviceName){
+            return deviceData;
+        }
+    }
+    // If function did not yet return, it means the requested output device has not yet been initialized
+    // Set a flag so the device gets initialized in the message thread and return null pointer.
+    // NOTE: we could check if we're in the message thread and, if this is the case, initialize the device
+    // instead of setting a flag, but this optimization is probably not necessary.
+    shouldTryInitializeMidiOutputs = true;
+    return nullptr;
+}
+
+
 juce::MidiOutput* Sequencer::getMidiOutputDevice(juce::String deviceName)
 {
     for (auto deviceData: midiOutDevices){
@@ -674,7 +690,7 @@ void Sequencer::initializeHardwareDevices()
     }
     
     // Then initialize extra default OUTPUT hardware devices, one per available output midi port and midi channel
-    std::cout << "Initializing default Hardware Devices" << std::endl;
+    std::cout << "Initializing default Output Hardware Devices" << std::endl;
     juce::Array<juce::MidiDeviceInfo> availableMidiOutDevices = juce::MidiOutput::getAvailableDevices();
     for (auto midiOutputDevice: availableMidiOutDevices) {
         for (int i=0; i<16; i++) {
@@ -691,14 +707,16 @@ void Sequencer::initializeHardwareDevices()
     }
     state.addChild(hardwareDevicesState, -1, nullptr);
     hardwareDevices = std::make_unique<HardwareDeviceList>(state.getChildWithName(IDs::HARDWARE_DEVICES),
-                                                           [this](const juce::OSCMessage &message){sendMessageToController(message);},
-                                                           [this](juce::String deviceName){return getMidiOutputDevice(deviceName);},
-                                                           [this](juce::String deviceName){ return getMidiOutputDeviceBuffer(deviceName);}
+                                                           [this](juce::String deviceName){return getMidiOutputDeviceData(deviceName);}
                                                            );
-    std::cout << "Hardware Devices initialized:" << std::endl;
-    for (auto deviceName: hardwareDevices->getAvailableHardwareDeviceNames()){
+    std::cout << "Output Hardware Devices initialized:" << std::endl;
+    for (auto deviceName: hardwareDevices->getAvailableOutputHardwareDeviceNames()){
         std::cout << "- " << deviceName << std::endl;
     }
+    /*std::cout << "Input Hardware Devices initialized:" << std::endl;
+    for (auto deviceName: hardwareDevices->getAvailableInputHardwareDeviceNames()){
+        std::cout << "- " << deviceName << std::endl;
+    }*/
 }
 
 HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name)
@@ -723,6 +741,7 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
     sampleRate = _sampleRate;
     samplesPerSlice = samplesPerBlockExpected; // We store samplesPerBlockExpected calling it samplesPerSlice as in our MIDI sequencer context we call our processig blocks "slices"
     
+    // TODO: reset all midi collectors from midiInDevices
     midiInCollector.reset(_sampleRate);
     pushMidiInCollector.reset(_sampleRate);
     sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
@@ -915,8 +934,8 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
                             newMsg.setTimeStamp (msg.getTimeStamp());
                             incomingMidi.addEvent(newMsg, metadata.samplePosition);
                             
-                            // Store value and notify the controller about the CC change so it can show updated value information
-                            device->setMidiCCParameterValue(mappedCCNumber, newValue, true);
+                            // Store sent value
+                            device->setMidiCCParameterValue(mappedCCNumber, newValue);
                         }
                     }
                 }
@@ -1401,23 +1420,6 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             pushEncodersCCMappingHardwareDeviceShortName = deviceName;
             for (int i=1; i<9; i++){
                 pushEncodersCCMapping[i - 1] = parameters[i].getIntValue();
-            }
-            
-            // Send the currently stored values for these controls to the controller
-            // The Controller needs these values to display current cc parameter values on the display
-            auto device = getHardwareDeviceByName(deviceName);
-            if (device != nullptr){
-                juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_MIDI_CC_PARAMETER_VALUES_FOR_DEVICE);
-                returnMessage.addString(device->getShortName());
-                for (int i=0; i<8; i++){
-                    int index = pushEncodersCCMapping[i];
-                    if (index > -1){
-                        int value = device->getMidiCCParameterValue(index);
-                        returnMessage.addInt32(index);
-                        returnMessage.addInt32(value);
-                    }
-                }
-                sendMessageToController(returnMessage);
             }
 
         } else if (action == ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY){
