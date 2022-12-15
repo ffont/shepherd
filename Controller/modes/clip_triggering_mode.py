@@ -310,6 +310,6 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 if new_length < 1.0:
                     new_length = 1.0
 
-                clip = self.session.get_clip_by_idx(track_num, clip_num, new_length)
+                clip = self.session.get_clip_by_idx(track_num, clip_num)
                 if clip is not None and not clip.is_empty():
                     clip.set_length(new_length)
