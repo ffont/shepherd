@@ -142,11 +142,7 @@ private:
     void sendMidiDeviceOutputBuffers();
     void writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames);
     std::unique_ptr<juce::MidiOutput> notesMonitoringMidiOutput;
-    
-    std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
-    std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
-    juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
-    
+        
     // Aux MIDI buffers
     // We call .ensure_size for these buffers to make sure we don't to allocations in the RT thread
     juce::MidiBuffer midiClockMessages;

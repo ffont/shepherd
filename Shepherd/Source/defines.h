@@ -46,6 +46,8 @@
 #define ACTION_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE "/device/sendAllNotesOff"
 #define ACTION_ADDRESS_DEVICE_LOAD_DEVICE_PRESET "/device/loadDevicePreset"
 #define ACTION_ADDRESS_DEVICE_SEND_MIDI "/device/sendMidi"
+#define ACTION_ADDRESS_DEVICE_SET_NOTES_MAPPING "/device/setNotesMapping"
+#define ACTION_ADDRESS_DEVICE_SET_CC_MAPPING "/device/setCCMapping"
 
 #define ACTION_ADDRESS_SCENE "/scene"
 #define ACTION_ADDRESS_SCENE_DUPLICATE "/scene/duplicate"
@@ -60,8 +62,6 @@
 #define ACTION_ADDRESS_SETTINGS_LOAD_SESSION "/settings/load"
 #define ACTION_ADDRESS_SETTINGS_SAVE_SESSION "/settings/save"
 #define ACTION_ADDRESS_SETTINGS_NEW_SESSION "/settings/new"
-#define ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING "/settings/pushNotesMapping"
-#define ACTION_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING "/settings/pushEncodersMapping"
 #define ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY "/settings/fixedVelocity"
 #define ACTION_ADDRESS_SETTINGS_FIXED_LENGTH "/settings/fixedLength"
 #define ACTION_ADDRESS_TRANSPORT_RECORD_AUTOMATION "/settings/toggleRecordAutomation"

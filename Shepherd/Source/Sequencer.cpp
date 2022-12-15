@@ -1260,6 +1260,19 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             jassert(parameters.size() == 4);
             juce::MidiMessage msg = juce::MidiMessage(parameters[1].getIntValue(), parameters[2].getIntValue(), parameters[3].getIntValue());
             device->sendMidi(msg);
+        } else if (action == ACTION_ADDRESS_DEVICE_SET_NOTES_MAPPING){
+            /*
+            jassert(parameters.size() == 64);
+            for (int i=0; i<64; i++){
+                pushPadsNoteMapping[i] = parameters[i].getIntValue();
+            }*/
+        } else if (action == ACTION_ADDRESS_DEVICE_SET_CC_MAPPING){
+            /*jassert(parameters.size() == 9);
+            juce::String deviceName = parameters[0];
+            pushEncodersCCMappingHardwareDeviceShortName = deviceName;
+            for (int i=1; i<9; i++){
+                pushEncodersCCMapping[i - 1] = parameters[i].getIntValue();
+            }*/
         }
     
     } else if (action.startsWith(ACTION_ADDRESS_SCENE)) {
@@ -1336,19 +1349,6 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             int numScenes = parameters[1].getIntValue();
             loadNewEmptySession(numTracks, numScenes);
             
-        } else if (action == ACTION_ADDRESS_SETTINGS_PUSH_NOTES_MAPPING){
-            jassert(parameters.size() == 64);
-            for (int i=0; i<64; i++){
-                pushPadsNoteMapping[i] = parameters[i].getIntValue();
-            }
-        } else if (action == ACTION_ADDRESS_SETTINGS_PUSH_ENCODERS_MAPPING){
-            jassert(parameters.size() == 9);
-            juce::String deviceName = parameters[0];
-            pushEncodersCCMappingHardwareDeviceShortName = deviceName;
-            for (int i=1; i<9; i++){
-                pushEncodersCCMapping[i - 1] = parameters[i].getIntValue();
-            }
-
         } else if (action == ACTION_ADDRESS_SETTINGS_FIXED_VELOCITY){
             jassert(parameters.size() == 1);
             fixedVelocity = parameters[0].getIntValue();
