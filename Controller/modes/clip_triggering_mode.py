@@ -210,8 +210,19 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
         track_num = pad_ij[1]
         clip_num = pad_ij[0]
         clip = self.session.get_clip_by_idx(track_num, clip_num)
+
+        action_buttons_to_check = [
+            self.app.main_controls_mode.record_button,
+            self.clear_clip_button,
+            self.double_clip_button,
+            self.quantize_button,
+            self.undo_button
+        ]
+        action_button_being_pressed = any([self.app.is_button_being_pressed(button_name)
+                                           for button_name in action_buttons_to_check])
+
         if clip is not None:
-            if long_press:
+            if long_press and not action_button_being_pressed:
                 self.app.clip_edit_mode.set_clip_mode(clip.uuid)
                 self.app.set_clip_edit_mode()
                 return True
