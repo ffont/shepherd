@@ -21,7 +21,7 @@
 
 struct TrackSettingsStruct {
     int midiOutChannel;
-    HardwareDevice* device;
+    HardwareDevice* outputHwDevice;
 };
 
 struct SequenceEventAnnotations: juce::ReferenceCountedObject  
