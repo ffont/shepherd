@@ -145,6 +145,7 @@ private:
     
     std::unique_ptr<Playhead> playhead;
     
+    // Keep notes while recording
     Fifo<juce::MidiMessage, 100> recordedMidiMessages;
     std::vector<juce::MidiMessage> recordedNoteOnMessagesPendingToAdd = {};
     double hasJustStoppedRecordingFlag = false;

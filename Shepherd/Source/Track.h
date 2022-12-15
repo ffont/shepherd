@@ -42,10 +42,16 @@ public:
     void prepareClips();
     int getNumberOfClips();
     
-    void processInputMonitoring(juce::MidiBuffer& incommingBuffer);
+    void processInputMessagesFromInputHardwareDevice(HardwareDevice* inputDevice,
+                                                     double sliceLengthInBeats,
+                                                     int sliceNumSamples,
+                                                     double countInPlayheadPositionInBeats,
+                                                     double playheadPositionInBeats,
+                                                     int meter,
+                                                     bool playheadIsDoingCountIn);
     
-    void clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages);
-    void clipsPrepareSliceSlice();
+    void clipsProcessSlice();
+    void clipsPrepareSlice();
     void clipsRenderRemainingNoteOffsIntoMidiBuffer();
     void clipsResetPlayheadPosition();
     
@@ -62,7 +68,7 @@ public:
     
     void setInputMonitoring(bool enabled);
     
-    void clearLastSliceMidiBuffer();
+    void clearMidiBuffers();
     juce::MidiBuffer* getLastSliceMidiBuffer();
     void writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
 
@@ -79,6 +85,11 @@ private:
     void setOutputHardwareDevice(HardwareDevice* device);
     
     juce::MidiBuffer lastSliceMidiBuffer;
+    juce::MidiBuffer incomingMidiBuffer;
+    
+    // Used to keep track of last notes that could be potentially recorded in clip
+    int lastMidiNoteOnMessagesToStore = 20;
+    juce::Array<juce::MidiMessage> lastMidiNoteOnMessages;
     
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;

@@ -18,6 +18,10 @@ Track::Track(const juce::ValueTree& _state,
              std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter
              ): state(_state)
 {
+    lastMidiNoteOnMessages.ensureStorageAllocated(MIDI_BUFFER_MIN_BYTES);
+    lastSliceMidiBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    incomingMidiBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    
     getPlayheadParentSlice = playheadParentSliceGetter;
     getGlobalSettings = globalSettingsGetter;
     getMusicalContext = musicalContextGetter;
@@ -116,37 +120,60 @@ int Track::getNumberOfClips()
     return clips->objects.size();
 }
 
-void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
+void Track::processInputMessagesFromInputHardwareDevice(HardwareDevice* inputDevice,
+                                                        double sliceLengthInBeats,
+                                                        int sliceNumSamples,
+                                                        double countInPlayheadPositionInBeats,
+                                                        double playheadPositionInBeats,
+                                                        int meter,
+                                                        bool playheadIsDoingCountIn)
 {
-    if (inputMonitoringEnabled()){
-        for (const auto metadata : incommingBuffer)
-        {
-            int midiOutputChannel = getMidiOutputChannel();
-            if (midiOutputChannel > -1){
-                // If channel is -1, it means that device has not been initialized
-                auto msg = metadata.getMessage();
-                msg.setChannel(getMidiOutputChannel());
-                lastSliceMidiBuffer.addEvent(msg, metadata.samplePosition);
-                
-                // If message is of type controller, also update the internal stored state of the controller
-                if (msg.isController()){
-                    if (outputHwDevice != nullptr){
-                        outputHwDevice->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());
-                    }
-                }
+    if (inputDevice->isTypeOutput()) {return;}  // Provided device is not of type input
+    if (getOutputHardwareDevice() == nullptr){return;} // Track's output device has not been initialized
+    
+    // Process the incoming messages from the input device according to the track's output device (e.g. change midi channel,
+    // change CC values if CC input is relative, etc...)
+    inputDevice->processAndRenderIncomingMessagesIntoBuffer(incomingMidiBuffer, getOutputHardwareDevice());
+    
+    // store the lastMidiNoteOnMessages as this is needed when processing slice in Clip to account for notes that should be recorded with timestamp "0"
+    for (auto metadata: incomingMidiBuffer){
+        juce::MidiMessage msg = metadata.getMessage();
+        
+        // Store message in the "list of last played notes" and set its timestamp to the global playhead position
+        if (msg.isNoteOn()){
+            juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
+            if (playheadIsDoingCountIn){
+                msgToStoreInQueue.setTimeStamp(countInPlayheadPositionInBeats - meter + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
+            } else {
+                msgToStoreInQueue.setTimeStamp(playheadPositionInBeats + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
             }
+            lastMidiNoteOnMessages.insert(0, msgToStoreInQueue);
+        }
+    }
+    
+    // Remove old messages from lastMidiNoteOnMessages if we are already storing lastMidiNoteOnMessagesToStore
+    if (lastMidiNoteOnMessages.size() > lastMidiNoteOnMessagesToStore){
+        lastMidiNoteOnMessages.removeLast(lastMidiNoteOnMessages.size() - lastMidiNoteOnMessagesToStore);
+    }
+    
+    // Copy notes to output buffer if inpur monitoring is enabled
+    if (inputMonitoringEnabled()){
+        // If input monitoring is enabled, copy the processed contents of incomingMidiBuffer to the lastSliceMidiBuffer so these get passed
+        //lastSliceMidiBuffer.addEvents(incomingMidiBuffer, 0, sliceNumSamples, 0);
+        for (const auto metadata : incomingMidiBuffer){
+            lastSliceMidiBuffer.addEvent(metadata.getMessage(), metadata.samplePosition);
         }
     }
 }
 
-void Track::clipsProcessSlice(juce::MidiBuffer& incommingBuffer, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages)
+void Track::clipsProcessSlice()
 {
     for (auto clip: clips->objects){
-        clip->processSlice(incommingBuffer, &lastSliceMidiBuffer, lastMidiNoteOnMessages);
+        clip->processSlice(incomingMidiBuffer, &lastSliceMidiBuffer, lastMidiNoteOnMessages);
     }
 }
 
-void Track::clipsPrepareSliceSlice()
+void Track::clipsPrepareSlice()
 {
     for (auto clip: clips->objects){
         clip->prepareSlice();
@@ -295,9 +322,10 @@ void Track::setInputMonitoring(bool enabled)
     inputMonitoring = enabled;
 }
 
-void Track::clearLastSliceMidiBuffer()
+void Track::clearMidiBuffers()
 {
     lastSliceMidiBuffer.clear();
+    incomingMidiBuffer.clear();
 }
 
 juce::MidiBuffer* Track::getLastSliceMidiBuffer()

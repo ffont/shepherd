@@ -118,9 +118,30 @@ namespace Helpers
         device.setProperty(IDs::type, HardwareDeviceType::output, nullptr);
         device.setProperty(IDs::name, name, nullptr);
         device.setProperty(IDs::shortName, shortName, nullptr);
-        device.setProperty(IDs::midiDeviceName, midiDeviceName, nullptr);
+        device.setProperty(IDs::midiOutputDeviceName, midiDeviceName, nullptr);
         device.setProperty(IDs::midiChannel, midiChannel, nullptr);
-        device.setProperty(IDs::midiCCParameterValuesList, "", nullptr);
+        device.setProperty(IDs::midiCCParameterValuesList, Defaults::emptyString, nullptr);
+        return device;
+    }
+
+    inline juce::ValueTree createInputHardwareDevice(juce::String name, juce::String shortName, juce::String midiDeviceName, bool controlChangeMessagesAreRelative)
+    {
+        juce::ValueTree device {IDs::HARDWARE_DEVICE};
+        Helpers::createUuidProperty (device);
+        device.setProperty(IDs::type, HardwareDeviceType::input, nullptr);
+        device.setProperty(IDs::name, name, nullptr);
+        device.setProperty(IDs::shortName, shortName, nullptr);
+        device.setProperty(IDs::midiInputDeviceName, midiDeviceName, nullptr);
+        device.setProperty(IDs::allowedMidiInputChannel, Defaults::allowedMidiInputChannel, nullptr);
+        device.setProperty(IDs::allowNoteMessages, Defaults::allowNoteMessages, nullptr);
+        device.setProperty(IDs::allowControllerMessages, Defaults::allowControllerMessages, nullptr);
+        device.setProperty(IDs::allowPitchBendMessages, Defaults::allowPitchBendMessages, nullptr);
+        device.setProperty(IDs::allowAftertouchMessages, Defaults::allowAftertouchMessages, nullptr);
+        device.setProperty(IDs::allowChannelPressureMessages, Defaults::allowChannelPressureMessages, nullptr);
+        device.setProperty(IDs::notesMapping, Defaults::emptyString, nullptr);
+        device.setProperty(IDs::controlChangeMapping, Defaults::emptyString, nullptr);
+        device.setProperty(IDs::controlChangeMessagesAreRelative, controlChangeMessagesAreRelative, nullptr);
+        
         return device;
     }
 

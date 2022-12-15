@@ -122,19 +122,14 @@ private:
     bool midiDeviceAlreadyInitialized(const juce::String& deviceName);
     
     void initializeMIDIInputs();
+    bool shouldTryInitializeMidiInputs = false;
     juce::int64 lastTimeMidiInputInitializationAttempted = 0;
-    // old
-    std::unique_ptr<juce::MidiInput> midiIn;
-    bool midiInIsConnected = false;
-    juce::MidiMessageCollector midiInCollector;
-    std::unique_ptr<juce::MidiInput> midiInPush;
-    bool midiInPushIsConnected = false;
-    juce::MidiMessageCollector pushMidiInCollector;
-    // new
-    /*
     juce::OwnedArray<MidiInputDeviceData> midiInDevices = {};
     MidiInputDeviceData* initializeMidiInputDevice(juce::String deviceName);
-    MidiInputDeviceData* getMidiInputDeviceData(juce::String deviceName);*/
+    MidiInputDeviceData* getMidiInputDeviceData(juce::String deviceName);
+    void clearMidiDeviceInputBuffers();
+    void collectorsRetrieveLatestBlockOfMessages(int sliceNumSamples);
+    void resetMidiInCollectors(double sampleRate);
     
     void initializeMIDIOutputs();
     bool shouldTryInitializeMidiOutputs = false;
@@ -151,17 +146,12 @@ private:
     std::array<int, 8> pushEncodersCCMapping = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::array<int, 64> pushPadsNoteMapping = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, };
     juce::String pushEncodersCCMappingHardwareDeviceShortName = "";
-    int lastMidiNoteOnMessagesToStore = 20;
-    juce::Array<juce::MidiMessage> lastMidiNoteOnMessages;
     
     // Aux MIDI buffers
     // We call .ensure_size for these buffers to make sure we don't to allocations in the RT thread
     juce::MidiBuffer midiClockMessages;
     juce::MidiBuffer midiMetronomeMessages;
     juce::MidiBuffer pushMidiClockMessages;
-    juce::MidiBuffer incomingMidi;
-    juce::MidiBuffer incomingMidiKeys;
-    juce::MidiBuffer incomingMidiPush;
     juce::MidiBuffer monitoringNotesMidiBuffer;
     juce::MidiBuffer internalSynthCombinedBuffer; // Only used for debugging
     

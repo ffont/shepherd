@@ -124,6 +124,13 @@ inline juce::String eventType = "midi";
 inline juce::String eventMidiBytes = "128,64,64";
 inline float chance = 1.0;
 inline bool renderWithInternalSynth = true;
+inline int allowedMidiInputChannel = 0; // 0 = all
+inline bool allowNoteMessages = true;
+inline bool allowControllerMessages = true;
+inline bool allowPitchBendMessages = true;
+inline bool allowAftertouchMessages = true;
+inline bool allowChannelPressureMessages = true;
+inline bool controlChangeMessagesAreRelative = false;
 }
 
 namespace IDs
@@ -179,10 +186,20 @@ DECLARE_ID (renderedStartTimestamp)
 DECLARE_ID (renderedEndTimestamp)
 DECLARE_ID (chance)
 DECLARE_ID (dataLocation)
-DECLARE_ID (midiDeviceName)
+DECLARE_ID (midiOutputDeviceName)
+DECLARE_ID (midiInputDeviceName)
 DECLARE_ID (midiChannel)
 DECLARE_ID (renderWithInternalSynth)
 DECLARE_ID (midiCCParameterValuesList)
+DECLARE_ID (allowedMidiInputChannel)
+DECLARE_ID (allowNoteMessages)
+DECLARE_ID (allowControllerMessages)
+DECLARE_ID (allowPitchBendMessages)
+DECLARE_ID (allowAftertouchMessages)
+DECLARE_ID (allowChannelPressureMessages)
+DECLARE_ID (controlChangeMapping)
+DECLARE_ID (notesMapping)
+DECLARE_ID (controlChangeMessagesAreRelative)
 
 #undef DECLARE_ID
 }

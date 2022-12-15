@@ -33,15 +33,9 @@ Sequencer::Sequencer()
     midiClockMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
     midiMetronomeMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
     pushMidiClockMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
-    incomingMidi.ensureSize(MIDI_BUFFER_MIN_BYTES);
-    incomingMidiKeys.ensureSize(MIDI_BUFFER_MIN_BYTES);
-    incomingMidiPush.ensureSize(MIDI_BUFFER_MIN_BYTES);
     monitoringNotesMidiBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
     internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
-    
-    // Pre-allocate memory for lastMidiNoteOnMessages array
-    lastMidiNoteOnMessages.ensureStorageAllocated(MIDI_BUFFER_MIN_BYTES);
-    
+
     // Init hardware devices
     initializeHardwareDevices();
 
@@ -297,6 +291,23 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
     loadSession(stateToLoad);
 }
 
+juce::String Sequencer::getPropertyFromSettingsFile(juce::String propertyName)
+{
+    juce::String returnValue = "";
+    juce::File backendSettingsLocation = getDataLocation().getChildFile("backendSettings").withFileExtension("json");
+    if (backendSettingsLocation.existsAsFile()){
+        juce::var parsedJson;
+        auto result = juce::JSON::parse(backendSettingsLocation.loadFileAsString(), parsedJson);
+        if (result.wasOk())
+        {
+            if (parsedJson.isObject()){
+                returnValue = parsedJson.getProperty(propertyName, "").toString();
+            }
+        }
+    }
+    return returnValue;
+}
+
 juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
 {
     juce::String actionName = message.getAddressPattern().toString();
@@ -411,79 +422,22 @@ void Sequencer::initializeMIDIInputs()
     
     lastTimeMidiInputInitializationAttempted = juce::Time::getMillisecondCounter();
     
-    // Setup MIDI devices
-    auto midiInputs = juce::MidiInput::getAvailableDevices();
-
-    if (!midiInIsConnected){ // Keyboard MIDI in
-        const juce::String inDeviceName = getPropertyFromSettingsFile("keyboard_midi_in_device_name");
-        if (inDeviceName != ""){
-            juce::String inDeviceIdentifier = "";
-            for (int i=0; i<midiInputs.size(); i++){
-                if (midiInputs[i].name == inDeviceName){
-                    inDeviceIdentifier = midiInputs[i].identifier;
+    bool someFailedInitialization = false;
+    
+    // Initialize all MIDI devices required by available hardware devices
+    for (auto hwDevice: hardwareDevices->objects){
+        if (hwDevice->isTypeInput()){
+            if (!midiDeviceAlreadyInitialized(hwDevice->getMidiInputDeviceName())){
+                auto midiDevice = initializeMidiInputDevice(hwDevice->getMidiInputDeviceName());
+                if (midiDevice == nullptr) {
+                    DBG("Failed to initialize input MIDI device for hardware device: " << hwDevice->getMidiInputDeviceName());
+                    someFailedInitialization = true;
                 }
             }
-            midiIn = juce::MidiInput::openDevice(inDeviceIdentifier, &midiInCollector);
-            if (midiIn != nullptr){
-                std::cout << "- " << midiIn->getName() << std::endl;
-                midiIn->start();
-                midiInIsConnected = true;
-            } else {
-                std::cout << "- ERROR " << inDeviceName << ". Available MIDI IN devices: ";
-                for (int i=0; i<midiInputs.size(); i++){
-                    std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
-                }
-                std::cout << std::endl;
-            }
-        } else {
-            // If no midi input is expected, set this to true so we don't check all the time
-            midiInIsConnected = true;
         }
     }
-
-    if (!midiInPushIsConnected){ // Push messages MIDI in (used for triggering notes and encoders if mode is active)
-        const juce::String pushInDeviceName = getPropertyFromSettingsFile("push_midi_in_device_name");
-        if (pushInDeviceName.length() > 0){
-            juce::String pushInDeviceIdentifier = "";
-            for (int i=0; i<midiInputs.size(); i++){
-                if (midiInputs[i].name == pushInDeviceName){
-                    pushInDeviceIdentifier = midiInputs[i].identifier;
-                }
-            }
-            midiInPush = juce::MidiInput::openDevice(pushInDeviceIdentifier, &pushMidiInCollector);
-            if (midiInPush != nullptr){
-                std::cout << "- " << midiInPush->getName() << std::endl;
-                midiInPush->start();
-                midiInPushIsConnected = true;
-            } else {
-                std::cout << "- ERROR " << pushInDeviceName << ". Available MIDI IN devices: ";
-                for (int i=0; i<midiInputs.size(); i++){
-                    std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
-                }
-                std::cout << std::endl;
-            }
-        } else {
-            // If no push midi in device is expected, set this to true so we don't check all the time
-            midiInPushIsConnected = true;
-        }
-    }
-}
-
-juce::String Sequencer::getPropertyFromSettingsFile(juce::String propertyName)
-{
-    juce::String returnValue = "";
-    juce::File backendSettingsLocation = getDataLocation().getChildFile("backendSettings").withFileExtension("json");
-    if (backendSettingsLocation.existsAsFile()){
-        juce::var parsedJson;
-        auto result = juce::JSON::parse(backendSettingsLocation.loadFileAsString(), parsedJson);
-        if (result.wasOk())
-        {
-            if (parsedJson.isObject()){
-                returnValue = parsedJson.getProperty(propertyName, "").toString();
-            }
-        } 
-    }
-    return returnValue;
+    
+    if (!someFailedInitialization) shouldTryInitializeMidiInputs = false;
 }
 
 void Sequencer::initializeMIDIOutputs()
@@ -502,7 +456,7 @@ void Sequencer::initializeMIDIOutputs()
             if (!midiDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
                 auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
                 if (midiDevice == nullptr) {
-                    DBG("Failed to initialize midi device for hardware device: " << hwDevice->getMidiOutputDeviceName());
+                    DBG("Failed to initialize output MIDI device for hardware device: " << hwDevice->getMidiOutputDeviceName());
                     someFailedInitialization = true;
                 }
             }
@@ -592,6 +546,81 @@ MidiOutputDeviceData* Sequencer::getMidiOutputDeviceData(juce::String deviceName
     return nullptr;
 }
 
+MidiInputDeviceData* Sequencer::initializeMidiInputDevice(juce::String deviceName)
+{
+    JUCE_ASSERT_MESSAGE_THREAD
+    
+    auto midiInputs = juce::MidiInput::getAvailableDevices();
+    juce::String inDeviceIdentifier = "";
+    for (int i=0; i<midiInputs.size(); i++){
+        if (midiInputs[i].name == deviceName){
+            inDeviceIdentifier = midiInputs[i].identifier;
+        }
+    }
+    
+    MidiInputDeviceData* deviceData = new MidiInputDeviceData();
+    deviceData->buffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+    deviceData->collector.ensureStorageAllocated(MIDI_BUFFER_MIN_BYTES);
+    deviceData->identifier = inDeviceIdentifier;
+    deviceData->name = deviceName;
+    deviceData->device = juce::MidiInput::openDevice(inDeviceIdentifier, &deviceData->collector);
+    if (sampleRate > 0){
+        // If sample rate has already been set (this is a midi in device being initialized of late), then use if to reset collectpr
+        deviceData->collector.reset(sampleRate);
+    }
+    
+    if (deviceData->device != nullptr){
+        std::cout << "- " << deviceData->device->getName() << std::endl;
+        deviceData->device->start();
+        midiInDevices.add(deviceData);
+        return deviceData;
+    } else {
+        delete deviceData; // Delete created MidiInputDeviceData to avoid memory leaks with created buffer
+        std::cout << "- ERROR " << deviceName << ". Available MIDI IN devices: ";
+        for (int i=0; i<midiInputs.size(); i++){
+            std::cout << midiInputs[i].name << ((i != (midiInputs.size() - 1)) ? ", ": "");
+        }
+        std::cout << std::endl;
+        return nullptr;
+    }
+}
+
+MidiInputDeviceData* Sequencer::getMidiInputDeviceData(juce::String deviceName)
+{
+    for (auto deviceData: midiInDevices){
+        if (deviceData->name == deviceName){
+            return deviceData;
+        }
+    }
+    // If function did not yet return, it means the requested input device has not yet been initialized
+    // Set a flag so the device gets initialized in the message thread and return null pointer.
+    // NOTE: we could check if we're in the message thread and, if this is the case, initialize the device
+    // instead of setting a flag, but this optimization is probably not necessary.
+    shouldTryInitializeMidiInputs = true;
+    return nullptr;
+}
+
+void Sequencer::collectorsRetrieveLatestBlockOfMessages(int sliceNumSamples)
+{
+    for (auto deviceData: midiInDevices){
+        deviceData->collector.removeNextBlockOfMessages (deviceData->buffer, sliceNumSamples);
+    }
+}
+
+void Sequencer::resetMidiInCollectors(double sampleRate)
+{
+    for (auto deviceData: midiInDevices){
+        deviceData->collector.reset(sampleRate);
+    }
+}
+
+void Sequencer::clearMidiDeviceInputBuffers()
+{
+    for (auto deviceData: midiInDevices){
+        deviceData->buffer.clear();
+    }
+}
+
 
 void Sequencer::clearMidiDeviceOutputBuffers()
 {
@@ -603,7 +632,7 @@ void Sequencer::clearMidiDeviceOutputBuffers()
 void Sequencer::clearMidiTrackBuffers()
 {
     for (auto track: tracks->objects){
-        track->clearLastSliceMidiBuffer();
+        track->clearMidiBuffers();
     }
 }
 
@@ -630,7 +659,7 @@ void Sequencer::initializeHardwareDevices()
 {
     juce::ValueTree hardwareDevicesState (IDs::HARDWARE_DEVICES);
     
-    // First also initialize OUTPUT hardware devices from the definitions file (if any)
+    // First initialize OUTPUT hardware devices from the definitions file (if any)
     juce::File hardwareDeviceDefinitionsLocation = getDataLocation().getChildFile("hardwareDevices").withFileExtension("json");
     if (hardwareDeviceDefinitionsLocation.existsAsFile()){
         std::cout << "Initializing Hardware Devices from JSON file" << std::endl;
@@ -673,6 +702,11 @@ void Sequencer::initializeHardwareDevices()
         }
     }
     
+    // Now initialize INPUT hardware devices
+    std::cout << "Initializing Input Hardware Devices" << std::endl;
+    hardwareDevicesState.addChild(Helpers::createInputHardwareDevice("Push", "Push", "Push2Simulator", true), -1, nullptr);
+    hardwareDevicesState.addChild(Helpers::createInputHardwareDevice("icon", "iCon", "iCON iKEY V1.02", false), -1, nullptr);
+    
     // Now do create the actual HardwareDevice objects
     if (state.getChildWithName(IDs::HARDWARE_DEVICES).isValid()){
         // Remove existing child (if any?)
@@ -680,7 +714,8 @@ void Sequencer::initializeHardwareDevices()
     }
     state.addChild(hardwareDevicesState, -1, nullptr);
     hardwareDevices = std::make_unique<HardwareDeviceList>(state.getChildWithName(IDs::HARDWARE_DEVICES),
-                                                           [this](juce::String deviceName){return getMidiOutputDeviceData(deviceName);}
+                                                           [this](juce::String deviceName){return getMidiOutputDeviceData(deviceName);},
+                                                           [this](juce::String deviceName){return getMidiInputDeviceData(deviceName);}
                                                            );
     std::cout << "Output Hardware Devices initialized:" << std::endl;
     for (auto deviceName: hardwareDevices->getAvailableOutputHardwareDeviceNames()){
@@ -713,11 +748,8 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
 {
     sampleRate = _sampleRate;
     samplesPerSlice = samplesPerBlockExpected; // We store samplesPerBlockExpected calling it samplesPerSlice as in our MIDI sequencer context we call our processig blocks "slices"
-    
-    // TODO: reset all midi collectors from midiInDevices
-    midiInCollector.reset(_sampleRate);
-    pushMidiInCollector.reset(_sampleRate);
     sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
+    resetMidiInCollectors (_sampleRate);
 }
 
 /** Process each audio block (in our case, we call it "slice" and only process MIDI data), ask each track to provide notes to be triggered during that slice, handle MIDI input and global playhead transport.
@@ -772,14 +804,12 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     
     // 3) -------------------------------------------------------------------------------------------------
     
+    clearMidiDeviceInputBuffers();
     clearMidiDeviceOutputBuffers();
     clearMidiTrackBuffers();
     midiClockMessages.clear();
     midiMetronomeMessages.clear();
     pushMidiClockMessages.clear();
-    incomingMidi.clear();
-    incomingMidiKeys.clear();
-    incomingMidiPush.clear();
     monitoringNotesMidiBuffer.clear();
     
     // 4) -------------------------------------------------------------------------------------------------
@@ -815,115 +845,38 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     
     // 6) -------------------------------------------------------------------------------------------------
     
-    // Collect messages from MIDI input (keys and push)
-    midiInCollector.removeNextBlockOfMessages (incomingMidiKeys, sliceNumSamples);
-    pushMidiInCollector.removeNextBlockOfMessages (incomingMidiPush, sliceNumSamples);
+    // Collect messages from different MIDI inputs and put them into a single buffer
+    collectorsRetrieveLatestBlockOfMessages(sliceNumSamples);
+    
+    for (auto inputDevice: hardwareDevices->objects){
+        // NOTE: iterating hardwareDevices could be problematic without a lock if devices are
+        // added/removed. However this not something that will be happening as hw devices should
+        // not be created or removed...
 
-    // Process keys MIDI input and add it to combined incomming buffer
-    for (const auto metadata : incomingMidiKeys)
-    {
-        auto msg = metadata.getMessage();
-        if (msg.isNoteOnOrOff() && fixedVelocity > -1){
-            msg.setVelocity((float)fixedVelocity/127.0f);
-        }
-        incomingMidi.addEvent(msg, metadata.samplePosition);
-        
-        if (msg.isNoteOn()){
-            // Store message in the "list of last played notes" and set its timestamp to the global playhead position
-            juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
-            if (musicalContext->playheadIsDoingCountIn()){
-                msgToStoreInQueue.setTimeStamp(musicalContext->getCountInPlayheadPositionInBeats() - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
-            } else {
-                msgToStoreInQueue.setTimeStamp(musicalContext->getPlayheadPositionInBeats() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
-            }
-            lastMidiNoteOnMessages.insert(0, msgToStoreInQueue);
-        }
-    }
-
-    // Process push MIDI input and add it to combined incomming buffer transforming input message using MIDI message mappings if required
-    for (const auto metadata : incomingMidiPush)
-    {
-        auto msg = metadata.getMessage();
-        if (msg.isController() && msg.getControllerNumber() == MIDI_SUSTAIN_PEDAL_CC){
-            // If sustain pedal, we always pass it to the output as is
-            incomingMidi.addEvent(msg, metadata.samplePosition);
-        } else if (msg.isController() && msg.getControllerNumber() == 1){
-            // If modulation wheel, we always pass it to the output as is
-            incomingMidi.addEvent(msg, metadata.samplePosition);
-        } else if (msg.isPitchWheel()){
-            // If pitch wheel, we always pass it to the output as is
-            incomingMidi.addEvent(msg, metadata.samplePosition);
-        } else if (msg.isNoteOnOrOff() || msg.isAftertouch() || msg.isChannelPressure()){
-            if (msg.getNoteNumber() >= 36 && msg.getNoteNumber() <= 99){
-                // If midi message is a note on/off, aftertouch or channel pressure from one of the 64 pads, check if there's any mapping active
-                // and use it (or discard the message). This is because push always sends the same MIDI note numbers for the pads, but we want
-                // to interpret these as different notes depending on Shepherd settings like current octave, MIDi root note or even note layout.
-                int mappedNote = pushPadsNoteMapping[msg.getNoteNumber()-36];
-                if (mappedNote > -1){
-                    msg.setNoteNumber(mappedNote);
-                    if (fixedVelocity > -1){
-                        msg.setVelocity((float)fixedVelocity/127.0f);
-                    }
-                    incomingMidi.addEvent(msg, metadata.samplePosition);
-                    if (msg.isNoteOn()){
-                        // Store message in the list of last note on messages and set its timestamp to the global playhead position
-                        juce::MidiMessage msgToStoreInQueue = juce::MidiMessage(msg);
-                        if (musicalContext->playheadIsDoingCountIn()){
-                            msgToStoreInQueue.setTimeStamp(musicalContext->getCountInPlayheadPositionInBeats() - musicalContext->getMeter() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
-                        } else {
-                            msgToStoreInQueue.setTimeStamp(musicalContext->getPlayheadPositionInBeats() + metadata.samplePosition/sliceNumSamples * sliceLengthInBeats);
-                        }
-                        lastMidiNoteOnMessages.insert(0, msgToStoreInQueue);
-                    }
+        if (inputDevice->isTypeInput() && inputDevice->isMidiInitialized()){
+            juce::MidiBuffer& deviceLastBlockOfMessages = getMidiInputDeviceData(inputDevice->getMidiInputDeviceName())->buffer;
+            
+            // Apply fixed velocity filter
+            for (const auto metadata: deviceLastBlockOfMessages){
+                auto msg = metadata.getMessage();
+                if (msg.isNoteOnOrOff() && fixedVelocity > -1){
+                    msg.setVelocity((float)fixedVelocity/127.0f);
                 }
             }
             
-        } else if (msg.isController()){
-            if (msg.getControllerNumber() >= 71 && msg.getControllerNumber() <= 78){
-                // If MIDI message is a control change from one of the 8 encoders above the display, check if there's any mapping active
-                // and use it (or discard the message). This is because push always sends the same MIDI CC numbers for the encoders above
-                // the display, but we might want to interpret them as different CCs depending on Shepherd settings like current selected
-                // page of MIDI parameters.
-                if (pushEncodersCCMappingHardwareDeviceShortName != ""){
-                    auto device = getHardwareDeviceByName(pushEncodersCCMappingHardwareDeviceShortName);
-                    if (device != nullptr){
-                        int mappedCCNumber = pushEncodersCCMapping[msg.getControllerNumber() - 71];
-                        if (mappedCCNumber > -1){
-                            int rawControllerValue = msg.getControllerValue();
-                            int increment = 0;
-                            if (rawControllerValue > 0 && rawControllerValue < 64){
-                                increment = rawControllerValue;
-                            } else {
-                                increment = rawControllerValue - 128;
-                            }
-                            int currentValue = device->getMidiCCParameterValue(mappedCCNumber);
-                            int newValue = currentValue + increment;
-                            if (newValue > 127){
-                                newValue = 127;
-                            } else if (newValue < 0){
-                                newValue = 0;
-                            }
-                            auto newMsg = juce::MidiMessage::controllerEvent (msg.getChannel(), mappedCCNumber, newValue);
-                            newMsg.setTimeStamp (msg.getTimeStamp());
-                            incomingMidi.addEvent(newMsg, metadata.samplePosition);
-                            
-                            // Store sent value
-                            device->setMidiCCParameterValue(mappedCCNumber, newValue);
-                        }
-                    }
-                }
+            // Iterate through all tracks and pass them the current input device to see if they want to do anything with it (if they have input monitoring enabled)
+            // and if they need to process it (e.g. update control change values from relative controllers or change midi notes). The processed messages will be stored
+            // in track's incomingMidiBuffer, and this will later be used by clips being played from that track
+            for (auto track: tracks->objects){
+                track->processInputMessagesFromInputHardwareDevice(inputDevice,
+                                                                   musicalContext->getSliceLengthInBeats(),
+                                                                   sliceNumSamples,
+                                                                   musicalContext->getCountInPlayheadPositionInBeats(),
+                                                                   musicalContext->getPlayheadPositionInBeats(),
+                                                                   musicalContext->getMeter(),
+                                                                   musicalContext->playheadIsDoingCountIn());
             }
         }
-    }
-    
-    // Remove old messages from lastMidiNoteOnMessages if we are already storing lastMidiNoteOnMessagesToStore
-    if (lastMidiNoteOnMessages.size() > lastMidiNoteOnMessagesToStore){
-        lastMidiNoteOnMessages.removeLast(lastMidiNoteOnMessages.size() - lastMidiNoteOnMessagesToStore);
-    }
-    
-    // Send incoming MIDI buffer to each track so notes are forwarded to corresponding devices if input monitoring is enabled
-    for (auto track: tracks->objects){
-        track->processInputMonitoring(incomingMidi);
     }
     
     // 7) -------------------------------------------------------------------------------------------------
@@ -954,12 +907,12 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     // 8) -------------------------------------------------------------------------------------------------
     
     for (auto track: tracks->objects){
-        track->clipsPrepareSliceSlice();  // Pull sequences form the clip fifo
+        track->clipsPrepareSlice();  // Pull sequences form the clip fifo
     }
     
     if (musicalContext->playheadIsPlaying()){
         for (auto track: tracks->objects){
-            track->clipsProcessSlice(incomingMidi, lastMidiNoteOnMessages);
+            track->clipsProcessSlice();  // No need to pass buffers here because Clip objects will retrieve them from its parent track object
         }
     }
     
@@ -969,12 +922,14 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         track->writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
     }
     
-    for (auto device: hardwareDevices->objects){
+    for (auto outputDevice: hardwareDevices->objects){
         // Send "arbitrary" messages pending to be sent in every hardware device
         // NOTE: iterating hardwareDevices could be problematic without a lock if devices are
         // added/removed. However this not something that will be happening as hw devices should
         // not be created or removed...
-        device->renderPendingMidiMessagesToRenderInBuffer();
+        if (outputDevice->isTypeOutput() && outputDevice->isMidiInitialized()){
+            outputDevice->renderPendingMidiMessagesToRenderInBuffer();
+        }
     }
     
     // 10) -------------------------------------------------------------------------------------------------
@@ -1067,20 +1022,19 @@ GlobalSettingsStruct Sequencer::getGlobalSettings()
 //==============================================================================
 void Sequencer::timerCallback()
 {
-    // Carry out actions that should be done periodically
-    if (!midiInIsConnected || !midiInPushIsConnected ){
-        if (juce::Time::getMillisecondCounter() - lastTimeMidiInputInitializationAttempted > 2000){
-            // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
-            // time we tried to initialize them, try to initialize again
-            initializeMIDIInputs();
-        }
-    }
-    
     if (shouldTryInitializeMidiOutputs){
         if (juce::Time::getMillisecondCounter() - lastTimeMidiOutputInitializationAttempted > 2000){
             // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
             // time we tried to initialize them, try to initialize again
             initializeMIDIOutputs();
+        }
+    }
+    
+    if (shouldTryInitializeMidiInputs){
+        if (juce::Time::getMillisecondCounter() - lastTimeMidiInputInitializationAttempted > 2000){
+            // If at least one of the MIDI devices is not properly connected and 2 seconds have passed since last
+            // time we tried to initialize them, try to initialize again
+            initializeMIDIInputs();
         }
     }
     
@@ -1435,9 +1389,9 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
         }
     } else if (action == ACTION_ADDRESS_SHEPHERD_CONTROLLER_READY) {
         jassert(parameters.size() == 0);
-        // Set midi in push connection to false so the method to initialize midi in is retrieggered at next timer call
+        // Set midi in connection to false so the method to initialize midi in is retrieggered at next timer call
         // This is to prevent issues caused by the order in which frontend and backend are started
-        midiInPushIsConnected = false;
+        //shouldTryInitializeMidiInputs = true;
         
         // Also in dev mode trigger reload ui
         #if JUCE_DEBUG

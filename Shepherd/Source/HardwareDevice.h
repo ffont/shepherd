@@ -13,18 +13,26 @@
 #include <JuceHeader.h>
 #include "helpers.h"
 #include "Fifo.h"
+#include "MusicalContext.h"
 
 class HardwareDevice
 {
 public:
     HardwareDevice(const juce::ValueTree& state,
-                   std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter);
+                   std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter,
+                   std::function<MidiInputDeviceData*(juce::String deviceName)> midiInputDeviceDataGetter);
     void bindState();
-    void updateStateMemberVersions();
     juce::ValueTree state;
     
     bool isTypeInput() { return type.get() == HardwareDeviceType::input; };
     bool isTypeOutput() { return type.get() == HardwareDeviceType::output; };
+    bool isMidiInitialized() {
+        if (isTypeInput()){
+            return getMidiInputDeviceData(getMidiInputDeviceName()) != nullptr;
+        } else {
+            return getMidiOutputDeviceData(getMidiOutputDeviceName()) != nullptr;
+        }
+    }
     
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
@@ -42,12 +50,9 @@ public:
     void renderPendingMidiMessagesToRenderInBuffer();
     
     // Relevant for input devices
-    // TODO: implement
-    /*
-    bool allowIncomingMidiMessage(juce::MidiMessage msg);  // Return true/false after applying filters to message
-    juce::MidiMessage processIncomingMidiMessage(juce::MidiMessage msg);  // Re-map message to new note/midi cc according to mapping
-    void renderMessagesIntoBuffer(juce::MidiBuffer* buffer);  // use getMidiInputDeviceData to get latest block of messages for the device, process them and add to the buffer
-     */
+    juce::String getMidiInputDeviceName(){ return midiInputDeviceName.get();}
+    bool filterAndProcessIncomingMidiMessage(juce::MidiMessage& msg, HardwareDevice* outputDevice);
+    void processAndRenderIncomingMessagesIntoBuffer(juce::MidiBuffer& bufferToFill, HardwareDevice* outputDevice);
     
 private:
     juce::CachedValue<juce::String> uuid;
@@ -65,30 +70,31 @@ private:
     Fifo<juce::MidiMessage, 100> midiMessagesToRenderInBuffer;
     
     // For input devices
-    // TODO: implement binding to state, adding nedded IDs, add helper method to create input
-    /*
+    juce::CachedValue<juce::String> midiInputDeviceName;
     juce::CachedValue<int> allowedMidiInputChannel;
     juce::CachedValue<bool> allowNoteMessages;
     juce::CachedValue<bool> allowControllerMessages;
     juce::CachedValue<bool> allowPitchBendMessages;
     juce::CachedValue<bool> allowAftertouchMessages;
     juce::CachedValue<bool> allowChannelPressureMessages;
-    juce::CachedValue<bool> allowProgramChangeMessages;
-    std::array<int, 128> ccMapping = {};
-    juce::CachedValue<juce::String> stateCcMapping;
+    juce::CachedValue<bool> controlChangeMessagesAreRelative;
+    std::array<int, 128> controlChangeMapping = {};
+    juce::CachedValue<juce::String> stateControlChangeMapping;
     std::array<int, 128> notesMapping = {};
     juce::CachedValue<juce::String> stateNotesMapping;
     
-    std::function<MidiInputDeviceData*(juce::String deviceName)> getMidiInputDeviceData;*/
+    std::function<MidiInputDeviceData*(juce::String deviceName)> getMidiInputDeviceData;
 };
 
 struct HardwareDeviceList: public drow::ValueTreeObjectList<HardwareDevice>
 {
     HardwareDeviceList (const juce::ValueTree& v,
-                        std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter)
+                        std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter,
+                        std::function<MidiInputDeviceData*(juce::String deviceName)> midiInputDeviceDataGetter)
     : drow::ValueTreeObjectList<HardwareDevice> (v)
     {
         getMidiOutputDeviceData = midiOutputDeviceDataGetter;
+        getMidiInputDeviceData = midiInputDeviceDataGetter;
         rebuildObjects();
     }
 
@@ -105,7 +111,8 @@ struct HardwareDeviceList: public drow::ValueTreeObjectList<HardwareDevice>
     HardwareDevice* createNewObject (const juce::ValueTree& v) override
     {
         return new HardwareDevice (v,
-                                   getMidiOutputDeviceData);
+                                   getMidiOutputDeviceData,
+                                   getMidiInputDeviceData);
     }
 
     void deleteObject (HardwareDevice* c) override
@@ -127,6 +134,7 @@ struct HardwareDeviceList: public drow::ValueTreeObjectList<HardwareDevice>
     }
     
     std::function<MidiOutputDeviceData*(juce::String deviceName)> getMidiOutputDeviceData;
+    std::function<MidiInputDeviceData*(juce::String deviceName)> getMidiInputDeviceData;
     
     juce::StringArray getAvailableOutputHardwareDeviceNames() {
         juce::StringArray availableHardwareDeviceNames = {};
