@@ -25,7 +25,7 @@ public:
           std::function<GlobalSettingsStruct()> globalSettingsGetter,
           std::function<MusicalContext*()> musicalContextGetter,
           std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
-          std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter
+          std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter
           );
     void bindState();
     juce::ValueTree state;
@@ -84,7 +84,7 @@ private:
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext*()> getMusicalContext;
     std::function<HardwareDevice*(juce::String deviceName)> getHardwareDeviceByName;
-    std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
+    std::function<MidiOutputDeviceData*(juce::String deviceName)> getMidiOutputDeviceData;
     juce::MidiBuffer* getMidiOutputDeviceBufferIfDevice();
     
     std::unique_ptr<ClipList> clips;
@@ -99,14 +99,14 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
                std::function<GlobalSettingsStruct()> globalSettingsGetter,
                std::function<MusicalContext*()> musicalContextGetter,
                std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
-               std::function<juce::MidiBuffer*(juce::String deviceName)> midiOutputDeviceBufferGetter)
+               std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter)
     : drow::ValueTreeObjectList<Track> (v)
     {
         getPlayheadParentSlice = playheadParentSliceGetter;
         getGlobalSettings = globalSettingsGetter;
         getMusicalContext = musicalContextGetter;
         getHardwareDeviceByName = hardwareDeviceGetter;
-        getMidiOutputDeviceBuffer = midiOutputDeviceBufferGetter;
+        getMidiOutputDeviceData = midiOutputDeviceDataGetter;
         rebuildObjects();
     }
 
@@ -127,7 +127,7 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
                           getGlobalSettings,
                           getMusicalContext,
                           getHardwareDeviceByName,
-                          getMidiOutputDeviceBuffer);
+                          getMidiOutputDeviceData);
     }
 
     void deleteObject (Track* c) override
@@ -152,5 +152,5 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext*()> getMusicalContext;
     std::function<HardwareDevice*(juce::String deviceName)> getHardwareDeviceByName;
-    std::function<juce::MidiBuffer*(juce::String deviceName)> getMidiOutputDeviceBuffer;
+    std::function<MidiOutputDeviceData*(juce::String deviceName)> getMidiOutputDeviceData;
 };
