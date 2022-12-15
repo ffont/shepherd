@@ -33,8 +33,8 @@ public:
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
     
-    void setHardwareDeviceByName(juce::String deviceName);
-    HardwareDevice* getHardwareDevice();
+    void setOutputHardwareDeviceByName(juce::String deviceName);
+    HardwareDevice* getOutputHardwareDevice();
     
     juce::String getMidiOutputDeviceName();
     int getMidiOutputChannel();
@@ -75,8 +75,8 @@ private:
     juce::CachedValue<juce::String> hardwareDeviceName;
     juce::CachedValue<bool> inputMonitoring;
     
-    HardwareDevice* device = nullptr;
-    void setHardwareDevice(HardwareDevice* device);
+    HardwareDevice* outputHwDevice = nullptr;
+    void setOutputHardwareDevice(HardwareDevice* device);
     
     juce::MidiBuffer lastSliceMidiBuffer;
     

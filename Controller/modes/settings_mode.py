@@ -307,7 +307,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 current_hw_device = track.hardwaredevicename
                 current_hw_device_index = available_devices.index(current_hw_device)
                 next_device_name = available_devices[(current_hw_device_index + increment) % len(available_devices)]
-                track.set_hardware_device(next_device_name)
+                track.set_output_hardware_device(next_device_name)
             except Exception as e:
                 print(e)
             return True
@@ -395,7 +395,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                     current_hw_device = track.hardwaredevicename
                     current_hw_device_index = available_devices.index(current_hw_device)
                     next_device_name = available_devices[current_hw_device_index + 1 % len(available_devices)]
-                    track.set_hardware_device(next_device_name)
+                    track.set_output_hardware_device(next_device_name)
                 except Exception as e:
                     print(e)
                 return True

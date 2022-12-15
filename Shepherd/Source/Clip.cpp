@@ -671,7 +671,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                     
                     // If the message is of type controller, also update the internal stored state of the controller
                     if (msg.isController()){
-                        auto device = getTrackSettings().device;
+                        auto device = getTrackSettings().outputHwDevice;
                         if (device != nullptr){
                             device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());
                         }
@@ -1070,8 +1070,8 @@ void Clip::removeSequenceEventWithUUID(const juce::String& uuid)
         state.removeChild(sequenceEvent, nullptr);
         if (midiNote > -1){
             if (notesCurrentlyPlayed[midiNote] == true){
-                juce::MidiMessage msg = juce::MidiMessage::noteOff(getTrackSettings().device->getMidiOutputChannel(), midiNote, 0.0f);
-                getTrackSettings().device->sendMidi(msg);
+                juce::MidiMessage msg = juce::MidiMessage::noteOff(getTrackSettings().outputHwDevice->getMidiOutputChannel(), midiNote, 0.0f);
+                getTrackSettings().outputHwDevice->sendMidi(msg);
                 notesCurrentlyPlayed.setBit(midiNote, false);
             }
         }

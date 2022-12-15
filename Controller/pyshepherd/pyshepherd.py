@@ -290,8 +290,8 @@ class Track(BaseShepherdClass):
     def set_active_ui_notes_monitoring(self):
         self.send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [self.uuid])
 
-    def set_hardware_device(self, device_name):
-        self.send_msg_to_app('/track/setHardwareDevice', [self.uuid, device_name])
+    def set_output_hardware_device(self, device_name):
+        self.send_msg_to_app('/track/setOutputHardwareDevice', [self.uuid, device_name])
 
 
 class Clip(BaseShepherdClass):

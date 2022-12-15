@@ -26,7 +26,7 @@ Track::Track(const juce::ValueTree& _state,
     bindState();
     
     if (hardwareDeviceName != ""){
-        setHardwareDeviceByName(hardwareDeviceName);
+        setOutputHardwareDeviceByName(hardwareDeviceName);
     }
     prepareClips();
 }
@@ -41,36 +41,36 @@ void Track::bindState()
     hardwareDeviceName.referTo(state, IDs::hardwareDeviceName, nullptr, Defaults::emptyString);
 }
 
-void Track::setHardwareDeviceByName(juce::String deviceName)
+void Track::setOutputHardwareDeviceByName(juce::String deviceName)
 {
     auto device = getHardwareDeviceByName(deviceName);
     if (device != nullptr) {
         // If a device is found with that name, set it, otherwise do nothing
-        setHardwareDevice(device);
+        setOutputHardwareDevice(device);
     }
 }
 
-void Track::setHardwareDevice(HardwareDevice* _device)
+void Track::setOutputHardwareDevice(HardwareDevice* device)
 {
-    if (_device != nullptr){
-        device = _device;
-        hardwareDeviceName = device->getShortName();
+    if ((device != nullptr) && (device->isTypeOutput())){
+        outputHwDevice = device;
+        hardwareDeviceName = outputHwDevice->getShortName();
     }
 }
 
-HardwareDevice* Track::getHardwareDevice()
+HardwareDevice* Track::getOutputHardwareDevice()
 {
-    return device;
+    return outputHwDevice;
 }
 
 juce::MidiBuffer* Track::getMidiOutputDeviceBufferIfDevice()
 {
-    if (device == nullptr){
+    if (outputHwDevice == nullptr){
         // If device is null pointer, it means no hardware device is yet assinged and no therefore no corresponding MIDI buffer
         return nullptr;
     }
     
-    juce::MidiBuffer* bufferToFill = &getMidiOutputDeviceData(device->getMidiOutputDeviceName())->buffer;
+    juce::MidiBuffer* bufferToFill = &getMidiOutputDeviceData(outputHwDevice->getMidiOutputDeviceName())->buffer;
     if (bufferToFill == nullptr){
         // If the buffer to fill is null pointer, it means the corresponding MIDI device could not be initialized and there's no corresponding MIDI buffer
         return nullptr;
@@ -81,8 +81,8 @@ juce::MidiBuffer* Track::getMidiOutputDeviceBufferIfDevice()
 
 juce::String Track::getMidiOutputDeviceName()
 {
-    if (device != nullptr){
-        return device->getMidiOutputDeviceName();
+    if (outputHwDevice != nullptr){
+        return outputHwDevice->getMidiOutputDeviceName();
     } else {
         return "";
     }
@@ -90,8 +90,8 @@ juce::String Track::getMidiOutputDeviceName()
 
 int Track::getMidiOutputChannel()
 {
-    if (device != nullptr){
-        return device->getMidiOutputChannel();
+    if (outputHwDevice != nullptr){
+        return outputHwDevice->getMidiOutputChannel();
     } else {
         return -1;
     }
@@ -105,7 +105,7 @@ void Track::prepareClips()
                                        [this]{
                                            TrackSettingsStruct settings;
                                            settings.midiOutChannel = getMidiOutputChannel();
-                                           settings.device = getHardwareDevice();
+                                           settings.outputHwDevice = getOutputHardwareDevice();
                                            return settings;
                                        },
                                        getMusicalContext);
@@ -130,8 +130,8 @@ void Track::processInputMonitoring(juce::MidiBuffer& incommingBuffer)
                 
                 // If message is of type controller, also update the internal stored state of the controller
                 if (msg.isController()){
-                    if (device != nullptr){
-                        device->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());
+                    if (outputHwDevice != nullptr){
+                        outputHwDevice->setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());
                     }
                 }
             }
