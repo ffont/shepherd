@@ -2,14 +2,11 @@ import definitions
 import push2_python.constants
 import time
 import os
-import sys
-import psutil
-import threading
-import subprocess
 
-from display_utils import show_title, show_value, draw_text_at
+from utils import show_title, show_value, draw_text_at
 
 is_running_sw_update = ''
+
 
 class SettingsMode(definitions.ShepherdControllerMode):
 

@@ -161,21 +161,11 @@ class ShepherdControllerMode(object):
 
     @property
     def state(self):
-        # handy property to retrieve backend's full state
-        try:
-            return self.app.shepherd_interface.state
-        except Exception as e:
-            pass
-        return None
+        return self.app.state  # will be None if no session is synced
 
     @property
     def session(self):
-        # handy property to retrieve backend's session state
-        try:
-            return self.app.shepherd_interface.state.session
-        except Exception as e:
-            pass
-        return None
+        return self.app.session  # will be None if no session is synced
 
     @property
     def push(self):

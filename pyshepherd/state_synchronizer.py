@@ -59,7 +59,8 @@ class OSCReceiverThread(threading.Thread):
     def run(self):
         asyncio.set_event_loop(asyncio.new_event_loop())
         osc = OSCThreadServer()
-        print('* Listening OSC messages in port {}'.format(self.port))
+        if ss_instance.verbose_level >= 1:
+            print('* Listening OSC messages in port {}'.format(self.port))
         osc.listen(address='0.0.0.0', port=self.port, default=True)
         osc.bind(b'/app_started', lambda: ss_instance.app_has_started())
         osc.bind(b'/state_update', osc_state_update_handler)
@@ -105,24 +106,26 @@ def ws_on_message(ws, message):
 
 
 def ws_on_error(ws, error):
-    print("* WS connection error: {}".format(error))
-    if 'Connection refused' not in str(error) and 'WebSocketConnectionClosedException' not in str(error):
-        print(traceback.format_exc())
-        
     if ss_instance is not None:
+        if ss_instance.verbose_level >= 1:
+            print("* WS connection error: {}".format(error))
+        if 'Connection refused' not in str(error) and 'WebSocketConnectionClosedException' not in str(error):
+            print(traceback.format_exc())
         ss_instance.ws_connection_ok = False
 
 
 def ws_on_close(ws, close_status_code, close_msg):
-    print("* WS connection closed: {} - {}".format(close_status_code, close_msg))
     if ss_instance is not None:
+        if ss_instance.verbose_level >= 1:
+            print("* WS connection closed: {} - {}".format(close_status_code, close_msg))
         ss_instance.ws_connection_ok = False
         ss_instance.app_connection_lost()
 
 
 def ws_on_open(ws):
-    print("* WS connection opened")
     if ss_instance is not None:
+        if ss_instance.verbose_level >= 1:
+            print("* WS connection opened")
         ss_instance.ws_connection_ok = True
         ss_instance.app_has_started()
 
@@ -153,9 +156,11 @@ class WSConnectionThread(threading.Thread):
                                     on_error=ws_on_error,
                                     on_close=ws_on_close)
             self.state_synchronizer.ws_connection = ws
-            print('* Connecting to WS server: {}'.format(ws_endpoint))
+            if self.state_synchronizer.verbose_level >= 1:
+                print('* Connecting to WS server: {}'.format(ws_endpoint))
             ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE}, skip_utf8_validation=True)
-            print('WS connection lost - will try connecting again in {} seconds'.format(self.reconnect_interval))
+            if self.state_synchronizer.verbose_level >= 1:
+                print('WS connection lost - will try connecting again in {} seconds'.format(self.reconnect_interval))
             time.sleep(self.reconnect_interval)
     
 
@@ -167,7 +172,8 @@ class RequestStateThread(threading.Thread):
 
     def run(self):
         asyncio.set_event_loop(asyncio.new_event_loop())
-        print('* Starting loop to request state')
+        if self.state_synchronizer.verbose_level >= 1:
+            print('* Starting loop to request state')
         while True:
             time.sleep(1.0/state_request_hz)
             if self.state_synchronizer.should_request_full_state:
@@ -192,21 +198,18 @@ class StateSynchronizer(object):
     app = None
 
     use_websockets = True
+    verbose_level = None
 
-    verbose = False
-
-    def __init__(self, 
-                 app, 
+    def __init__(self,
                  osc_ip=None,
                  osc_port_send=None,
                  osc_port_receive=None,
-                 ws_port=None,
-                 verbose=True):
-        self.app = app
-        
+                 ws_port=8126,
+                 verbose_level=1):
+
         global ss_instance
         ss_instance = self
-        self.verbose = verbose
+        self.verbose_level = verbose_level
 
         if (osc_port_receive is None or osc_port_send is None or osc_ip is None) is None and ws_port is None:
             raise Exception('OSC/WS ports are not properly configured')
@@ -215,16 +218,19 @@ class StateSynchronizer(object):
             self.use_websockets = False
 
         if not self.use_websockets:
-            print('* Using OSC to communicate with app')
+            if self.verbose_level >= 1:
+                print('* Using OSC to communicate with app')
 
             # Start OSC receiver to receive OSC messages from the app
             OSCReceiverThread(osc_port_receive, self).start()
             
             # Start OSC client to send OSC messages to app
             self.osc_client = OSCClient(osc_ip, osc_port_send, encoding='utf8')
-            print('* Sending OSC messages in port {}'.format(osc_port_send))
+            if self.verbose_level >= 1:
+                print('* Sending OSC messages in port {}'.format(osc_port_send))
         else:
-            print('* Using WebSockets to communicate with app')
+            if self.verbose_level >= 1:
+                print('* Using WebSockets to communicate with app')
 
             # Start websockets client to handle communication with app
         WSConnectionThread(ws_port, self).start()
@@ -265,13 +271,14 @@ class StateSynchronizer(object):
             self.full_state_requested = False
 
         if not self.full_state_requested and not self.app_may_be_down():
-            print('* Requesting full state')
+            if self.verbose_level >= 2:
+                print('* Requesting full state')
             self.full_state_requested = True
             self.last_time_full_state_requested = time.time()
             self.send_msg_to_app('/get_state', ["full"])
 
     def set_full_state(self, update_id, full_state_raw):
-        if self.verbose:
+        if self.verbose_level >= 2:
             print("Receiving full state with update id {}".format(update_id))
         full_state_soup = BeautifulSoup(full_state_raw, "lxml")
         self.full_state_requested = False
@@ -279,13 +286,15 @@ class StateSynchronizer(object):
         self.on_full_state_received(full_state_soup)
 
     def apply_update(self, update_id, update_type, update_data):
-        if self.verbose:
+        if self.verbose_level >= 2:
             print("Applying state update {} - {}".format(update_id, update_type))
         self.on_state_update(update_type, update_data)
 
         # Check if update ID is correct and trigger request of full state if there are possible sync errors
         if self.last_update_id != -1 and self.last_update_id + 1 != update_id:
-            print('WARNING: last_update_id does not match with recieved update ({} vs {})'.format(self.last_update_id + 1, update_id))
+            if self.verbose_level >= 2:
+                print('WARNING: last_update_id does not match with received update ({} vs {})'
+                      .format(self.last_update_id + 1, update_id))
             self.should_request_full_state = True
         self.last_update_id = update_id
     

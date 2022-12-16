@@ -2,12 +2,8 @@ import definitions
 import mido
 import push2_python
 import time
-import math
-import json
-import os
 
-from definitions import ShepherdControllerMode
-from display_utils import show_text
+from utils import show_text
 
 
 NAME_STRING_1 = 'String\n1'
@@ -584,7 +580,7 @@ tone_selector_values = {  # (MIDI CC for upper row, MIDI CC for lower row, MIDI 
                     (66, 92, 126)]}
 
 
-class DDRMToneSelectorMode(ShepherdControllerMode):
+class DDRMToneSelectorMode(definitions.ShepherdControllerMode):
 
     upper_row_button_names = [
         push2_python.constants.BUTTON_UPPER_ROW_1,

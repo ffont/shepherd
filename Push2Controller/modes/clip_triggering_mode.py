@@ -1,8 +1,7 @@
 import definitions
 import push2_python
-import time
 
-from display_utils import show_text, show_rectangle, draw_clip
+from utils import show_text, draw_clip
 
 
 class ClipTriggeringMode(definitions.ShepherdControllerMode):

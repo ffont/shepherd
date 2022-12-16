@@ -3,8 +3,7 @@ import push2_python
 import random
 import math
 
-from display_utils import show_title, show_value, draw_clip
-from utils import clamp, clamp01
+from utils import show_title, show_value, draw_clip, clamp, clamp01
 
 
 class GeneratorAlogorithm(object):

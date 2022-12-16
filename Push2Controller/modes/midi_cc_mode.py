@@ -1,13 +1,9 @@
 import definitions
-import mido
 import push2_python
-import time
 import math
-import json
-import os
 
-from definitions import ShepherdControllerMode, OFF_BTN_COLOR
-from display_utils import show_text
+from definitions import ShepherdControllerMode
+from utils import show_text
 
 
 class MIDICCControl(object):

@@ -1,12 +1,9 @@
 import definitions
-import mido
 import push2_python
-import time
-import math
 import os
 import json
 
-from display_utils import show_text
+from utils import show_text
 
 
 class TrackSelectionMode(definitions.ShepherdControllerMode):

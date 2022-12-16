@@ -4,17 +4,10 @@ import threading
 
 from flask import Flask, render_template
 
-
 state_debugger_port = 5100
 state_debugger_autoreload_ms = 1000
-disable_flask_logging = True
-
 state_debugger_server = Flask(__name__)
 ss_instance = None
-
-if disable_flask_logging:
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
 
 
 @state_debugger_server.route('/')
@@ -45,6 +38,9 @@ def start_state_debugger(_ss_instance, port=5100):
     global ss_instance
     ss_instance = _ss_instance
     StateDebuggerServerThread(port).start()
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+
 
 
 

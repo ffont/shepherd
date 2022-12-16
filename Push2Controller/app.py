@@ -3,6 +3,7 @@ import os
 import time
 import traceback
 import subprocess
+import sys
 
 import cairo
 import definitions
@@ -23,11 +24,14 @@ from modes.main_controls_mode import MainControlsMode
 from modes.midi_cc_mode import MIDICCMode
 from modes.preset_selection_mode import PresetSelectionMode
 from modes.ddrm_tone_selector_mode import DDRMToneSelectorMode
-from pyshepherd.pyshepherd import ShepherdBackendInterface
-from display_utils import show_notification
+from utils import show_notification
+
+# Add parent directory to python path and import pyshepherd
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from pyshepherd.pyshepherd import ShepherdBackendInterface, ShepherdBackendControllerApp
 
 
-class ShepherdControllerApp(object):
+class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
     # midi
     available_midi_in_device_names = []
     notes_midi_in = None  # MIDI input device only used to receive note messages and illuminate pads/keys
@@ -62,7 +66,7 @@ class ShepherdControllerApp(object):
     # interface with shepherd
     shepherd_interface = None
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
 
         # Start push
         settings = self.load_settings_from_file()
@@ -79,9 +83,8 @@ class ShepherdControllerApp(object):
 
         time.sleep(0.5)  # Give some time for push to initialize and backend (if need be)
 
-        # Start shepherd interface
-        print('INITIALIZING INTERFACE')
-        self.shepherd_interface = ShepherdBackendInterface(self, ws_port=8126, verbose=False, debugger_port=5100)
+        # Start shepherd interface (do that by calling the super class method)
+        super().__init__(*args, **kwargs)
 
         # NOTE: app modes will be initialized once first state has been received
 
@@ -818,7 +821,7 @@ def on_midi_connected(_):
 
 # Run app main loop
 if __name__ == "__main__":
-    app = ShepherdControllerApp()
+    app = ShepherdPush2ControllerApp()
     if midi_connected_received_before_app:
         # App received the "on_midi_connected" call before it was initialized. Do it now!
         print('Missed MIDI initialization call, doing it now...')

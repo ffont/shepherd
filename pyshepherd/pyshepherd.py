@@ -7,6 +7,9 @@ from bs4 import BeautifulSoup
 from .state_synchronizer import StateSynchronizer
 from .state_debugger import start_state_debugger
 
+verbose_level = 0
+
+
 parameters_types = {
     'allowaftertouchmessages': bool,
     'allowchannelpressuremessages': bool,
@@ -78,7 +81,8 @@ def backend_value_to_python_value(attr_name, value):
         elif attr_type == str:
             return value
         elif attr_type is None:
-            print('WARNING: unknown parameter {} of received type {}'.format(attr_name, type(value)))
+            if verbose_level >= 1:
+                print('WARNING: unknown parameter {} of received type {}'.format(attr_name, type(value)))
             return value
     except Exception as e:
         raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
@@ -221,14 +225,16 @@ class Session(BaseShepherdClass):
         try:
             return self.tracks[track_idx]
         except Exception as e:
-            print('ERROR selecting track: {}'.format(e))
+            if verbose_level >= 1:
+                print('ERROR selecting track: {}'.format(e))
         return None
 
     def get_clip_by_idx(self, track_idx=None, clip_idx=None):
         try:
             return self.tracks[track_idx].clips[clip_idx]
         except Exception as e:
-            print('ERROR selecting track: {}'.format(e))
+            if verbose_level >= 1:
+                print('ERROR selecting track: {}'.format(e))
         return None
 
     def save(self, save_session_name):
@@ -545,19 +551,22 @@ class HardwareDevice(BaseShepherdClass):
 
 class ShepherdBackendInterface(StateSynchronizer):
 
+    app = None
     state = None
     elements_uuids_map = {}
     showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface
 
     def __init__(self, *args, **kwargs):
+        self.app = kwargs.get('app', None)
+        if 'app' in kwargs: del kwargs['app']
         debugger_port = kwargs.get('debugger_port', None)
-        try:
-            del kwargs['debugger_port']
-        except:
-            pass
+        if 'debugger_port' in kwargs: del kwargs['debugger_port']
         super().__init__(*args, **kwargs)
         if debugger_port is not None:
             start_state_debugger(self, debugger_port)
+
+        global verbose_level
+        verbose_level = self.verbose_level
 
     def add_element_to_uuid_map(self, element):
         self.elements_uuids_map[element.uuid] = element
@@ -568,8 +577,14 @@ class ShepherdBackendInterface(StateSynchronizer):
     def get_element_with_uuid(self, uuid):
         return self.elements_uuids_map[uuid]
 
+    def app_has_started(self):
+        super().app_has_started()
+        if self.app is not None:
+            self.app.on_backend_connected()
+
     def app_connection_lost(self):
-        self.app.on_backend_connection_lost()
+        if self.app is not None:
+            self.app.on_backend_connection_lost()
 
     def on_state_update(self, update_type, update_data):
         if self.state is None:
@@ -605,8 +620,9 @@ class ShepherdBackendInterface(StateSynchronizer):
                                 self.showing_countin_message = False
 
                 except KeyError as e:
-                    print('WARNING: triying to update property of object that does not exist: {} ({})'
-                          .format(update_data, e))
+                    if self.verbose_level >= 1:
+                        print('WARNING: trying to update property of object that does not exist: {} ({})'
+                              .format(update_data, e))
                     self.should_request_full_state = True
 
             elif update_type == "addedChild":
@@ -632,10 +648,14 @@ class ShepherdBackendInterface(StateSynchronizer):
                         parent_tree_element.add_hardware_device(hardware_device, position=index_in_parent_childs)
                         self.add_element_to_uuid_map(hardware_device)
                     else:
-                        print('WARNING: trying to add child of a type that can\'t be handled: {}'.format(child_soup))
+                        if self.verbose_level >= 1:
+                            print('WARNING: trying to add child of a type that can\'t be handled: {}'
+                                  .format(child_soup))
 
                 except KeyError as e:
-                    print('WARNING: triying to add child to parent that does not exist: {} ({})'.format(update_data, e))
+                    if self.verbose_level >= 1:
+                        print('WARNING: trying to add child to parent that does not exist: {} ({})'
+                              .format(update_data, e))
                     self.should_request_full_state = True
                     raise e
             
@@ -652,22 +672,26 @@ class ShepherdBackendInterface(StateSynchronizer):
                     elif isinstance(tree_element, HardwareDevice):
                         self.state.remove_hardware_device_with_uuid(child_to_remove_tree_uuid)
                     else:
-                        print('WARNING: Trying to remove element of a type that can\'t be handled: {}'
-                              .format(tree_element))
+                        if self.verbose_level >= 1:
+                            print('WARNING: Trying to remove element of a type that can\'t be handled: {}'
+                                  .format(tree_element))
                     self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
                 except KeyError as e:
-                    print('WARNING: triying to remove child with uuid that does not exist: {} ({})'
-                          .format(update_data, e))
+                    if self.verbose_level >= 1:
+                        print('WARNING: triying to remove child with uuid that does not exist: {} ({})'
+                              .format(update_data, e))
                     self.should_request_full_state = True
 
         # Notify app that state was updated
-        self.app.on_state_update_received()
+        if self.app is not None:
+            self.app.on_state_update_received()
 
     def on_full_state_received(self, full_state_soup):
         self.build_objects_from_full_state(full_state_soup)
 
         # Notify app that new state has been fully loaded
-        self.app.on_backend_state_ready()
+        if self.app is not None:
+            self.app.on_backend_state_ready()
 
     def build_objects_from_full_state(self, full_state_soup):
         self.elements_uuids_map = {}
@@ -704,3 +728,42 @@ class ShepherdBackendInterface(StateSynchronizer):
         self.state.session = session
 
         self.state.send_controller_ready_message_to_backend()
+
+
+class ShepherdBackendControllerApp(object):
+
+    shepherd_interface = None
+
+    def __init__(self, ws_port=8126, verbose_level=1, debugger_port=5100):
+        self.shepherd_interface = ShepherdBackendInterface(app=self,
+                                                           ws_port=ws_port,
+                                                           verbose_level=verbose_level,
+                                                           debugger_port=debugger_port)
+
+    @property
+    def state(self):
+        try:
+            return self.shepherd_interface.state
+        except AttributeError as e:
+            pass
+        return None
+
+    @property
+    def session(self):
+        try:
+            return self.shepherd_interface.state.session
+        except AttributeError as e:
+            pass
+        return None
+
+    def on_backend_connected(self):
+        pass
+
+    def on_backend_connection_lost(self):
+        pass
+
+    def on_backend_state_ready(self):
+        pass
+
+    def on_state_update_received(self):
+        pass
