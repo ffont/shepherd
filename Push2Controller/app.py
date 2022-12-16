@@ -417,7 +417,7 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
             self.last_attempt_configuring_notes_in = time.time()
             if self.shepherd_interface.state is not None:
                 try:
-                    self.init_notes_midi_in(device_name=self.shepherd_interface.state.notesmonitoringdevicename)
+                    self.init_notes_midi_in(device_name=self.shepherd_interface.state.notes_monitoring_device_name)
                 except Exception as e:
                     print('Can\'t get information about which notes midi in device to configure: {}'.format(str(e)))
 

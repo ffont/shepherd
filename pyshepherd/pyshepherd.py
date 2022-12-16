@@ -71,6 +71,18 @@ parameters_types = {
 }
 
 
+def modified_prop_name(attr_name):
+    if attr_name in [
+        'uuid',
+        'datalocation',
+        'renderwithinternalsynth',
+        'notesmonitoringdevicename',
+    ]:
+        return '_' + attr_name
+    else:
+        return attr_name
+
+
 def backend_value_to_python_value(attr_name, value):
     attr_type = parameters_types.get(attr_name, None)
     try:
@@ -94,6 +106,10 @@ class BaseShepherdClass(object):
 
     _parent = None
 
+    @property
+    def uuid(self) -> str:
+        return self._uuid
+
     def __init__(self, soup, shepherd_backend_interface, parent=None):
         # Set parent
         self._parent = parent
@@ -103,7 +119,7 @@ class BaseShepherdClass(object):
 
         # Set initial attributes and methods to set these attributes in the backend
         for attr_name, value in soup.attrs.items():
-            setattr(self, attr_name, backend_value_to_python_value(attr_name, value))
+            setattr(self, modified_prop_name(attr_name), backend_value_to_python_value(attr_name, value))
     
     def _send_msg_to_app(self, address, values):
         self.shepherd_backend_interface.send_msg_to_app(address, values)
@@ -114,8 +130,8 @@ class BaseShepherdClass(object):
             if not attr_name.startswith('_') \
                     and not callable(getattr(self, attr_name)) \
                     and not type(getattr(self, attr_name)) == list \
+                    and not attr_name.startswith('_') \
                     and attr_name != 'shepherd_backend_interface' \
-                    and attr_name != '_parent' \
                     and attr_name != 'track' \
                     and attr_name != 'clip' \
                     and attr_name != 'state' \
@@ -127,6 +143,18 @@ class BaseShepherdClass(object):
 class State(BaseShepherdClass):
     hardware_devices: List[HardwareDevice] = []
     session = None
+
+    @property
+    def data_location(self):
+        return self._datalocation
+
+    @property
+    def notes_monitoring_device_name(self):
+        return self._notesmonitoringdevicename
+
+    @property
+    def render_with_internal_synth(self):
+        return self._renderwithinternalsynth
 
     def __init__(self, *args, **kwargs):
         self.hardware_devices = []
@@ -206,6 +234,10 @@ class Session(BaseShepherdClass):
     @property
     def state(self):
         return self._parent
+
+    @property
+    def name_(self):
+        return self.name
 
     def __init__(self, *args, **kwargs):
         self.tracks = []
@@ -616,7 +648,8 @@ class ShepherdBackendInterface(StateSynchronizer):
 
                     if hasattr(tree_element, property_name):
                         old_value = getattr(tree_element, property_name, None)
-                        setattr(tree_element, property_name, backend_value_to_python_value(property_name, new_value))
+                        setattr(tree_element, modified_prop_name(property_name),
+                                backend_value_to_python_value(property_name, new_value))
                         app_notification_data = {
                             'updateType': update_type,
                             'affectedElement': tree_element,

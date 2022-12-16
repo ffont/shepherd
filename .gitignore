@@ -9,3 +9,4 @@ __pycache__/
 make_and_run_shepherd.sh
 shepherd.code-workspace
 .idea
+test.py
