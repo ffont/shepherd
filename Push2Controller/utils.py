@@ -129,28 +129,28 @@ def draw_clip(ctx,
     height = display_h * height_percentage
 
     if highglight_notes_beat_frame is not None:
-        displaybeatslength = max(clip.cliplengthinbeats, highglight_notes_beat_frame[3])
+        displaybeatslength = max(clip.clip_length_in_beats, highglight_notes_beat_frame[3])
     else:
-        displaybeatslength = clip.cliplengthinbeats
+        displaybeatslength = clip.clip_length_in_beats
 
     if background_color is not None:
         show_rectangle(ctx, xoffset_percentage, yoffset_percentage, width_percentage, height_percentage, background_color=background_color)
     
-    rendered_notes = [event for event in clip.sequence_events if event.is_type_note() and event.renderedstarttimestamp >= 0.0]
-    all_midinotes = [int(note.midinote) for note in rendered_notes]
-    playhead_position_percentage = clip.playheadpositioninbeats/displaybeatslength
+    rendered_notes = [event for event in clip.sequence_events if event.is_type_note() and event.rendered_start_timestamp >= 0.0]
+    all_midinotes = [int(note.midi_note) for note in rendered_notes]
+    playhead_position_percentage = clip.playhead_position_in_beats/displaybeatslength
 
     if len(all_midinotes) > 0:
         min_midinote = min(all_midinotes)
         max_midinote = max(all_midinotes) + 1  # Add 1 to highest note does not fall outside of screen
         note_height = height / (max_midinote - min_midinote)
         for note in rendered_notes:
-            note_height_percentage =  (int(note.midinote) - min_midinote) / (max_midinote - min_midinote)
-            note_start_percentage = float(note.renderedstarttimestamp) / displaybeatslength
-            note_end_percentage = float(note.renderedendtimestamp) / displaybeatslength
+            note_height_percentage =  (int(note.midi_note) - min_midinote) / (max_midinote - min_midinote)
+            note_start_percentage = float(note.rendered_start_timestamp) / displaybeatslength
+            note_end_percentage = float(note.rendered_end_timestamp) / displaybeatslength
             if note_start_percentage <= note_end_percentage:  
                 # Note does not wrap across clip boundaries, draw 1 rectangle  
-                if (note_start_percentage <= playhead_position_percentage <= note_end_percentage + 0.05) and clip.playheadpositioninbeats != 0.0: 
+                if (note_start_percentage <= playhead_position_percentage <= note_end_percentage + 0.05) and clip.playhead_position_in_beats != 0.0: 
                     color = highlight_color
                     alpha = 1.0
                 else:
@@ -163,7 +163,7 @@ def draw_clip(ctx,
                 show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color, alpha=alpha)
             else:
                 # Draw "2 rectangles", one from start of note to end of section, and one from start of section to end of note
-                if (note_start_percentage <= playhead_position_percentage or (playhead_position_percentage <= note_end_percentage + 0.05 and note_end_percentage != 0.0)) and clip.playheadpositioninbeats != 0.0: 
+                if (note_start_percentage <= playhead_position_percentage or (playhead_position_percentage <= note_end_percentage + 0.05 and note_end_percentage != 0.0)) and clip.playhead_position_in_beats != 0.0: 
                     color = highlight_color
                     alpha = 1.0
                 else:
@@ -172,7 +172,7 @@ def draw_clip(ctx,
 
                 x0_rel = (x + note_start_percentage * width) / display_w
                 y0_rel = (y - (note_height_percentage * height + note_height)) / display_h
-                width_rel = ((x + clip.cliplengthinbeats/displaybeatslength * width) / display_w) - x0_rel
+                width_rel = ((x + clip.clip_length_in_beats/displaybeatslength * width) / display_w) - x0_rel
                 height_rel = note_height / display_h
                 show_rectangle(ctx, x0_rel, y0_rel, width_rel, height_rel, background_color=color, alpha=alpha)
 

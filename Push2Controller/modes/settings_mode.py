@@ -209,7 +209,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 try:
                     track = self.session.tracks[i]
                     show_title(ctx, part_x, h, 'TRACK {}'.format(i+1))
-                    show_value(ctx, part_x, h, track.hardwaredevicename if len(track.hardwaredevicename) < 12 else '...{}'.format(track.hardwaredevicename[-9:]), color)
+                    show_value(ctx, part_x, h, track.output_hardware_device_name if len(track.output_hardware_device_name) < 12 else '...{}'.format(track.output_hardware_device_name[-9:]), color)
                 except:
                     pass
 
@@ -301,7 +301,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
             try:
                 track = self.session.tracks[track_num]
                 available_devices = self.state.get_available_output_hardware_device_names()
-                current_hw_device = track.hardwaredevicename
+                current_hw_device = track.output_hardware_device_name
                 current_hw_device_index = available_devices.index(current_hw_device)
                 next_device_name = available_devices[(current_hw_device_index + increment) % len(available_devices)]
                 track.set_output_hardware_device(next_device_name)
@@ -389,7 +389,7 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 try:
                     track = self.session.tracks[track_num]
                     available_devices = self.state.get_available_output_hardware_device_names()
-                    current_hw_device = track.hardwaredevicename
+                    current_hw_device = track.output_hardware_device_name
                     current_hw_device_index = available_devices.index(current_hw_device)
                     next_device_name = available_devices[current_hw_device_index + 1 % len(available_devices)]
                     track.set_output_hardware_device(next_device_name)

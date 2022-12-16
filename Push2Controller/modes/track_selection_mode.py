@@ -52,13 +52,13 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         return {}
 
     def get_all_distinct_device_short_names(self):
-        return list(set([track.hardwaredevicename for track in self.session.tracks]))
+        return list(set([track.output_hardware_device_name for track in self.session.tracks]))
 
     def get_current_track_device_info(self):
-        return self.devices_info.get(self.get_selected_track().hardwaredevicename, {})
+        return self.devices_info.get(self.get_selected_track().output_hardware_device_name, {})
 
     def get_current_track_device_short_name(self):
-        return self.get_selected_track().hardwaredevicename
+        return self.get_selected_track().output_hardware_device_name
     
     def get_track_color(self, i):
         return definitions.COLORS_NAMES[i % 8]
@@ -134,8 +134,8 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                 background_color = definitions.BLACK
                 font_color = track_color
             track = self.session.get_track_by_idx(i)
-            device_short_name = track.hardwaredevicename
-            if track.inputmonitoring:
+            device_short_name = track.output_hardware_device_name
+            if track.input_monitoring:
                 device_short_name = '+' + device_short_name
             show_text(ctx, i, h - height, device_short_name, height=height,
                     font_color=font_color, background_color=background_color)
@@ -147,7 +147,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
             if track is not None:
                 if long_press:
                     # Toggle input monitoring
-                    if track.inputmonitoring:
+                    if track.input_monitoring:
                         track.set_input_monitoring(False)
                     else:
                         track.set_input_monitoring(True)

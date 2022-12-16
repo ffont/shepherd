@@ -81,7 +81,7 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
         if run_backend_from_frontend:
             # If "run_backend_from_frontend" is set in settings.json as a command list to be
             # run by subprocess, do it (e.g. ["xvfb-run", "-a", "../Shepherd/Builds/LinuxMakefile/build/Shepherd"])
-            subprocess.Popen(run_backend_from_frontend)
+            pass#subprocess.Popen(run_backend_from_frontend)
 
         time.sleep(0.5)  # Give some time for push to initialize and backend (if need be)
 
@@ -116,10 +116,10 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
             property_name = update_data['propertyName']
             if update_data['affectedElement'] == self.session and (property_name == 'playheadpositioninbeats' or
                                                                    property_name == 'countinplayheadpositioninbeats'):
-                if self.session.doingcountin:
+                if self.session.doing_count_in:
                     self.showing_countin_message = True
                     self.add_display_notification("Will start recording in: {0:.0f}"
-                                                  .format(math.ceil(4 - self.session.countinplayheadpositioninbeats)))
+                                                  .format(math.ceil(4 - self.session.count_in_playhead_position_in_beats)))
                 else:
                     if self.showing_countin_message:
                         self.clear_display_notification()

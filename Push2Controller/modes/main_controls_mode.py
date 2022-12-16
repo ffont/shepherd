@@ -33,7 +33,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.update_buttons()
 
     def get_transport_buttons_state(self):
-        is_playing = self.session.isplaying
+        is_playing = self.session.is_playing
         is_recording = False
         for track in self.session.tracks:
             for clip in track.clips:
@@ -41,7 +41,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
                 if 'r' in clip_state or 'w' in clip_state or 'W' in clip_state:
                     is_recording = True
                     break
-        metronome_on = self.session.metronomeon
+        metronome_on = self.session.metronome_on
         return is_playing, is_recording, metronome_on
 
     def update_buttons(self):
@@ -78,11 +78,11 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.set_button_color(self.tap_tempo_button)
 
         # Fixed length button
-        fixed_length_amount = self.session.fixedlengthrecordingbars
+        fixed_length_amount = self.session.fixed_length_recording_bars
         self.set_button_color_if_expression(self.fixed_length_button, fixed_length_amount > 0.0, animation=definitions.DEFAULT_ANIMATION)
         
         # Record automation button
-        record_automation_enabled = self.session.recordautomationenabled
+        record_automation_enabled = self.session.record_automation_enabled
         self.set_button_color_if_expression(self.record_automation_button, record_automation_enabled, color=definitions.RED)
 
     def global_record(self):
@@ -141,7 +141,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         elif button_name == self.metronome_button:
             self.session.metronome_on_off()
             self.app.add_display_notification(
-                "Metronome: {0}".format('On' if not self.session.metronomeon else 'Off'))
+                "Metronome: {0}".format('On' if not self.session.metronome_on else 'Off'))
             return True  
 
         elif button_name == self.tap_tempo_button:
@@ -161,7 +161,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             if long_press:
                 next_fixed_length = 0
             else:
-                current_fixed_length = self.session.fixedlengthrecordingbars
+                current_fixed_length = self.session.fixed_length_recording_bars
                 next_fixed_length = current_fixed_length + 1
                 if next_fixed_length > 8:
                     next_fixed_length = 0

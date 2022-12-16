@@ -177,7 +177,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def adjust_pads_to_sequence(self):
         # Auto adjust pads_min_note_offset, etc
         if self.clip.sequence_events:
-            self.pads_min_note_offset = min([event.midinote for event in self.clip.sequence_events if event.is_type_note()])
+            self.pads_min_note_offset = min([event.midi_note for event in self.clip.sequence_events if event.is_type_note()])
         else:
             self.pads_min_note_offset = 64
         self.pads_pad_beats_offset = 0.0
@@ -202,8 +202,8 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         midi_note, start_time = self.pad_ij_to_note_beat(pad_ij)
         end_time = start_time + self.pads_pad_beat_scale
         notes = [event for event in self.clip.sequence_events if event.is_type_note() and 
-                                                                 start_time <= event.renderedstarttimestamp <= end_time and
-                                                                 event.midinote == midi_note]
+                                                                 start_time <= event.rendered_start_timestamp <= end_time and
+                                                                 event.midi_note == midi_note]
         return notes
 
     def beats_to_pad(self, beats):
@@ -211,16 +211,16 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
     def notes_to_pads(self):
         notes = [event for event in self.clip.sequence_events if event.is_type_note() and 
-                                                                 (event.renderedstarttimestamp < self.end_displayed_time or event.renderedendtimestamp > self.start_displayed_time) and
-                                                                 self.pads_min_note_offset <= event.midinote < self.pads_min_note_offset + 8]
+                                                                 (event.rendered_start_timestamp < self.end_displayed_time or event.renderedendtimestamp > self.start_displayed_time) and
+                                                                 self.pads_min_note_offset <= event.midi_note < self.pads_min_note_offset + 8]
         notes_to_display = []
         for event in notes:
-            duration = event.renderedendtimestamp - event.renderedstarttimestamp
+            duration = event.rendered_end_timestamp - event.rendered_start_timestamp
             if duration < 0.0:
-                duration = duration + self.clip.cliplengthinbeats
+                duration = duration + self.clip.clip_length_in_beats
             notes_to_display.append({
-                'pad_start_ij': (7 - (event.midinote - self.pads_min_note_offset), 
-                                int(math.floor((event.renderedstarttimestamp - self.pads_pad_beats_offset)/(self.pads_pad_beat_scale)))),
+                'pad_start_ij': (7 - (event.midi_note - self.pads_min_note_offset), 
+                                int(math.floor((event.rendered_start_timestamp - self.pads_pad_beats_offset)/(self.pads_pad_beat_scale)))),
                 'duration_n_pads': int(math.ceil((duration) / self.pads_pad_beat_scale)),
                 'is_selected_in_note_edit_mode': event.uuid == self.selected_event_uuid
             })
@@ -258,7 +258,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         return color_matrix, animation_matrix
 
     def quantize_helper(self):
-        current_quantization_step = self.clip.currentquantizationstep
+        current_quantization_step = self.clip.current_quantization_step
         if (current_quantization_step == 0.0):
             next_quantization_step = 4.0/16.0
         elif (current_quantization_step == 4.0/16.0):
@@ -294,7 +294,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
                     # Slot 2, clip length
                     show_title(ctx, part_w * 1, h, 'LENGTH')
-                    show_value(ctx, part_w * 1, h, '{:.1f}'.format(self.clip.cliplengthinbeats))
+                    show_value(ctx, part_w * 1, h, '{:.1f}'.format(self.clip.clip_length_in_beats))
 
                     # Slot 3, quantization
                     show_title(ctx, part_w * 2, h, 'QUANTIZATION')
@@ -304,7 +304,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                         1.0: '4th note',
                         0.0: '-'
                     }
-                    show_value(ctx, part_w * 2, h, '{}'.format(quantization_step_labels.get(self.clip.currentquantizationstep, self.clip.currentquantizationstep)))
+                    show_value(ctx, part_w * 2, h, '{}'.format(quantization_step_labels.get(self.clip.current_quantization_step, self.clip.current_quantization_step)))
 
                     # Slot 4, view scale
                     show_title(ctx, part_w * 3, h, 'VIEW SCALE')
@@ -314,7 +314,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 if self.event is not None and self.event.is_type_note():
                     # Slot 1, midi note
                     show_title(ctx, part_w * 0, h, 'NOTE')
-                    show_value(ctx, part_w * 0, h, self.event.midinote)
+                    show_value(ctx, part_w * 0, h, self.event.midi_note)
 
                     # Slot 2, timesatamp
                     show_title(ctx, part_w * 1, h, 'START')
@@ -346,7 +346,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
             # For all modes, slots 6-8 show clip preview
             if self.mode != self.MODE_GENERATOR or (self.mode == self.MODE_GENERATOR and len(self.generator_algorithm.get_algorithm_parameters()) <= 3):
-                if self.clip.cliplengthinbeats > 0.0:
+                if self.clip.clip_length_in_beats > 0.0:
                     highglight_notes_beat_frame = (
                         self.pads_min_note_offset,
                         self.pads_min_note_offset + 8,
@@ -355,7 +355,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     )
                     draw_clip(ctx, self.clip, frame=(5.0/8.0, 0.0, 3.0/8.0, 0.87), highglight_notes_beat_frame=highglight_notes_beat_frame, event_color=track_color + '_darker1', highlight_color=track_color)
                 
-            beas_to_pad = self.beats_to_pad(self.clip.playheadpositioninbeats)
+            beas_to_pad = self.beats_to_pad(self.clip.playhead_position_in_beats)
             if 0 <= beas_to_pad <= 7 and beas_to_pad is not self.last_beats_to_pad:
                 # If clip is playing, trigger re-drawing pads when playhead position advances enough
                 self.update_pads()
@@ -390,7 +390,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
             self.set_button_color_if_pressed(push2_python.constants.BUTTON_QUANTIZE, animation=definitions.DEFAULT_ANIMATION)
             self.set_button_color_if_pressed(push2_python.constants.BUTTON_DELETE, animation=definitions.DEFAULT_ANIMATION)
 
-            if self.clip.recording or self.clip.willstartrecordingat > -1.0:
+            if self.clip.recording or self.clip.will_start_recording_at > -1.0:
                 if self.clip.recording:
                     self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.RED)
                 else:
@@ -399,7 +399,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.WHITE)
 
             track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
-            if self.clip.playing or self.clip.willplayat > -1.0:
+            if self.clip.playing or self.clip.will_play_at > -1.0:
                 if self.clip.playing:
                     self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, track_color)
                 else:
@@ -449,7 +449,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         color_matrix, animation_matrix = self.notes_to_pads() 
         if self.clip.playing:
             # If clip is playing, draw playhead
-            beats_to_pad = self.beats_to_pad(self.clip.playheadpositioninbeats)
+            beats_to_pad = self.beats_to_pad(self.clip.playhead_position_in_beats)
             if 0 <= beats_to_pad <= 7:
                 self.last_beats_to_pad = beats_to_pad
                 for i in range(0, 8):
@@ -536,7 +536,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 # Create a new note
                 midi_note, timestamp = self.pad_ij_to_note_beat(pad_ij)
                 self.clip.add_sequence_note_event(midi_note, velocity / 127, timestamp, self.pads_pad_beat_scale)
-                if timestamp + self.pads_pad_beat_scale > self.clip.cliplengthinbeats:
+                if timestamp + self.pads_pad_beat_scale > self.clip.clip_length_in_beats:
                     # If adding a not beyond current clip length
                     self.clip.set_length(math.ceil(timestamp + self.pads_pad_beat_scale))
             else:
@@ -569,7 +569,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 return True  # Don't trigger this encoder moving in any other mode
                 
             elif encoder_name == push2_python.constants.ENCODER_TRACK2_ENCODER:
-                new_length = self.clip.cliplengthinbeats + increment
+                new_length = self.clip.clip_length_in_beats + increment
                 if new_length < 1.0:
                     new_length = 1.0
                 self.clip.set_length(new_length)
@@ -590,7 +590,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         elif self.mode == self.MODE_EVENT:
             if self.event is not None and self.event.is_type_note():
                 if encoder_name == push2_python.constants.ENCODER_TRACK1_ENCODER:
-                    self.event.set_midi_note(self.event.midinote + increment)
+                    self.event.set_midi_note(self.event.midi_note + increment)
                     return True  # Don't trigger this encoder moving in any other mode
                 elif encoder_name == push2_python.constants.ENCODER_TRACK3_ENCODER:
                     if not shift:
@@ -604,8 +604,8 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                         new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.session.meter)))/1000.0
                     else:
                         new_timestamp = round(1000.0 * (self.event.timestamp + increment/(self.session.meter*2)))/1000.0
-                    new_timestamp = clamp(new_timestamp, 0.0, self.clip.cliplengthinbeats)
-                    if new_timestamp == self.clip.cliplengthinbeats:
+                    new_timestamp = clamp(new_timestamp, 0.0, self.clip.clip_length_in_beats)
+                    if new_timestamp == self.clip.clip_length_in_beats:
                         new_timestamp = 0.0
                     self.event.set_timestamp(new_timestamp)
                     return True  # Don't trigger this encoder moving in any other mode

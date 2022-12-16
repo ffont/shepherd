@@ -56,11 +56,11 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 clip_state = clip.get_status()
                 if 'p' in clip_state or 'C' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
-                    playhead_position = clip.playheadpositioninbeats
+                    playhead_position = clip.playhead_position_in_beats
                     current_track_playing_clips_info.append((clip_num, clip_length, playhead_position, clip))
                 if 'c' in clip_state:
                     clip_length = float(clip_state.split('|')[1])
-                    playhead_position = clip.playheadpositioninbeats
+                    playhead_position = clip.playhead_position_in_beats
                     current_track_will_play_clips_info.append((clip_num, clip_length, playhead_position, clip))
             if current_track_playing_clips_info:
                 if not track_num in playing_clips_info:
@@ -246,7 +246,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
 
                     elif self.app.is_button_being_pressed(self.quantize_button):
                         if not clip.is_empty():
-                            current_quantization_step = clip.currentquantizationstep
+                            current_quantization_step = clip.current_quantization_step
                             if (current_quantization_step == 0.0):
                                 next_quantization_step = 4.0/16.0
                             elif (current_quantization_step == 4.0/16.0):
