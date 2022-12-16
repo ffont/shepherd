@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import time
 import traceback
@@ -54,6 +55,7 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
     active_modes_need_reactivate = False
     pads_need_update = True
     buttons_need_update = True
+    showing_countin_message = False
 
     # notifications
     notification_text = None
@@ -106,11 +108,26 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
         # In this way we will try re-connecting until it is ready again
         self.notes_midi_in = None
 
-    def on_state_update_received(self):
+    def on_state_update_received(self, update_data):
         if self.shepherd_interface.state is None or not self.modes_initialized: return
+
+        # Check if playhead is changing while doing count in, and show notification message
+        if update_data['updateType'] == 'propertyChanged':
+            property_name = update_data['propertyName']
+            if update_data['affectedElement'] == self.session and (property_name == 'playheadpositioninbeats' or
+                                                                   property_name == 'countinplayheadpositioninbeats'):
+                if self.session.doingcountin:
+                    self.showing_countin_message = True
+                    self.add_display_notification("Will start recording in: {0:.0f}"
+                                                  .format(math.ceil(4 - self.session.countinplayheadpositioninbeats)))
+                else:
+                    if self.showing_countin_message:
+                        self.clear_display_notification()
+                        self.showing_countin_message = False
+
         # Trigger re-activation of modes in case pads need to be updated
-        # TODO: this should be optimized, and the different modes should "subscribe" to object changes so they know
-        #  when they need to update
+        # TODO: this should be optimized, we should interpret update_data in an intelligent way and decide
+        # TODO: what to update from every state to avoid doing more work than necessary
         self.active_modes_need_reactivate = True
 
     def init_modes(self, settings):

@@ -1,5 +1,4 @@
 import json
-import math
 import mido
 
 from bs4 import BeautifulSoup
@@ -554,7 +553,6 @@ class ShepherdBackendInterface(StateSynchronizer):
     app = None
     state = None
     elements_uuids_map = {}
-    showing_countin_message = False  # This should be removed from here and move to somewhere in app/shepherd_interface
 
     def __init__(self, *args, **kwargs):
         self.app = kwargs.get('app', None)
@@ -591,34 +589,30 @@ class ShepherdBackendInterface(StateSynchronizer):
             # If we don't have a session built, request new full state and ignore current state update
             self.should_request_full_state = True
         else:
+            app_notification_data = None
             if update_type == "propertyChanged":
                 tree_uuid = update_data[0]
                 try:
                     tree_element = self.get_element_with_uuid(tree_uuid)
                     property_name = update_data[2].lower()
                     new_value = update_data[3]
+
                     if hasattr(tree_element, property_name):
+                        old_value = getattr(tree_element, property_name, None)
                         setattr(tree_element, property_name, backend_value_to_python_value(property_name, new_value))
+                        app_notification_data = {
+                            'updateType': update_type,
+                            'affectedElement': tree_element,
+                            'propertyName': property_name,
+                            'oldValue': old_value,
+                            'newValue': new_value,
+                        }
                     else:
                         raise Exception('Trying to update state value for an attribute that does not exist '
                                         '({} of object {})'.format(property_name, tree_element.uuid))
                     # If we are trying to update an attribute that does not exist (or an element that does not exist),
                     # this will raise an error. This is to be expected as we should never get here trying to update
                     # an attribute/element that does not exist
-
-                    # TODO: the code below is app-specific code that should not be implemented here but with some sort
-                    #  of property listener somehwere in app or shepherd interface
-                    if property_name == 'playheadpositioninbeats' or property_name == 'countinplayheadpositioninbeats':
-                        if self.state.session.doingcountin:
-                            self.showing_countin_message = True
-                            self.app.add_display_notification(
-                                "Will start recording in: {0:.0f}"
-                                    .format(math.ceil(4 - self.state.session.countinplayheadpositioninbeats)))
-                        else:
-                            if self.showing_countin_message:
-                                self.app.clear_display_notification()
-                                self.showing_countin_message = False
-
                 except KeyError as e:
                     if self.verbose_level >= 1:
                         print('WARNING: trying to update property of object that does not exist: {} ({})'
@@ -629,29 +623,34 @@ class ShepherdBackendInterface(StateSynchronizer):
                 parent_tree_uuid = update_data[0]
                 try:
                     parent_tree_element = self.get_element_with_uuid(parent_tree_uuid)
+                    added_tree_element = None
                     index_in_parent_childs = int(update_data[2])
                     child_soup = next(BeautifulSoup(update_data[3], "lxml").find("body").children)
                     if child_soup.name == 'TRACK'.lower():
-                        track = Track(child_soup, self)
-                        parent_tree_element.add_track(track, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(track)
+                        added_tree_element = Track(child_soup, self)
+                        parent_tree_element.add_track(added_tree_element, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'CLIP'.lower():
-                        clip = Clip(child_soup, self, parent=parent_tree_element)
-                        parent_tree_element.add_clip(clip, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(clip)
+                        added_tree_element = Clip(child_soup, self, parent=parent_tree_element)
+                        parent_tree_element.add_clip(added_tree_element, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'SEQUENCE_EVENT'.lower():
-                        sequence_event = SequenceEvent(child_soup, self, parent=parent_tree_element)
-                        parent_tree_element.add_sequence_event(sequence_event, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(sequence_event)
+                        added_tree_element = SequenceEvent(child_soup, self, parent=parent_tree_element)
+                        parent_tree_element.add_sequence_event(added_tree_element, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'HARDWARE_DEVICE'.lower():
-                        hardware_device = HardwareDevice(child_soup, self)
-                        parent_tree_element.add_hardware_device(hardware_device, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(hardware_device)
+                        added_tree_element = HardwareDevice(child_soup, self)
+                        parent_tree_element.add_hardware_device(added_tree_element, position=index_in_parent_childs)
+                        self.add_element_to_uuid_map(added_tree_element)
                     else:
                         if self.verbose_level >= 1:
                             print('WARNING: trying to add child of a type that can\'t be handled: {}'
                                   .format(child_soup))
-
+                    app_notification_data = {
+                        'updateType': update_type,
+                        'parentElement': parent_tree_element,
+                        'addedElement': added_tree_element
+                    }
                 except KeyError as e:
                     if self.verbose_level >= 1:
                         print('WARNING: trying to add child to parent that does not exist: {} ({})'
@@ -663,28 +662,44 @@ class ShepherdBackendInterface(StateSynchronizer):
                 child_to_remove_tree_uuid = update_data[0]
                 try:
                     tree_element = self.get_element_with_uuid(child_to_remove_tree_uuid)
+                    parent_tree_element = None
+                    removed_element_type = None
                     if isinstance(tree_element, Track):
+                        parent_tree_element = self.state.session
+                        removed_element_type = Track
                         self.state.session.remove_track_with_uuid(child_to_remove_tree_uuid)
                     elif isinstance(tree_element, Clip):
+                        parent_tree_element = tree_element.track
+                        removed_element_type = Clip
                         tree_element.track.remove_clip_with_uuid(child_to_remove_tree_uuid)
                     elif isinstance(tree_element, SequenceEvent):
+                        parent_tree_element = tree_element.clip
+                        removed_element_type = SequenceEvent
                         tree_element.clip.remove_sequence_event_with_uuid(child_to_remove_tree_uuid)
                     elif isinstance(tree_element, HardwareDevice):
+                        parent_tree_element = self.state
+                        removed_element_type = HardwareDevice
                         self.state.remove_hardware_device_with_uuid(child_to_remove_tree_uuid)
                     else:
                         if self.verbose_level >= 1:
                             print('WARNING: Trying to remove element of a type that can\'t be handled: {}'
                                   .format(tree_element))
                     self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
+                    app_notification_data = {
+                        'updateType': update_type,
+                        'parentElement': parent_tree_element,
+                        'removedElementType': removed_element_type,
+                        'removedElementUUID': child_to_remove_tree_uuid,
+                    }
                 except KeyError as e:
                     if self.verbose_level >= 1:
                         print('WARNING: triying to remove child with uuid that does not exist: {} ({})'
                               .format(update_data, e))
                     self.should_request_full_state = True
 
-        # Notify app that state was updated
-        if self.app is not None:
-            self.app.on_state_update_received()
+            # Notify app that state was updated
+            if self.app is not None:
+                self.app.on_state_update_received(app_notification_data)
 
     def on_full_state_received(self, full_state_soup):
         self.build_objects_from_full_state(full_state_soup)
@@ -765,5 +780,5 @@ class ShepherdBackendControllerApp(object):
     def on_backend_state_ready(self):
         pass
 
-    def on_state_update_received(self):
+    def on_state_update_received(self, update_data):
         pass
