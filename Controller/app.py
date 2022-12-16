@@ -84,7 +84,6 @@ class ShepherdControllerApp(object):
         print('INITIALIZING INTERFACE')
         self.shepherd_interface = ShepherdBackendInterface(self, ws_port=8126, verbose=False, debugger_port=5100)
 
-
         # NOTE: app modes will be initialized once first state has been received
 
     def load_settings_from_file(self):
@@ -99,8 +98,11 @@ class ShepherdControllerApp(object):
             self.init_modes(self.load_settings_from_file())
         else:
             self.active_modes_need_reactivate = True
-            #if not self.modes_initialized:
-            #self.app.midi_cc_mode.initialize()
+
+    def on_backend_connection_lost(self):
+        # Set notes midi in to None as virtual midi device created by backend might have disappeared.
+        # In this way we will try re-connecting until it is ready again
+        self.notes_midi_in = None
 
     def on_state_update_received(self):
         if self.shepherd_interface.state is None or not self.modes_initialized: return
@@ -311,7 +313,7 @@ class ShepherdControllerApp(object):
         # so the notes are shown in pads/keys
         if msg.type == 'note_on' or msg.type == 'note_off':
             for mode in self.active_modes:
-                if mode == self.melodic_mode or mode == self.rhyhtmic_mode:
+                if mode == self.melodic_mode or mode == self.rhyhtmic_mode or mode == self.slice_notes_mode:
                     mode.on_midi_in(msg, source=self.notes_midi_in.name)
                     if mode.lumi_midi_out is not None:
                         mode.lumi_midi_out.send(msg)
@@ -396,7 +398,7 @@ class ShepherdControllerApp(object):
             self.last_attempt_configuring_notes_in = time.time()
             if self.shepherd_interface.state is not None:
                 try:
-                    self.init_notes_midi_in(device_name=self.shepherd_interface.state.session.notesmonitoringdevicename)
+                    self.init_notes_midi_in(device_name=self.shepherd_interface.state.notesmonitoringdevicename)
                 except Exception as e:
                     print('Can\'t get information about which notes midi in device to configure: {}'.format(str(e)))
 

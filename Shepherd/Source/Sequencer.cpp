@@ -146,7 +146,6 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
     savedState.setProperty (IDs::version, ProjectInfo::versionString , nullptr);
     
     if (auto xml = std::unique_ptr<juce::XmlElement> (savedState.createXml())) {
-        DBG("Saving session to: " << outputFile.getFullPathName());
         xml->writeTo(outputFile);
     }
 }
@@ -160,6 +159,7 @@ bool Sequencer::validateAndUpdateStateToLoad(juce::ValueTree& stateToCheck)
     // Check root element type
     if (!stateToCheck.hasType(IDs::SESSION)){
         DBG("Root element is not of type SESSION");
+        DBG(stateToCheck.toXmlString());
         return false;
     }
     
@@ -246,8 +246,8 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
                                              [this]{
                                                  return musicalContext.get();
                                              },
-                                             [this](juce::String deviceName){
-                                                 return getHardwareDeviceByName(deviceName);
+                                             [this](juce::String deviceName, HardwareDeviceType type){
+                                                 return getHardwareDeviceByName(deviceName, type);
                                              },
                                              [this](juce::String deviceName){
                                                  return getMidiOutputDeviceData(deviceName);
@@ -403,9 +403,20 @@ void Sequencer::initializeOSC()
     }
 }
 
-bool Sequencer::midiDeviceAlreadyInitialized(const juce::String& deviceName)
+bool Sequencer::midiOutputDeviceAlreadyInitialized(const juce::String& deviceName)
 {
     for (auto deviceData: midiOutDevices){
+        if (deviceData->name == deviceName){
+            // If device already initialized, early return
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Sequencer::midiInputDeviceAlreadyInitialized(const juce::String& deviceName)
+{
+    for (auto deviceData: midiInDevices){
         if (deviceData->name == deviceName){
             // If device already initialized, early return
             return true;
@@ -424,17 +435,35 @@ void Sequencer::initializeMIDIInputs()
     
     bool someFailedInitialization = false;
     
-    // Initialize all MIDI devices required by available hardware devices
+    // Initialize all MIDI devices required by available hardware devices (also re-initialize those that have been already initialized)
     for (auto hwDevice: hardwareDevices->objects){
         if (hwDevice->isTypeInput()){
-            if (!midiDeviceAlreadyInitialized(hwDevice->getMidiInputDeviceName())){
-                auto midiDevice = initializeMidiInputDevice(hwDevice->getMidiInputDeviceName());
-                if (midiDevice == nullptr) {
+            if (!midiInputDeviceAlreadyInitialized(hwDevice->getMidiInputDeviceName())){
+                // If device has not been initialized, initialize it and add it to midiInDevices
+                auto midiDeviceData = initializeMidiInputDevice(hwDevice->getMidiInputDeviceName());
+                if (midiDeviceData == nullptr) {
                     DBG("Failed to initialize input MIDI device for hardware device: " << hwDevice->getMidiInputDeviceName());
                     someFailedInitialization = true;
+                } else {
+                    midiInDevices.add(midiDeviceData);
+                }
+            } else {
+                // If device is already initialized, then re-initialize it and replace existing one
+                auto initializedMidiDevice = getMidiInputDeviceData(hwDevice->getMidiInputDeviceName());
+                for (int i=0; i<midiInDevices.size(); i++){
+                    if (midiInDevices[i]->identifier == initializedMidiDevice->identifier){
+                        midiInDevices[i]->device->stop();
+                        auto reinitializedMidiDeviceData = initializeMidiInputDevice(hwDevice->getMidiInputDeviceName());
+                        midiInDevices.set(i, reinitializedMidiDeviceData);
+                        break;
+                    }
                 }
             }
         }
+    }
+    
+    for (auto device: midiInDevices){
+        std::cout << "- " << device->device->getName() << std::endl;
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiInputs = false;
@@ -453,11 +482,13 @@ void Sequencer::initializeMIDIOutputs()
     // Initialize all MIDI devices required by available hardware devices
     for (auto hwDevice: hardwareDevices->objects){
         if (hwDevice->isTypeOutput()){
-            if (!midiDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
-                auto midiDevice = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
-                if (midiDevice == nullptr) {
+            if (!midiOutputDeviceAlreadyInitialized(hwDevice->getMidiOutputDeviceName())){
+                auto midiDeviceData = initializeMidiOutputDevice(hwDevice->getMidiOutputDeviceName());
+                if (midiDeviceData == nullptr) {
                     DBG("Failed to initialize output MIDI device for hardware device: " << hwDevice->getMidiOutputDeviceName());
                     someFailedInitialization = true;
+                } else {
+                    midiOutDevices.add(midiDeviceData);
                 }
             }
         }
@@ -465,20 +496,24 @@ void Sequencer::initializeMIDIOutputs()
     
     // Initialize midi output devices used for clock and metronome
     for (auto midiDeviceName: sendMidiClockMidiDeviceNames){
-        if (!midiDeviceAlreadyInitialized(midiDeviceName)){
-            auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
-            if (midiDevice == nullptr) {
+        if (!midiOutputDeviceAlreadyInitialized(midiDeviceName)){
+            auto midiDeviceData = initializeMidiOutputDevice(midiDeviceName);
+            if (midiDeviceData == nullptr) {
                 DBG("Failed to initialize midi device for clock: " << midiDeviceName);
                 someFailedInitialization = true;
+            } else {
+                midiOutDevices.add(midiDeviceData);
             }
         }
     }
     for (auto midiDeviceName: sendMetronomeMidiDeviceNames){
-        if (!midiDeviceAlreadyInitialized(midiDeviceName)){
-            auto midiDevice = initializeMidiOutputDevice(midiDeviceName);
-            if (midiDevice == nullptr) {
+        if (!midiOutputDeviceAlreadyInitialized(midiDeviceName)){
+            auto midiDeviceData = initializeMidiOutputDevice(midiDeviceName);
+            if (midiDeviceData == nullptr) {
                 DBG("Failed to initialize midi device for metronome: " << midiDeviceName);
                 someFailedInitialization = true;
+            } else {
+                midiOutDevices.add(midiDeviceData);
             }
         }
     }
@@ -487,13 +522,19 @@ void Sequencer::initializeMIDIOutputs()
     juce::String pushMidiOutDeviceName = getPropertyFromSettingsFile("push_midi_out_device_name");
     if (pushMidiOutDeviceName.length() > 0){
         sendPushMidiClockDeviceNames = {pushMidiOutDeviceName};
-        if (!midiDeviceAlreadyInitialized(pushMidiOutDeviceName)){
+        if (!midiOutputDeviceAlreadyInitialized(pushMidiOutDeviceName)){
             auto pushMidiDevice = initializeMidiOutputDevice(pushMidiOutDeviceName);
             if (pushMidiDevice == nullptr) {
                 DBG("Failed to initialize push midi device: " << pushMidiOutDeviceName);
                 someFailedInitialization = true;
+            } else {
+                midiOutDevices.add(pushMidiDevice);
             }
         }
+    }
+    
+    for (auto device: midiOutDevices){
+        std::cout << "- " << device->device->getName() << std::endl;
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
@@ -517,8 +558,6 @@ MidiOutputDeviceData* Sequencer::initializeMidiOutputDevice(juce::String deviceN
     deviceData->name = deviceName;
     deviceData->device = juce::MidiOutput::openDevice(outDeviceIdentifier);
     if (deviceData->device != nullptr){
-        std::cout << "- " << deviceData->device->getName() << std::endl;
-        midiOutDevices.add(deviceData);
         return deviceData;
     } else {
         delete deviceData; // Delete created MidiOutputDeviceData to avoid memory leaks with created buffer
@@ -570,9 +609,7 @@ MidiInputDeviceData* Sequencer::initializeMidiInputDevice(juce::String deviceNam
     }
     
     if (deviceData->device != nullptr){
-        std::cout << "- " << deviceData->device->getName() << std::endl;
         deviceData->device->start();
-        midiInDevices.add(deviceData);
         return deviceData;
     } else {
         delete deviceData; // Delete created MidiInputDeviceData to avoid memory leaks with created buffer
@@ -659,7 +696,7 @@ void Sequencer::initializeHardwareDevices()
 {
     juce::ValueTree hardwareDevicesState (IDs::HARDWARE_DEVICES);
     
-    // First initialize OUTPUT hardware devices from the definitions file (if any)
+    // Initialize INPUT and OUTPUT hardware devices from the definitions file
     juce::File hardwareDeviceDefinitionsLocation = getDataLocation().getChildFile("hardwareDevices").withFileExtension("json");
     if (hardwareDeviceDefinitionsLocation.existsAsFile()){
         std::cout << "Initializing Hardware Devices from JSON file" << std::endl;
@@ -678,19 +715,53 @@ void Sequencer::initializeHardwareDevices()
                     juce::var deviceInfo = parsedJson[i];
                     if (!parsedJson.isObject()){
                         std::cout << "Devices configuration file has wrong contents or can't be read." << std::endl;
+                        continue;
                     }
+                    juce::String type = deviceInfo.getProperty("type", "output").toString();
                     juce::String name = deviceInfo.getProperty("name", "NoName").toString();
-                    juce::String shortName = deviceInfo.getProperty("short_name", "NoShortName").toString();
-                    juce::String midiDeviceName = deviceInfo.getProperty("midi_out_device", "NoMIDIOutDevice").toString();
-                    int midiChannel = (int)deviceInfo.getProperty("midi_out_channel", "NoMIDIOutDevice");
-                    hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name, shortName, midiDeviceName, midiChannel), -1, nullptr);
+                    juce::String shortName = deviceInfo.getProperty("shortName", name).toString();
+                    if (type == "output"){
+                        juce::String midiOutDeviceName = deviceInfo.getProperty("midiOutputDeviceName", "NoMIDIOutDevice").toString();
+                        int midiChannel = (int)deviceInfo.getProperty("midiChannel", "NoMIDIOutDevice");
+                        hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name,
+                                                                                          shortName,
+                                                                                          midiOutDeviceName,
+                                                                                          midiChannel), -1, nullptr);
+                    } else if (type == "input"){
+                        juce::String midiInDeviceName = deviceInfo.getProperty("midiInputDeviceName", "NoMIDIInDevice").toString();
+                        bool controlChangeMessagesAreRelative = (bool)deviceInfo.getProperty("controlChangeMessagesAreRelative", Defaults::controlChangeMessagesAreRelative);
+                        int allowedMidiInputChannel = (int)deviceInfo.getProperty("allowedMidiInputChannel", Defaults::allowedMidiInputChannel);
+                        bool allowNoteMessages = (bool)deviceInfo.getProperty("allowNoteMessages", Defaults::allowNoteMessages);
+                        bool allowControllerMessages = (bool)deviceInfo.getProperty("allowControllerMessages", Defaults::allowControllerMessages);
+                        bool allowPitchBendMessages = (bool)deviceInfo.getProperty("allowPitchBendMessages", Defaults::allowPitchBendMessages);
+                        bool allowAftertouchMessages = (bool)deviceInfo.getProperty("allowAftertouchMessages", Defaults::allowAftertouchMessages);
+                        bool allowChannelPressureMessages = (bool)deviceInfo.getProperty("allowChannelPressureMessages", Defaults::allowChannelPressureMessages);
+                        juce::String notesMapping = deviceInfo.getProperty("notesMapping", "").toString(); // Empty string will be standard 1-128 mapping
+                        juce::String controlChangeMapping = deviceInfo.getProperty("controlChangeMapping", "").toString(); // Empty string will be standard 1-128 mapping
+                        hardwareDevicesState.addChild(Helpers::createInputHardwareDevice(name,
+                                                                                         shortName,
+                                                                                         midiInDeviceName,
+                                                                                         controlChangeMessagesAreRelative,
+                                                                                         allowedMidiInputChannel,
+                                                                                         allowNoteMessages,
+                                                                                         allowControllerMessages,
+                                                                                         allowPitchBendMessages,
+                                                                                         allowAftertouchMessages,
+                                                                                         allowChannelPressureMessages,
+                                                                                         notesMapping,
+                                                                                         controlChangeMapping), -1, nullptr);
+                    }
+                    
+                    
                 }
             }
         }
     } else {
         std::cout << "No hardware devices configuration file found at " << hardwareDeviceDefinitionsLocation.getFullPathName() << std::endl;
+        std::cout << "There will be no MIDI going in and out if there are no hardware devices defined :) " << std::endl;
     }
     
+    /*
     // Then initialize extra default OUTPUT hardware devices, one per available output midi port and midi channel
     std::cout << "Initializing default Output Hardware Devices" << std::endl;
     juce::Array<juce::MidiDeviceInfo> availableMidiOutDevices = juce::MidiOutput::getAvailableDevices();
@@ -700,12 +771,7 @@ void Sequencer::initializeHardwareDevices()
             juce::String shortName = midiOutputDevice.name.substring(0, 10) + " ch" + juce::String(i + 1);
             hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name, shortName, midiOutputDevice.name, i + 1), -1, nullptr);
         }
-    }
-    
-    // Now initialize INPUT hardware devices
-    std::cout << "Initializing Input Hardware Devices" << std::endl;
-    hardwareDevicesState.addChild(Helpers::createInputHardwareDevice("Push", "Push", "Push2Simulator", true), -1, nullptr);
-    hardwareDevicesState.addChild(Helpers::createInputHardwareDevice("icon", "iCon", "iCON iKEY V1.02", false), -1, nullptr);
+    }*/
     
     // Now do create the actual HardwareDevice objects
     if (state.getChildWithName(IDs::HARDWARE_DEVICES).isValid()){
@@ -727,14 +793,14 @@ void Sequencer::initializeHardwareDevices()
     }*/
 }
 
-HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name)
+HardwareDevice* Sequencer::getHardwareDeviceByName(juce::String name, HardwareDeviceType type)
 {
     for (auto device: hardwareDevices->objects){
-        if (device->getShortName() == name || device->getName() == name){
+        if ((device->getShortName() == name || device->getName() == name) && (type == device->getType())){
             return device;
         }
     }
-    // If no hardware device is available with that name, simply return null pointer
+    // If no hardware device is available with that name and for that type, simply return null pointer
     return nullptr;
 }
 
@@ -1247,32 +1313,35 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
     } else if (action.startsWith(ACTION_ADDRESS_DEVICE)) {
         jassert(parameters.size() >= 1);
         juce::String deviceName = parameters[0];
-        auto device = getHardwareDeviceByName(deviceName);
-        if (device == nullptr) return;
         if (action == ACTION_ADDRESS_DEVICE_SEND_ALL_NOTES_OFF_TO_DEVICE){
-             device->sendAllNotesOff();
+            auto device = getHardwareDeviceByName(deviceName, HardwareDeviceType::output);
+            if (device == nullptr) return;
+            device->sendAllNotesOff();
         } else if (action == ACTION_ADDRESS_DEVICE_LOAD_DEVICE_PRESET){
             jassert(parameters.size() == 3);
+            auto device = getHardwareDeviceByName(deviceName, HardwareDeviceType::output);
+            if (device == nullptr) return;
             int bank = parameters[1].getIntValue();
             int preset = parameters[2].getIntValue();
             device->loadPreset(bank, preset);
         } else if (action == ACTION_ADDRESS_DEVICE_SEND_MIDI){
             jassert(parameters.size() == 4);
+            auto device = getHardwareDeviceByName(deviceName, HardwareDeviceType::output);
+            if (device == nullptr) return;
             juce::MidiMessage msg = juce::MidiMessage(parameters[1].getIntValue(), parameters[2].getIntValue(), parameters[3].getIntValue());
             device->sendMidi(msg);
         } else if (action == ACTION_ADDRESS_DEVICE_SET_NOTES_MAPPING){
-            /*
-            jassert(parameters.size() == 64);
-            for (int i=0; i<64; i++){
-                pushPadsNoteMapping[i] = parameters[i].getIntValue();
-            }*/
+            jassert(parameters.size() == 2);
+            auto device = getHardwareDeviceByName(deviceName, HardwareDeviceType::input);
+            if (device == nullptr) return;
+            juce::String serializedMapping = parameters[1];  // 128 ints serialized into string, separated by comas
+            device->setNotesMapping(serializedMapping);
         } else if (action == ACTION_ADDRESS_DEVICE_SET_CC_MAPPING){
-            /*jassert(parameters.size() == 9);
-            juce::String deviceName = parameters[0];
-            pushEncodersCCMappingHardwareDeviceShortName = deviceName;
-            for (int i=1; i<9; i++){
-                pushEncodersCCMapping[i - 1] = parameters[i].getIntValue();
-            }*/
+            jassert(parameters.size() == 2);
+            auto device = getHardwareDeviceByName(deviceName, HardwareDeviceType::input);
+            if (device == nullptr) return;
+            juce::String serializedMapping = parameters[1];  // 128 ints serialized into string, separated by comas
+            device->setControlChangeMapping(serializedMapping);
         }
     
     } else if (action.startsWith(ACTION_ADDRESS_SCENE)) {
@@ -1390,8 +1459,10 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
     } else if (action == ACTION_ADDRESS_SHEPHERD_CONTROLLER_READY) {
         jassert(parameters.size() == 0);
         // Set midi in connection to false so the method to initialize midi in is retrieggered at next timer call
-        // This is to prevent issues caused by the order in which frontend and backend are started
-        //shouldTryInitializeMidiInputs = true;
+        // This is to prevent issues caused by the order in which frontend and backend are started (if using virtual midi
+        // devices in the contorller app that should be connected here, these will need reconnection after controller
+        // restarts)
+        shouldTryInitializeMidiInputs = true;
         
         // Also in dev mode trigger reload ui
         #if JUCE_DEBUG

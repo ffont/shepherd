@@ -117,6 +117,7 @@ def ws_on_close(ws, close_status_code, close_msg):
     print("* WS connection closed: {} - {}".format(close_status_code, close_msg))
     if ss_instance is not None:
         ss_instance.ws_connection_ok = False
+        ss_instance.app_connection_lost()
 
 
 def ws_on_open(ws):
@@ -244,6 +245,10 @@ class StateSynchronizer(object):
         self.last_update_id = -1
         self.full_state_requested = False
         self.should_request_full_state = True
+
+    def app_connection_lost(self):
+        # Maybe subclasses want to do something with that...
+        pass
 
     def app_is_alive(self):
         self.last_time_app_alive = time.time()

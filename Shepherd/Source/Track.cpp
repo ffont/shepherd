@@ -14,7 +14,7 @@ Track::Track(const juce::ValueTree& _state,
              std::function<juce::Range<double>()> playheadParentSliceGetter,
              std::function<GlobalSettingsStruct()> globalSettingsGetter,
              std::function<MusicalContext*()> musicalContextGetter,
-             std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
+             std::function<HardwareDevice*(juce::String deviceName, HardwareDeviceType type)> hardwareDeviceGetter,
              std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter
              ): state(_state)
 {
@@ -47,7 +47,7 @@ void Track::bindState()
 
 void Track::setOutputHardwareDeviceByName(juce::String deviceName)
 {
-    auto device = getHardwareDeviceByName(deviceName);
+    auto device = getHardwareDeviceByName(deviceName, HardwareDeviceType::output);
     if (device != nullptr) {
         // If a device is found with that name, set it, otherwise do nothing
         setOutputHardwareDevice(device);
@@ -130,6 +130,7 @@ void Track::processInputMessagesFromInputHardwareDevice(HardwareDevice* inputDev
 {
     if (inputDevice->isTypeOutput()) {return;}  // Provided device is not of type input
     if (getOutputHardwareDevice() == nullptr){return;} // Track's output device has not been initialized
+    if (!hasClipsCuedToRecordOrRecording() && !inputMonitoringEnabled()) {return;}  // If track has no clips cued to record/recording and is not input monitoring, don't handle input data
     
     // Process the incoming messages from the input device according to the track's output device (e.g. change midi channel,
     // change CC values if CC input is relative, etc...)
@@ -306,6 +307,16 @@ bool Track::hasClipsCuedToRecord()
 {
     for (auto clip: clips->objects){
         if (clip->isCuedToStartRecording()){
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Track::hasClipsCuedToRecordOrRecording()
+{
+    for (auto clip: clips->objects){
+        if (clip->isCuedToStartRecording() || clip->isRecording()){
             return true;
         }
     }

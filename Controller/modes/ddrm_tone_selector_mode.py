@@ -698,7 +698,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                     msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)
                     try:
                         hardware_device = \
-                            self.state.get_hardware_device_by_name(DDRM_DEVICE_NAME)
+                            self.state.get_output_hardware_device_by_name(DDRM_DEVICE_NAME)
                         if hardware_device is not None:
                             hardware_device.send_midi(msg)
                     except IndexError:
@@ -717,7 +717,7 @@ class DDRMToneSelectorMode(ShepherdControllerMode):
                     msg = mido.Message('control_change', control=midi_cc, value=val, channel=0)
                     try:
                         hardware_device = \
-                            self.state.get_hardware_device_by_name(DDRM_DEVICE_NAME)
+                            self.state.get_output_hardware_device_by_name(DDRM_DEVICE_NAME)
                         if hardware_device is not None:
                             hardware_device.send_midi(msg)
                     except IndexError:

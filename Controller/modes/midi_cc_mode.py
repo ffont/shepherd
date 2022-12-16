@@ -193,16 +193,24 @@ class MIDICCMode(ShepherdControllerMode):
         self.update_encoders_backend_mapping()
 
     def update_encoders_backend_mapping(self):
-        mapping = []
+        # Update backend mapping of "Push" input device
+        topPushEncoders = []
         for encoder_num in range(0, 8):
             try:
-                mapping.append(self.active_midi_control_ccs[encoder_num].cc_number)
+                topPushEncoders.append(self.active_midi_control_ccs[encoder_num].cc_number)
             except IndexError:
-                mapping.append(-1)
-        self.state.set_push_encoders_mapping(self.get_current_track_device_short_name_helper(), mapping)
+                topPushEncoders.append(-1)
+
+        mapping = [-1 for i in range(0, 128)]
+        mapping[1] = 1  # Always allow modulation wheel
+        mapping[64] = 64  # Always allow sustain pedal
+        mapping[71:71+8] = topPushEncoders
+        device = self.state.get_input_hardware_device_by_name("Push")
+        device.set_control_change_mapping(mapping)
 
     def clear_encoders_backend_mapping(self):
-        self.state.set_push_encoders_mapping("", [-1 for i in range(0, 8)])
+        device = self.state.get_input_hardware_device_by_name("Push")
+        device.set_control_change_mapping([-1 for i in range(0, 128)])
 
     def activate(self):
         self.update_buttons()
@@ -254,7 +262,7 @@ class MIDICCMode(ShepherdControllerMode):
             if self.active_midi_control_ccs:
                 for i in range(0, min(len(self.active_midi_control_ccs), 8)):
                     hardware_device = \
-                        self.state.get_hardware_device_by_name(self.get_current_track_device_short_name_helper())
+                        self.state.get_output_hardware_device_by_name(self.get_current_track_device_short_name_helper())
                     if hardware_device is not None:
                         value = hardware_device.get_current_midi_cc_parameter_value(
                             self.active_midi_control_ccs[i].cc_number)

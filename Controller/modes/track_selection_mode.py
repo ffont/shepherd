@@ -158,7 +158,7 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
                         # If button shift pressed, send all notes off to that track
                         try:
                             track = self.session.tracks[track_idx]
-                            hardware_device = track.get_hardware_device()
+                            hardware_device = track.get_output_hardware_device()
                             if hardware_device is not None:
                                 hardware_device.all_notes_off()
                         except IndexError:

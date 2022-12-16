@@ -24,7 +24,7 @@ public:
           std::function<juce::Range<double>()> playheadParentSliceGetter,
           std::function<GlobalSettingsStruct()> globalSettingsGetter,
           std::function<MusicalContext*()> musicalContextGetter,
-          std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
+          std::function<HardwareDevice*(juce::String deviceName, HardwareDeviceType type)> hardwareDeviceGetter,
           std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter
           );
     void bindState();
@@ -64,6 +64,7 @@ public:
     void duplicateClipAt(int clipN);
     
     bool hasClipsCuedToRecord();
+    bool hasClipsCuedToRecordOrRecording();
     bool inputMonitoringEnabled();
     
     void setInputMonitoring(bool enabled);
@@ -94,7 +95,7 @@ private:
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext*()> getMusicalContext;
-    std::function<HardwareDevice*(juce::String deviceName)> getHardwareDeviceByName;
+    std::function<HardwareDevice*(juce::String deviceName, HardwareDeviceType type)> getHardwareDeviceByName;
     std::function<MidiOutputDeviceData*(juce::String deviceName)> getMidiOutputDeviceData;
     juce::MidiBuffer* getMidiOutputDeviceBufferIfDevice();
     
@@ -109,7 +110,7 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
                std::function<juce::Range<double>()> playheadParentSliceGetter,
                std::function<GlobalSettingsStruct()> globalSettingsGetter,
                std::function<MusicalContext*()> musicalContextGetter,
-               std::function<HardwareDevice*(juce::String deviceName)> hardwareDeviceGetter,
+               std::function<HardwareDevice*(juce::String deviceName, HardwareDeviceType type)> hardwareDeviceGetter,
                std::function<MidiOutputDeviceData*(juce::String deviceName)> midiOutputDeviceDataGetter)
     : drow::ValueTreeObjectList<Track> (v)
     {
@@ -162,6 +163,6 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
     std::function<juce::Range<double>()> getPlayheadParentSlice;
     std::function<GlobalSettingsStruct()> getGlobalSettings;
     std::function<MusicalContext*()> getMusicalContext;
-    std::function<HardwareDevice*(juce::String deviceName)> getHardwareDeviceByName;
+    std::function<HardwareDevice*(juce::String deviceName, HardwareDeviceType type)> getHardwareDeviceByName;
     std::function<MidiOutputDeviceData*(juce::String deviceName)> getMidiOutputDeviceData;
 };

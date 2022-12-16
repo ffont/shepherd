@@ -11,7 +11,7 @@ parameters_types = {
     'allowaftertouchmessages': bool,
     'allowchannelpressuremessages': bool,
     'allowcontrollermessages': bool,
-    'allowedmidiinputchannel': bool,
+    'allowedmidiinputchannel': int,
     'allownotemessages': bool,
     'allowpitchbendmessages': bool,
     'availablehardwaredevicenames': str,
@@ -140,12 +140,6 @@ class State(BaseShepherdClass):
         self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices
                                  if hardware_device.uuid != hardware_device_uuid]
 
-    def get_hardware_device_by_name(self, hardware_device_name):
-        for hardware_device in self.hardware_devices:
-            if hardware_device.name == hardware_device_name or hardware_device.shortname == hardware_device_name:
-                return hardware_device
-        return None
-
     def render(self, include_attributes=False):
         text = 'SHEPHERD BACKEND STATE\n'
         if include_attributes:
@@ -178,22 +172,26 @@ class State(BaseShepherdClass):
 
     def send_controller_ready_message_to_backend(self):
         self.send_msg_to_app('/shepherdControllerReady', [])
+
+    def get_input_hardware_device_by_name(self, hardware_device_name):
+        for hardware_device in self.hardware_devices:
+            if hardware_device.name == hardware_device_name or hardware_device.shortname == hardware_device_name \
+                    and hardware_device.type == 0:
+                return hardware_device
+        return None
+
+    def get_output_hardware_device_by_name(self, hardware_device_name):
+        for hardware_device in self.hardware_devices:
+            if hardware_device.name == hardware_device_name or hardware_device.shortname == hardware_device_name \
+                    and hardware_device.type == 1:
+                return hardware_device
+        return None
     
     def get_available_output_hardware_device_names(self):
         return [device.shortname for device in self.hardware_devices if device.is_type_output()]
 
     def toggle_shepherd_backend_debug_synth(self):
         self.send_msg_to_app('/settings/debugSynthOnOff', [])
-
-    def set_push_pads_mapping(self, new_mapping=[]):
-        if new_mapping:
-            self.send_msg_to_app('/settings/pushNotesMapping', new_mapping)
-
-    def set_push_encoders_mapping(self, device_name, new_mapping=[]):
-        if device_name == "":
-            device_name = "-"
-        if new_mapping:
-            self.send_msg_to_app('/settings/pushEncodersMapping', [device_name] + new_mapping)
 
 
 class Session(BaseShepherdClass):
@@ -292,8 +290,8 @@ class Track(BaseShepherdClass):
         # Note this method removes a Clip object from the local Track object but does not remove a clip from the backend
         self.clips = [clip for clip in self.clips if clip.uuid != clip_uuid]
 
-    def get_hardware_device(self):
-        return self.session.state.get_hardware_device_by_name(self.hardwaredevicename)
+    def get_output_hardware_device(self):
+        return self.session.state.get_output_hardware_device_by_name(self.hardwaredevicename)
 
     def set_input_monitoring(self, enabled):
         self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
@@ -538,6 +536,12 @@ class HardwareDevice(BaseShepherdClass):
             self._midiccparametervalueslist_splitted = self.midiccparametervalueslist.split(',')
         return int(self._midiccparametervalueslist_splitted[midi_cc_num])
 
+    def set_notes_mapping(self, mapping):
+        self.send_msg_to_app('/device/setNotesMapping', [self.name, ",".join([str(item) for item in mapping])])
+
+    def set_control_change_mapping(self, mapping):
+        self.send_msg_to_app('/device/setCCMapping', [self.name, ",".join([str(item) for item in mapping])])
+
 
 class ShepherdBackendInterface(StateSynchronizer):
 
@@ -563,6 +567,9 @@ class ShepherdBackendInterface(StateSynchronizer):
 
     def get_element_with_uuid(self, uuid):
         return self.elements_uuids_map[uuid]
+
+    def app_connection_lost(self):
+        self.app.on_backend_connection_lost()
 
     def on_state_update(self, update_type, update_data):
         if self.state is None:

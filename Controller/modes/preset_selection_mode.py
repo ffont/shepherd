@@ -163,7 +163,7 @@ class PresetSelectionMode(definitions.ShepherdControllerMode):
             # Send midi message to select the bank and preset
             try:
                 track = self.session.tracks[self.app.track_selection_mode.selected_track]
-                hardware_device = track.get_hardware_device()
+                hardware_device = track.get_output_hardware_device()
                 if hardware_device is not None:
                     hardware_device.load_preset(bank_num, preset_num)
 

@@ -21,20 +21,32 @@ HardwareDevice::HardwareDevice(const juce::ValueTree& _state,
     
     bindState();
     
-    for (int i=0; i<midiCCParameterValues.size(); i++){
-        midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (middle value)
+    if (isTypeOutput()){
+        for (int i=0; i<midiCCParameterValues.size(); i++){
+            midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (middle value)
+        }
+        stateMidiCCParameterValues = Helpers::serialize128IntArray(midiCCParameterValues); // Update the state version of the midiCCParameterValues list so change is reflected in state
     }
-    stateMidiCCParameterValues = Helpers::serialize128IntArray(midiCCParameterValues); // Update the state version of the midiCCParameterValues list so change is reflected in state
     
-    for (int i=0; i<controlChangeMapping.size(); i++){
-        controlChangeMapping[i] = i;  // Initialize all midi cc mappings to the input number (no transformation)
+    if (isTypeInput()){
+        if (stateControlChangeMapping == ""){
+            for (int i=0; i<controlChangeMapping.size(); i++){
+                controlChangeMapping[i] = i;  // Initialize all midi cc mappings to the input number (no transformation)
+            }
+            stateControlChangeMapping = Helpers::serialize128IntArray(controlChangeMapping); // Update the state version of the controlChangeMapping list so change is reflected in state
+        } else {
+            controlChangeMapping = Helpers::deserialize128IntArray(stateControlChangeMapping);
+        }
+
+        if (stateNotesMapping == ""){
+            for (int i=0; i<notesMapping.size(); i++){
+                notesMapping[i] = i;  // Initialize all midi note number mappings to the input number (no transformation)
+            }
+            stateNotesMapping = Helpers::serialize128IntArray(notesMapping); // Update the state version of the notesMapping list so change is reflected in state
+        } else {
+            notesMapping = Helpers::deserialize128IntArray(stateNotesMapping);
+        }
     }
-    stateControlChangeMapping = Helpers::serialize128IntArray(controlChangeMapping); // Update the state version of the controlChangeMapping list so change is reflected in state
-    
-    for (int i=0; i<notesMapping.size(); i++){
-        notesMapping[i] = i;  // Initialize all midi note number mappings to the input number (no transformation)
-    }
-    stateNotesMapping = Helpers::serialize128IntArray(notesMapping); // Update the state version of the notesMapping list so change is reflected in state
 }
 
 void HardwareDevice::bindState()
@@ -221,4 +233,16 @@ void HardwareDevice::processAndRenderIncomingMessagesIntoBuffer(juce::MidiBuffer
             }
         }
     }
+}
+
+void HardwareDevice::setNotesMapping(juce::String& serializedNotesMapping)
+{
+    notesMapping = Helpers::deserialize128IntArray(serializedNotesMapping);
+    stateNotesMapping = Helpers::serialize128IntArray(notesMapping);
+}
+
+void HardwareDevice::setControlChangeMapping(juce::String& serializedControlChangeMapping)
+{
+    controlChangeMapping = Helpers::deserialize128IntArray(serializedControlChangeMapping);
+    stateControlChangeMapping = Helpers::serialize128IntArray(controlChangeMapping);
 }

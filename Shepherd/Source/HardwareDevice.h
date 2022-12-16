@@ -37,6 +37,13 @@ public:
     juce::String getUUID() { return uuid.get(); };
     juce::String getName() { return name.get(); };
     juce::String getShortName() { return shortName.get(); };
+    HardwareDeviceType getType() {
+        if (type.get() == HardwareDeviceType::input){
+            return HardwareDeviceType::input;
+        } else {
+            return HardwareDeviceType::output;
+        }
+    };
     
     // Relevant for output devices
     int getMidiOutputChannel() { return midiOutputChannel.get(); }
@@ -53,6 +60,8 @@ public:
     juce::String getMidiInputDeviceName(){ return midiInputDeviceName.get();}
     bool filterAndProcessIncomingMidiMessage(juce::MidiMessage& msg, HardwareDevice* outputDevice);
     void processAndRenderIncomingMessagesIntoBuffer(juce::MidiBuffer& bufferToFill, HardwareDevice* outputDevice);
+    void setNotesMapping(juce::String& serializedNotesMapping);
+    void setControlChangeMapping(juce::String& serializedControlChangeMapping);
     
 private:
     juce::CachedValue<juce::String> uuid;

@@ -119,7 +119,8 @@ private:
     double lastTimeIsAliveWasSent = 0;
     
     // Midi devices and other midi stuff
-    bool midiDeviceAlreadyInitialized(const juce::String& deviceName);
+    bool midiOutputDeviceAlreadyInitialized(const juce::String& deviceName);
+    bool midiInputDeviceAlreadyInitialized(const juce::String& deviceName);
     
     void initializeMIDIInputs();
     bool shouldTryInitializeMidiInputs = false;
@@ -154,7 +155,7 @@ private:
     // Hardware devices
     std::unique_ptr<HardwareDeviceList> hardwareDevices;
     void initializeHardwareDevices();
-    HardwareDevice* getHardwareDeviceByName(juce::String name);
+    HardwareDevice* getHardwareDeviceByName(juce::String name, HardwareDeviceType type);
     
     // Transport and basic settings
     double sampleRate = 0.0;

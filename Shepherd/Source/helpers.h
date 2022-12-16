@@ -42,6 +42,7 @@ namespace Helpers
         Helpers::createUuidProperty (state);
         state.setProperty (IDs::renderWithInternalSynth, Defaults::renderWithInternalSynth, nullptr);
         state.setProperty (IDs::dataLocation, Defaults::emptyString, nullptr);
+        state.setProperty (IDs::notesMonitoringDeviceName, SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME, nullptr);
         return state;
     }
 
@@ -62,9 +63,6 @@ namespace Helpers
         session.setProperty (IDs::fixedVelocity, Defaults::fixedVelocity, nullptr);
         session.setProperty (IDs::fixedLengthRecordingBars, Defaults::fixedLengthRecordingBars, nullptr);
         session.setProperty (IDs::recordAutomationEnabled, Defaults::recordAutomationEnabled, nullptr);
-        
-        // Hardcode some needed variables
-        session.setProperty ("notesMonitoringDeviceName", SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME, nullptr);
         
         for (int tn = 0; tn < numTracks; ++tn)
         {
@@ -124,7 +122,18 @@ namespace Helpers
         return device;
     }
 
-    inline juce::ValueTree createInputHardwareDevice(juce::String name, juce::String shortName, juce::String midiDeviceName, bool controlChangeMessagesAreRelative)
+    inline juce::ValueTree createInputHardwareDevice(juce::String name,
+                                                     juce::String shortName,
+                                                     juce::String midiDeviceName,
+                                                     bool controlChangeMessagesAreRelative,
+                                                     int allowedMidiInputChannel,
+                                                     bool allowNoteMessages,
+                                                     bool allowControllerMessages,
+                                                     bool allowPitchBendMessages,
+                                                     bool allowAftertouchMessages,
+                                                     bool allowChannelPressureMessages,
+                                                     juce::String notesMapping,
+                                                     juce::String controlChangeMapping)
     {
         juce::ValueTree device {IDs::HARDWARE_DEVICE};
         Helpers::createUuidProperty (device);
@@ -132,16 +141,15 @@ namespace Helpers
         device.setProperty(IDs::name, name, nullptr);
         device.setProperty(IDs::shortName, shortName, nullptr);
         device.setProperty(IDs::midiInputDeviceName, midiDeviceName, nullptr);
-        device.setProperty(IDs::allowedMidiInputChannel, Defaults::allowedMidiInputChannel, nullptr);
-        device.setProperty(IDs::allowNoteMessages, Defaults::allowNoteMessages, nullptr);
-        device.setProperty(IDs::allowControllerMessages, Defaults::allowControllerMessages, nullptr);
-        device.setProperty(IDs::allowPitchBendMessages, Defaults::allowPitchBendMessages, nullptr);
-        device.setProperty(IDs::allowAftertouchMessages, Defaults::allowAftertouchMessages, nullptr);
-        device.setProperty(IDs::allowChannelPressureMessages, Defaults::allowChannelPressureMessages, nullptr);
-        device.setProperty(IDs::notesMapping, Defaults::emptyString, nullptr);
-        device.setProperty(IDs::controlChangeMapping, Defaults::emptyString, nullptr);
+        device.setProperty(IDs::allowedMidiInputChannel, allowedMidiInputChannel, nullptr);
+        device.setProperty(IDs::allowNoteMessages, allowNoteMessages, nullptr);
+        device.setProperty(IDs::allowControllerMessages, allowControllerMessages, nullptr);
+        device.setProperty(IDs::allowPitchBendMessages, allowPitchBendMessages, nullptr);
+        device.setProperty(IDs::allowAftertouchMessages, allowAftertouchMessages, nullptr);
+        device.setProperty(IDs::allowChannelPressureMessages, allowChannelPressureMessages, nullptr);
+        device.setProperty(IDs::notesMapping, notesMapping, nullptr);
+        device.setProperty(IDs::controlChangeMapping, controlChangeMapping, nullptr);
         device.setProperty(IDs::controlChangeMessagesAreRelative, controlChangeMessagesAreRelative, nullptr);
-        
         return device;
     }
 

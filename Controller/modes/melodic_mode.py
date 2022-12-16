@@ -164,14 +164,17 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.update_pads_backend_mapping()
 
     def update_pads_backend_mapping(self):
-        mapping = []
+        mapping = [-1 for i in range(0, 128)]
         for i in range(0, 8):
             for j in range(0, 8):
-                mapping.append(self.pad_ij_to_midi_note((7 - i, j)))
-        self.state.set_push_pads_mapping(mapping)
+                self.pad_ij_to_midi_note((7 - i, j))
+                mapping[36 + i * 8 + j] = self.pad_ij_to_midi_note((7 - i, j))
+        device = self.state.get_input_hardware_device_by_name("Push")
+        device.set_notes_mapping(mapping)
 
     def clear_pads_backend_mapping(self):
-        self.state.set_push_pads_mapping([-1 for i in range(0, 64)])
+        device = self.state.get_input_hardware_device_by_name("Push")
+        device.set_notes_mapping([-1 for i in range(0, 128)])
 
     def activate(self):
 
@@ -256,17 +259,20 @@ class MelodicMode(definitions.ShepherdControllerMode):
         self.push.pads.set_pads_color(color_matrix)
 
     def on_pad_pressed_raw(self, pad_n, pad_ij, velocity):
-        # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
+        # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly
+        # in Shepherd backend
         self.latest_velocity_value = (time.time(), velocity)
         return True
 
     def on_pad_aftertouch(self, pad_n, pad_ij, velocity):
         if pad_n is not None:
             self.latest_poly_at_value = (time.time(), velocity)
-            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
+            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted
+            # directly in Shepherd backend
         else:
             self.latest_channel_at_value = (time.time(), velocity)
-            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted directly in Shepherd backend
+            # NOTE: we do not send notes to the output because MIDI pad notes are being received and interpreted
+            # directly in Shepherd backend
         return True
 
     def on_button_pressed(self, button_name, shift=False, select=False, long_press=False, double_press=False):
@@ -305,4 +311,3 @@ class MelodicMode(definitions.ShepherdControllerMode):
                 self.app.pads_need_update = True
                 self.app.add_display_notification("Fixed velocity: {0}".format('On' if self.fixed_velocity_mode else 'Off'))
                 return True
-    
