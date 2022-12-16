@@ -46,6 +46,9 @@ public:
     void setMetronome(bool onOff);
     void toggleMetronome();
     bool metronomeIsOn();
+    void setMetronomeMidiChannel(int midiChannel) {
+        metronomeMidiChannel = midiChannel;
+    }
     
     void updateBarsCounter(juce::Range<double> currentSliceRange);
     void resetCounters();

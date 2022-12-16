@@ -39,15 +39,9 @@ Sequencer::Sequencer()
     // Init hardware devices
     initializeHardwareDevices();
 
-    // Set some defaults
-    const juce::String midiClockOutDeviceName = getPropertyFromSettingsFile("clock_midi_out_device_name");
-    if (midiClockOutDeviceName.length() > 0){
-        sendMidiClockMidiDeviceNames = {midiClockOutDeviceName};
-    }
-    const juce::String metronomeOutDeviceName = getPropertyFromSettingsFile("metronome_midi_out_device_name");
-    if (metronomeOutDeviceName.length() > 0){
-        sendMetronomeMidiDeviceNames = {metronomeOutDeviceName};
-    }
+    // Load some settings from file
+    sendMidiClockMidiDeviceNames = getListStringPropertyFromSettingsFile("midiDevicesToSendClockTo");
+    sendMetronomeMidiDeviceName = getStringPropertyFromSettingsFile("metronomeMidiDevice");
     
     // Init MIDI
     // Better to do it after hardware devices so we init devices needed in hardware devices as well
@@ -234,6 +228,10 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
         
         // Initialize musical context
         musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state.getChildWithName(IDs::SESSION));
+        const int metronomeMidiChannel = getIntPropertyFromSettingsFile("metronomeMidiChannel");
+        if (metronomeMidiChannel != -1){
+            musicalContext->setMetronomeMidiChannel(metronomeMidiChannel);
+        }
         
         // Initialize tracks
         tracks = std::make_unique<TrackList>(state.getChildWithName(IDs::SESSION),
@@ -291,7 +289,7 @@ void Sequencer::loadSessionFromFile(juce::String filePath)
     loadSession(stateToLoad);
 }
 
-juce::String Sequencer::getPropertyFromSettingsFile(juce::String propertyName)
+juce::String Sequencer::getStringPropertyFromSettingsFile(juce::String propertyName)
 {
     juce::String returnValue = "";
     juce::File backendSettingsLocation = getDataLocation().getChildFile("backendSettings").withFileExtension("json");
@@ -302,6 +300,47 @@ juce::String Sequencer::getPropertyFromSettingsFile(juce::String propertyName)
         {
             if (parsedJson.isObject()){
                 returnValue = parsedJson.getProperty(propertyName, "").toString();
+            }
+        }
+    }
+    return returnValue;
+}
+
+int Sequencer::getIntPropertyFromSettingsFile(juce::String propertyName)
+{
+    int returnValue = -1;
+    juce::File backendSettingsLocation = getDataLocation().getChildFile("backendSettings").withFileExtension("json");
+    if (backendSettingsLocation.existsAsFile()){
+        juce::var parsedJson;
+        auto result = juce::JSON::parse(backendSettingsLocation.loadFileAsString(), parsedJson);
+        if (result.wasOk())
+        {
+            if (parsedJson.isObject()){
+                returnValue = (int)parsedJson.getProperty(propertyName, "");
+            }
+        }
+    }
+    return returnValue;
+}
+
+std::vector<juce::String> Sequencer::getListStringPropertyFromSettingsFile(juce::String propertyName)
+{
+    std::vector<juce::String> returnValue = {};
+    juce::File backendSettingsLocation = getDataLocation().getChildFile("backendSettings").withFileExtension("json");
+    if (backendSettingsLocation.existsAsFile()){
+        juce::var parsedJson;
+        auto result = juce::JSON::parse(backendSettingsLocation.loadFileAsString(), parsedJson);
+        if (result.wasOk())
+        {
+            if (parsedJson.isObject()){
+                juce::var rawElement = parsedJson.getProperty(propertyName, juce::var());
+                if (rawElement.isArray()){
+                
+                    juce::Array<juce::var>* deviceNames = rawElement.getArray();
+                    for (juce::var element: *deviceNames){
+                        returnValue.push_back(element.toString());
+                    }
+                }
             }
         }
     }
@@ -494,7 +533,7 @@ void Sequencer::initializeMIDIOutputs()
         }
     }
     
-    // Initialize midi output devices used for clock and metronome
+    // Initialize midi output devices used for clock
     for (auto midiDeviceName: sendMidiClockMidiDeviceNames){
         if (!midiOutputDeviceAlreadyInitialized(midiDeviceName)){
             auto midiDeviceData = initializeMidiOutputDevice(midiDeviceName);
@@ -506,21 +545,22 @@ void Sequencer::initializeMIDIOutputs()
             }
         }
     }
-    for (auto midiDeviceName: sendMetronomeMidiDeviceNames){
-        if (!midiOutputDeviceAlreadyInitialized(midiDeviceName)){
-            auto midiDeviceData = initializeMidiOutputDevice(midiDeviceName);
-            if (midiDeviceData == nullptr) {
-                DBG("Failed to initialize midi device for metronome: " << midiDeviceName);
-                someFailedInitialization = true;
-            } else {
-                midiOutDevices.add(midiDeviceData);
-            }
+    
+    // Init metronome decice
+    if (!midiOutputDeviceAlreadyInitialized(sendMetronomeMidiDeviceName)){
+        auto midiDeviceData = initializeMidiOutputDevice(sendMetronomeMidiDeviceName);
+        if (midiDeviceData == nullptr) {
+            DBG("Failed to initialize midi device for metronome: " << sendMetronomeMidiDeviceName);
+            someFailedInitialization = true;
+        } else {
+            midiOutDevices.add(midiDeviceData);
         }
     }
     
-    // Initialize midi output to Push MIDI input (used for sending clock messages to push and sync animations with Shepherd tempo)
-    juce::String pushMidiOutDeviceName = getPropertyFromSettingsFile("push_midi_out_device_name");
-    if (pushMidiOutDeviceName.length() > 0){
+    // Initialize Push midi output (used for sending clock messages to push and sync animations with Shepherd tempo)
+    juce::String pushMidiOutDeviceName = getStringPropertyFromSettingsFile("pushClockDeviceName");
+    if (pushMidiOutDeviceName != ""){
+        sendPushLikeMidiClockBursts = true;  // Enable sending of push-like midi clock bursts to device indicated
         sendPushMidiClockDeviceNames = {pushMidiOutDeviceName};
         if (!midiOutputDeviceAlreadyInitialized(pushMidiOutDeviceName)){
             auto pushMidiDevice = initializeMidiOutputDevice(pushMidiOutDeviceName);
@@ -1005,28 +1045,35 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         musicalContext->renderMidiClockInSlice(midiClockMessages);
     }
     
-    // To sync Shepherd tempo with Push's button/pad animation tempo, a number of MIDI clock messages wrapped by a start and a stop
-    // message should be sent to Push.
-    if ((shouldStartSendingPushMidiClockBurst) && (musicalContext->playheadIsPlaying())){
-        lastTimePushMidiClockBurstStarted = juce::Time::getMillisecondCounter();
-        shouldStartSendingPushMidiClockBurst = false;
-        musicalContext->renderMidiStartInSlice(pushMidiClockMessages);
-    }
-    if (lastTimePushMidiClockBurstStarted > -1.0){
-        double timeNow = juce::Time::getMillisecondCounter();
-        if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
-            pushMidiClockMessages.addEvents(midiClockMessages, 0, sliceNumSamples, 0);
-        } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
-            musicalContext->renderMidiStopInSlice(pushMidiClockMessages);
-            lastTimePushMidiClockBurstStarted = -1.0;
+    if (sendPushLikeMidiClockBursts){
+        // To sync Shepherd tempo with Push's button/pad animation tempo, a number of MIDI clock messages wrapped by a start and a stop
+        // message should be sent to Push.
+        if ((shouldStartSendingPushMidiClockBurst) && (musicalContext->playheadIsPlaying())){
+            lastTimePushMidiClockBurstStarted = juce::Time::getMillisecondCounter();
+            shouldStartSendingPushMidiClockBurst = false;
+            musicalContext->renderMidiStartInSlice(pushMidiClockMessages);
+        }
+        if (lastTimePushMidiClockBurstStarted > -1.0){
+            double timeNow = juce::Time::getMillisecondCounter();
+            if (timeNow - lastTimePushMidiClockBurstStarted < PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
+                pushMidiClockMessages.addEvents(midiClockMessages, 0, sliceNumSamples, 0);
+            } else if (timeNow - lastTimePushMidiClockBurstStarted > PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS){
+                musicalContext->renderMidiStopInSlice(pushMidiClockMessages);
+                lastTimePushMidiClockBurstStarted = -1.0;
+            }
         }
     }
     
     // Add metronome and MIDI clock messages to the corresponding hardware device buffers according to settings
     // Also send MIDI clock message to Push
     writeMidiToDevicesMidiBuffer(midiClockMessages, sendMidiClockMidiDeviceNames);
-    writeMidiToDevicesMidiBuffer(midiMetronomeMessages, sendMetronomeMidiDeviceNames);
-    writeMidiToDevicesMidiBuffer(pushMidiClockMessages, sendPushMidiClockDeviceNames);
+    if (sendMetronomeMidiDeviceName != ""){
+        writeMidiToDevicesMidiBuffer(midiMetronomeMessages, {sendMetronomeMidiDeviceName});
+    }
+    if (sendPushLikeMidiClockBursts){
+        writeMidiToDevicesMidiBuffer(pushMidiClockMessages, sendPushMidiClockDeviceNames);
+    }
+    
     
     // 11) -------------------------------------------------------------------------------------------------
     
