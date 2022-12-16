@@ -96,9 +96,13 @@ NOTE_ON_COLOR = GREEN
 
 DEFAULT_ANIMATION = push2_python.constants.ANIMATION_PULSING_QUARTER
 
-SETTINGS_FILE_PATH = 'app_data/settings.json'
-DEVICE_DEFINITION_FOLDER = 'app_data/device_definitions'
-FAVOURITE_PRESETS_FILE_PATH = 'app_data/favourite_presets.json'
+USER_DOCUMENTS_PATH = os.path.expanduser('~/Documents/')
+BASE_DATA_DIR = os.path.join(USER_DOCUMENTS_PATH, 'Shepherd')
+os.makedirs(BASE_DATA_DIR, exist_ok=True)
+SETTINGS_FILE_PATH = os.path.join(BASE_DATA_DIR, 'controllerSettings.json')
+DEVICE_DEFINITION_FOLDER = os.path.join(BASE_DATA_DIR, 'device_definitions')
+os.makedirs(DEVICE_DEFINITION_FOLDER, exist_ok=True)
+FAVOURITE_PRESETS_FILE_PATH = os.path.join(BASE_DATA_DIR, 'favourite_presets.json')
 
 BUTTON_LONG_PRESS_TIME = 0.25
 BUTTON_DOUBLE_PRESS_TIME = 0.2

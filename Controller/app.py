@@ -64,7 +64,6 @@ class ShepherdControllerApp(object):
 
     def __init__(self):
 
-
         # Start push
         settings = self.load_settings_from_file()
         self.target_frame_rate = settings.get('target_frame_rate', 60)

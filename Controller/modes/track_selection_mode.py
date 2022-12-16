@@ -41,11 +41,15 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
         example, a list of midi CC parameter mappings).
         """
         print('Loading hardware device definitions...')
-        for filename in os.listdir(definitions.DEVICE_DEFINITION_FOLDER):
-            if filename.endswith('.json'):
-                device_short_name = filename.replace('.json', '')
-                self.devices_info[device_short_name] = json.load(open(os.path.join(definitions.DEVICE_DEFINITION_FOLDER, filename)))
-                print('- {}'.format(device_short_name))
+        try:
+            for filename in os.listdir(definitions.DEVICE_DEFINITION_FOLDER):
+                if filename.endswith('.json'):
+                    device_short_name = filename.replace('.json', '')
+                    self.devices_info[device_short_name] = json.load(open(os.path.join(definitions.DEVICE_DEFINITION_FOLDER, filename)))
+                    print('- {}'.format(device_short_name))
+        except FileNotFoundError:
+            # No definitions file present
+            pass
 
     def get_settings_to_save(self):
         return {}
