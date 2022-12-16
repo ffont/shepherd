@@ -502,7 +502,9 @@ void Sequencer::initializeMIDIInputs()
     }
     
     for (auto device: midiInDevices){
-        std::cout << "- " << device->device->getName() << std::endl;
+        if (device != nullptr){
+            std::cout << "- " << device->device->getName() << std::endl;
+        }
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiInputs = false;
@@ -1420,6 +1422,33 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                 } else {
                     shouldToggleIsPlaying = true;
                 }
+            }
+        } else if (action == ACTION_ADDRESS_TRANSPORT_PLAY){
+            jassert(parameters.size() == 0);
+            if (musicalContext->playheadIsPlaying()){
+                // If it is playing, do nothing
+            } else{
+                // If it is not playing, check if there are record-armed clips and, if so, do count-in before playing
+                bool recordCuedClipsFound = false;
+                for (auto track: tracks->objects){
+                    if (track->hasClipsCuedToRecord()){
+                        recordCuedClipsFound = true;
+                        break;
+                    }
+                }
+                if (recordCuedClipsFound){
+                    musicalContext->setPlayheadIsDoingCountIn(true);
+                } else {
+                    shouldToggleIsPlaying = true;
+                }
+            }
+        } else if (action == ACTION_ADDRESS_TRANSPORT_STOP){
+            jassert(parameters.size() == 0);
+            if (musicalContext->playheadIsPlaying()){
+                // If it is playing, stop it
+                shouldToggleIsPlaying = true;
+            } else{
+                // If it is not playing, do nothing
             }
         } else if (action == ACTION_ADDRESS_TRANSPORT_SET_BPM){
             jassert(parameters.size() == 1);

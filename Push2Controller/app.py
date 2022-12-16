@@ -838,7 +838,7 @@ def on_midi_connected(_):
 
 # Run app main loop
 if __name__ == "__main__":
-    app = ShepherdPush2ControllerApp()
+    app = ShepherdPush2ControllerApp(debugger_port=5100)
     if midi_connected_received_before_app:
         # App received the "on_midi_connected" call before it was initialized. Do it now!
         print('Missed MIDI initialization call, doing it now...')

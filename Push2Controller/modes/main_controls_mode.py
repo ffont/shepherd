@@ -129,7 +129,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
             return True
 
         elif button_name == self.play_button:
-            self.session.global_play_stop()
+            self.session.play_stop()
             return True 
             
         elif button_name == self.record_button:

@@ -21,6 +21,8 @@
 
 #define ACTION_ADDRESS_TRANSPORT "/transport"
 #define ACTION_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
+#define ACTION_ADDRESS_TRANSPORT_PLAY "/transport/play"
+#define ACTION_ADDRESS_TRANSPORT_STOP "/transport/stop"
 #define ACTION_ADDRESS_TRANSPORT_SET_BPM "/transport/setBpm"
 #define ACTION_ADDRESS_TRANSPORT_SET_METER "/transport/setMeter"
 

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import mido
 
 from bs4 import BeautifulSoup
+from typing import Optional, List
 
 from .state_synchronizer import StateSynchronizer
 from .state_debugger import start_state_debugger
@@ -89,11 +92,11 @@ def backend_value_to_python_value(attr_name, value):
 
 class BaseShepherdClass(object):
 
-    parent = None
+    _parent = None
 
     def __init__(self, soup, shepherd_backend_interface, parent=None):
         # Set parent
-        self.parent = parent
+        self._parent = parent
 
         # Set state synchronizer (will be used to be able to send messages to backend)
         self.shepherd_backend_interface = shepherd_backend_interface
@@ -102,7 +105,7 @@ class BaseShepherdClass(object):
         for attr_name, value in soup.attrs.items():
             setattr(self, attr_name, backend_value_to_python_value(attr_name, value))
     
-    def send_msg_to_app(self, address, values):
+    def _send_msg_to_app(self, address, values):
         self.shepherd_backend_interface.send_msg_to_app(address, values)
 
     def render_object_attributes(self, num_spaces_offset=0):
@@ -112,7 +115,7 @@ class BaseShepherdClass(object):
                     and not callable(getattr(self, attr_name)) \
                     and not type(getattr(self, attr_name)) == list \
                     and attr_name != 'shepherd_backend_interface' \
-                    and attr_name != 'parent' \
+                    and attr_name != '_parent' \
                     and attr_name != 'track' \
                     and attr_name != 'clip' \
                     and attr_name != 'state' \
@@ -122,23 +125,23 @@ class BaseShepherdClass(object):
 
 
 class State(BaseShepherdClass):
-    hardware_devices = []
+    hardware_devices: List[HardwareDevice] = []
     session = None
 
     def __init__(self, *args, **kwargs):
         self.hardware_devices = []
         super().__init__(*args, **kwargs)
 
-    def add_hardware_device(self, hardware_device, position=None):
-        # Note this method adds a HardwareDevice object in the local State state object but does not create a hardware
+    def _add_hardware_device(self, hardware_device: HardwareDevice, position=None):
+        # Note this method adds a HardwareDevice object in the local State object but does not create a hardware
         # device in the backend
         if position is None:
             self.hardware_devices.append(hardware_device)
         else:
             self.hardware_devices.insert(position, hardware_device)
 
-    def remove_hardware_device_with_uuid(self, hardware_device_uuid):
-        # Note this method removes a HardwareDevice object from the local State state object but does not remove a
+    def _remove_hardware_device_with_uuid(self, hardware_device_uuid):
+        # Note this method removes a HardwareDevice object from the local State object but does not remove a
         # hardware device from the backend
         self.hardware_devices = [hardware_device for hardware_device in self.hardware_devices
                                  if hardware_device.uuid != hardware_device_uuid]
@@ -174,7 +177,7 @@ class State(BaseShepherdClass):
         return text
 
     def send_controller_ready_message_to_backend(self):
-        self.send_msg_to_app('/shepherdControllerReady', [])
+        self._send_msg_to_app('/shepherdControllerReady', [])
 
     def get_input_hardware_device_by_name(self, hardware_device_name):
         for hardware_device in self.hardware_devices:
@@ -183,44 +186,44 @@ class State(BaseShepherdClass):
                 return hardware_device
         return None
 
-    def get_output_hardware_device_by_name(self, hardware_device_name):
+    def get_output_hardware_device_by_name(self, hardware_device_name) -> Optional[HardwareDevice]:
         for hardware_device in self.hardware_devices:
             if hardware_device.name == hardware_device_name or hardware_device.shortname == hardware_device_name \
                     and hardware_device.type == 1:
                 return hardware_device
         return None
     
-    def get_available_output_hardware_device_names(self):
+    def get_available_output_hardware_device_names(self) -> List[str]:
         return [device.shortname for device in self.hardware_devices if device.is_type_output()]
 
     def toggle_shepherd_backend_debug_synth(self):
-        self.send_msg_to_app('/settings/debugSynthOnOff', [])
+        self._send_msg_to_app('/settings/debugSynthOnOff', [])
 
 
 class Session(BaseShepherdClass):
-    tracks = []
+    tracks: List[Track] = []
 
     @property
     def state(self):
-        return self.parent
+        return self._parent
 
     def __init__(self, *args, **kwargs):
         self.tracks = []
         super().__init__(*args, **kwargs)
 
-    def add_track(self, track, position=None):
+    def _add_track(self, track: Track, position=None):
         # Note this method adds a Track object in the local Session object but does not create a track in the backend
         if position is None:
             self.tracks.append(track)
         else:
             self.tracks.insert(position, track)
 
-    def remove_track_with_uuid(self, track_uuid):
+    def _remove_track_with_uuid(self, track_uuid):
         # Note this method removes a Track object from the local Session object but does not remove a track from
         # the backend
         self.tracks = [track for track in self.tracks if track.uuid != track_uuid]
 
-    def get_track_by_idx(self, track_idx=None):
+    def get_track_by_idx(self, track_idx=None) -> Optional[Track]:
         try:
             return self.tracks[track_idx]
         except Exception as e:
@@ -228,7 +231,7 @@ class Session(BaseShepherdClass):
                 print('ERROR selecting track: {}'.format(e))
         return None
 
-    def get_clip_by_idx(self, track_idx=None, clip_idx=None):
+    def get_clip_by_idx(self, track_idx=None, clip_idx=None) -> Optional[Clip]:
         try:
             return self.tracks[track_idx].clips[clip_idx]
         except Exception as e:
@@ -237,89 +240,95 @@ class Session(BaseShepherdClass):
         return None
 
     def save(self, save_session_name):
-        self.send_msg_to_app('/settings/save', [save_session_name])
+        self._send_msg_to_app('/settings/save', [save_session_name])
 
     def load(self, load_session_name):
-        self.send_msg_to_app('/settings/load', [load_session_name])
+        self._send_msg_to_app('/settings/load', [load_session_name])
 
     def new(self, num_tracks, num_scenes):
-        self.send_msg_to_app('/settings/new', [num_tracks, num_scenes])
+        self._send_msg_to_app('/settings/new', [num_tracks, num_scenes])
 
     def scene_play(self, scene_number):
-        self.send_msg_to_app('/scene/play', [scene_number])
+        self._send_msg_to_app('/scene/play', [scene_number])
 
     def scene_duplicate(self, scene_number):
-        self.send_msg_to_app('/scene/duplicate', [scene_number])
+        self._send_msg_to_app('/scene/duplicate', [scene_number])
 
-    def global_play_stop(self):
-        self.send_msg_to_app('/transport/playStop', [])
+    def play_stop(self):
+        self._send_msg_to_app('/transport/playStop', [])
+
+    def play(self):
+        self._send_msg_to_app('/transport/play', [])
+
+    def stop(self):
+        self._send_msg_to_app('/transport/stop', [])
 
     def metronome_on_off(self):
-        self.send_msg_to_app('/metronome/onOff', [])
+        self._send_msg_to_app('/metronome/onOff', [])
 
     def set_bpm(self, new_bpm):
-        self.send_msg_to_app('/transport/setBpm', [new_bpm])
+        self._send_msg_to_app('/transport/setBpm', [new_bpm])
     
     def set_meter(self, new_meter):
-        self.send_msg_to_app('/transport/setMeter', [new_meter])
+        self._send_msg_to_app('/transport/setMeter', [new_meter])
 
     def set_fix_length_recording_bars(self, new_fixed_length_recording_bars):
-        self.send_msg_to_app('/settings/fixedLength', [new_fixed_length_recording_bars])
+        self._send_msg_to_app('/settings/fixedLength', [new_fixed_length_recording_bars])
 
     def set_fixed_velocity(self, velocity):
-        self.send_msg_to_app('/settings/fixedVelocity', [velocity])
+        self._send_msg_to_app('/settings/fixedVelocity', [velocity])
 
     def set_record_automation_on_off(self):
-        self.send_msg_to_app('/settings/toggleRecordAutomation', [])
+        self._send_msg_to_app('/settings/toggleRecordAutomation', [])
         
 
 class Track(BaseShepherdClass):
-    clips = []
+    clips: List[Clip] = []
 
     @property
     def session(self):
-        return self.parent
+        return self._parent
     
     def __init__(self, *args, **kwargs):
         self.clips = []
         super().__init__(*args, **kwargs)
 
-    def add_clip(self, clip, position=None):
+    def _add_clip(self, clip: Clip, position=None):
         # Note this method adds a Clip object in the local Trck object but does not create a clip in the backend
         if position is None:
             self.clips.append(clip)
         else:
             self.clips.insert(position, clip)
 
-    def remove_clip_with_uuid(self, clip_uuid):
+    def _remove_clip_with_uuid(self, clip_uuid):
         # Note this method removes a Clip object from the local Track object but does not remove a clip from the backend
         self.clips = [clip for clip in self.clips if clip.uuid != clip_uuid]
 
-    def get_output_hardware_device(self):
+    def get_output_hardware_device(self) -> Optional[HardwareDevice]:
         return self.session.state.get_output_hardware_device_by_name(self.hardwaredevicename)
 
     def set_input_monitoring(self, enabled):
-        self.send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
+        self._send_msg_to_app('/track/setInputMonitoring', [self.uuid, 1 if enabled else 0])
 
     def set_active_ui_notes_monitoring(self):
-        self.send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [self.uuid])
+        self._send_msg_to_app('/track/setActiveUiNotesMonitoringTrack', [self.uuid])
 
     def set_output_hardware_device(self, device_name):
-        self.send_msg_to_app('/track/setOutputHardwareDevice', [self.uuid, device_name])
+        self._send_msg_to_app('/track/setOutputHardwareDevice', [self.uuid, device_name])
 
 
 class Clip(BaseShepherdClass):
-    sequence_events = []
+    sequence_events: List[SequenceEvent] = []
 
     @property
     def track(self):
-        return self.parent
+        return self._parent
 
     def __init__(self, *args, **kwargs):
         self.sequence_events = []
         super().__init__(*args, **kwargs)
 
-    def add_sequence_event(self, sequence_event, position=None):
+    def _add_sequence_event(self, sequence_event: SequenceEvent, position=None):
         # Note this method adds a SequenceEvent object in the local Clip object but does not create a sequence event
         # in the backend
         if position is None:
@@ -327,13 +336,13 @@ class Clip(BaseShepherdClass):
         else:
             self.sequence_events.insert(position, sequence_event)
 
-    def remove_sequence_event_with_uuid(self, sequence_event_uuid):
+    def _remove_sequence_event_with_uuid(self, sequence_event_uuid):
         # Note this method removes a SequenceEvent object from the local Clip object but does not remove a sequence
         # event from the backend
         self.sequence_events = [sequence_event for sequence_event in self.sequence_events
                                 if sequence_event.uuid != sequence_event_uuid]
 
-    def get_status(self):
+    def get_status(self) -> str:
         CLIP_STATUS_PLAYING = "p"
         CLIP_STATUS_STOPPED = "s"
         CLIP_STATUS_CUED_TO_PLAY = "c"
@@ -373,25 +382,31 @@ class Clip(BaseShepherdClass):
         return 'E' in self.get_status()
 
     def play_stop(self):
-        self.send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
+        self._send_msg_to_app('/clip/playStop', [self.track.uuid, self.uuid])
+
+    def play(self):
+        self._send_msg_to_app('/clip/play', [self.track.uuid, self.uuid])
+
+    def stop(self):
+        self._send_msg_to_app('/clip/stop', [self.track.uuid, self.uuid])
     
     def record_on_off(self):
-        self.send_msg_to_app('/clip/recordOnOff', [self.track.uuid, self.uuid])
+        self._send_msg_to_app('/clip/recordOnOff', [self.track.uuid, self.uuid])
 
     def clear(self):
-        self.send_msg_to_app('/clip/clear', [self.track.uuid, self.uuid])
+        self._send_msg_to_app('/clip/clear', [self.track.uuid, self.uuid])
 
     def double(self):
-        self.send_msg_to_app('/clip/double', [self.track.uuid, self.uuid])
+        self._send_msg_to_app('/clip/double', [self.track.uuid, self.uuid])
 
     def quantize(self, quantization_step):
-        self.send_msg_to_app('/clip/quantize', [self.track.uuid, self.uuid, quantization_step])
+        self._send_msg_to_app('/clip/quantize', [self.track.uuid, self.uuid, quantization_step])
 
     def undo(self):
-        self.send_msg_to_app('/clip/undo', [self.track.uuid, self.uuid])
+        self._send_msg_to_app('/clip/undo', [self.track.uuid, self.uuid])
 
     def set_length(self, new_length):
-        self.send_msg_to_app('/clip/setLength', [self.track.uuid, self.uuid, new_length])
+        self._send_msg_to_app('/clip/setLength', [self.track.uuid, self.uuid, new_length])
 
     def set_sequence(self, new_sequence):
         """new_sequence must be passed as a dictionary with this form:
@@ -405,7 +420,7 @@ class Clip(BaseShepherdClass):
             ]
         }
         """
-        self.send_msg_to_app("/clip/setSequence", [self.track.uuid, self.uuid, json.dumps(new_sequence)])
+        self._send_msg_to_app("/clip/setSequence", [self.track.uuid, self.uuid, json.dumps(new_sequence)])
 
     def edit_sequence(self, edit_sequence_data):
         """edit_sequence_data should be a dictionary with this form:
@@ -420,7 +435,7 @@ class Clip(BaseShepherdClass):
         }
         Note that there are more specialized methods that will call "edit_sequence" and will have easier interface
         """
-        self.send_msg_to_app("/clip/editSequence", [self.track.uuid, self.uuid, json.dumps(edit_sequence_data)])
+        self._send_msg_to_app("/clip/editSequence", [self.track.uuid, self.uuid, json.dumps(edit_sequence_data)])
 
     def remove_sequence_event(self, event_uuid):
         self.edit_sequence({
@@ -428,7 +443,8 @@ class Clip(BaseShepherdClass):
             'eventUUID': event_uuid, 
         })
 
-    def add_sequence_note_event(self, midi_note, midi_velocity, timestamp, duration, utime=0.0, chance=1.0):
+    def add_sequence_note_event(self, midi_note: int, midi_velocity: float, timestamp: float, duration: float,
+                                utime: float = 0.0, chance: float = 1.0):
         self.edit_sequence({
             'action': 'addEvent',
             'eventData': {
@@ -480,7 +496,7 @@ class SequenceEvent(BaseShepherdClass):
 
     @property
     def clip(self):
-        return self.parent
+        return self._parent
 
     def is_type_note(self):
         return self.type == 1
@@ -527,25 +543,25 @@ class HardwareDevice(BaseShepherdClass):
         return self.type == 0
 
     def send_midi(self, msg: mido.Message):
-        self.send_msg_to_app('/device/sendMidi', [self.name] + msg.bytes())
+        self._send_msg_to_app('/device/sendMidi', [self.name] + msg.bytes())
 
     def all_notes_off(self):
-        self.send_msg_to_app('/device/sendAllNotesOff', [self.name])
+        self._send_msg_to_app('/device/sendAllNotesOff', [self.name])
 
     def load_preset(self, bank, preset):
-        self.send_msg_to_app('/device/loadDevicePreset', [self.name, bank, preset])
+        self._send_msg_to_app('/device/loadDevicePreset', [self.name, bank, preset])
 
-    def get_current_midi_cc_parameter_value(self, midi_cc_num):
+    def get_current_midi_cc_parameter_value(self, midi_cc_num) -> int:
         if self.midiccparametervalueslist != self._midiccparametervalueslist_used_for_splitting:
             self._midiccparametervalueslist_used_for_splitting = self.midiccparametervalueslist
             self._midiccparametervalueslist_splitted = self.midiccparametervalueslist.split(',')
         return int(self._midiccparametervalueslist_splitted[midi_cc_num])
 
     def set_notes_mapping(self, mapping):
-        self.send_msg_to_app('/device/setNotesMapping', [self.name, ",".join([str(item) for item in mapping])])
+        self._send_msg_to_app('/device/setNotesMapping', [self.name, ",".join([str(item) for item in mapping])])
 
     def set_control_change_mapping(self, mapping):
-        self.send_msg_to_app('/device/setCCMapping', [self.name, ",".join([str(item) for item in mapping])])
+        self._send_msg_to_app('/device/setCCMapping', [self.name, ",".join([str(item) for item in mapping])])
 
 
 class ShepherdBackendInterface(StateSynchronizer):
@@ -555,6 +571,7 @@ class ShepherdBackendInterface(StateSynchronizer):
     elements_uuids_map = {}
 
     def __init__(self, *args, **kwargs):
+        self.state = None
         self.app = kwargs.get('app', None)
         if 'app' in kwargs: del kwargs['app']
         debugger_port = kwargs.get('debugger_port', None)
@@ -566,10 +583,10 @@ class ShepherdBackendInterface(StateSynchronizer):
         global verbose_level
         verbose_level = self.verbose_level
 
-    def add_element_to_uuid_map(self, element):
+    def _add_element_to_uuid_map(self, element):
         self.elements_uuids_map[element.uuid] = element
 
-    def remove_element_from_uuid_map(self, uuid):
+    def _remove_element_from_uuid_map(self, uuid):
         del self.elements_uuids_map[uuid]
 
     def get_element_with_uuid(self, uuid):
@@ -628,20 +645,20 @@ class ShepherdBackendInterface(StateSynchronizer):
                     child_soup = next(BeautifulSoup(update_data[3], "lxml").find("body").children)
                     if child_soup.name == 'TRACK'.lower():
                         added_tree_element = Track(child_soup, self)
-                        parent_tree_element.add_track(added_tree_element, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(added_tree_element)
+                        parent_tree_element._add_track(added_tree_element, position=index_in_parent_childs)
+                        self._add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'CLIP'.lower():
                         added_tree_element = Clip(child_soup, self, parent=parent_tree_element)
-                        parent_tree_element.add_clip(added_tree_element, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(added_tree_element)
+                        parent_tree_element._add_clip(added_tree_element, position=index_in_parent_childs)
+                        self._add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'SEQUENCE_EVENT'.lower():
                         added_tree_element = SequenceEvent(child_soup, self, parent=parent_tree_element)
-                        parent_tree_element.add_sequence_event(added_tree_element, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(added_tree_element)
+                        parent_tree_element._add_sequence_event(added_tree_element, position=index_in_parent_childs)
+                        self._add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'HARDWARE_DEVICE'.lower():
                         added_tree_element = HardwareDevice(child_soup, self)
-                        parent_tree_element.add_hardware_device(added_tree_element, position=index_in_parent_childs)
-                        self.add_element_to_uuid_map(added_tree_element)
+                        parent_tree_element._add_hardware_device(added_tree_element, position=index_in_parent_childs)
+                        self._add_element_to_uuid_map(added_tree_element)
                     else:
                         if self.verbose_level >= 1:
                             print('WARNING: trying to add child of a type that can\'t be handled: {}'
@@ -667,24 +684,24 @@ class ShepherdBackendInterface(StateSynchronizer):
                     if isinstance(tree_element, Track):
                         parent_tree_element = self.state.session
                         removed_element_type = Track
-                        self.state.session.remove_track_with_uuid(child_to_remove_tree_uuid)
+                        self.state.session._remove_track_with_uuid(child_to_remove_tree_uuid)
                     elif isinstance(tree_element, Clip):
                         parent_tree_element = tree_element.track
                         removed_element_type = Clip
-                        tree_element.track.remove_clip_with_uuid(child_to_remove_tree_uuid)
+                        tree_element.track._remove_clip_with_uuid(child_to_remove_tree_uuid)
                     elif isinstance(tree_element, SequenceEvent):
                         parent_tree_element = tree_element.clip
                         removed_element_type = SequenceEvent
-                        tree_element.clip.remove_sequence_event_with_uuid(child_to_remove_tree_uuid)
+                        tree_element.clip._remove_sequence_event_with_uuid(child_to_remove_tree_uuid)
                     elif isinstance(tree_element, HardwareDevice):
                         parent_tree_element = self.state
                         removed_element_type = HardwareDevice
-                        self.state.remove_hardware_device_with_uuid(child_to_remove_tree_uuid)
+                        self.state._remove_hardware_device_with_uuid(child_to_remove_tree_uuid)
                     else:
                         if self.verbose_level >= 1:
                             print('WARNING: Trying to remove element of a type that can\'t be handled: {}'
                                   .format(tree_element))
-                    self.remove_element_from_uuid_map(child_to_remove_tree_uuid)
+                    self._remove_element_from_uuid_map(child_to_remove_tree_uuid)
                     app_notification_data = {
                         'updateType': update_type,
                         'parentElement': parent_tree_element,
@@ -714,32 +731,32 @@ class ShepherdBackendInterface(StateSynchronizer):
         # build state root object
         root_element_soup = full_state_soup.findAll("state")[0]
         state = State(root_element_soup, self)  # Add properties from state root object
-        self.add_element_to_uuid_map(state)
+        self._add_element_to_uuid_map(state)
 
         # add hardware devices
         hardware_devices_soup = root_element_soup.findAll("hardware_devices")[0]
         for hardware_device_soup in hardware_devices_soup.findAll("hardware_device"):
             hardware_device = HardwareDevice(hardware_device_soup, self)
-            self.add_element_to_uuid_map(hardware_device)
-            state.add_hardware_device(hardware_device)
+            self._add_element_to_uuid_map(hardware_device)
+            state._add_hardware_device(hardware_device)
         self.state = state
 
         # add session and all related objects
         session_soup = root_element_soup.findAll("session")[0]
         session = Session(session_soup, self, parent=self.state)
-        self.add_element_to_uuid_map(session)
+        self._add_element_to_uuid_map(session)
         for tn, track_soup in enumerate(session_soup.findAll("track")):
             track = Track(track_soup, self, parent=session)
-            self.add_element_to_uuid_map(track)
+            self._add_element_to_uuid_map(track)
             for cn, clip_soup in enumerate(track_soup.findAll("clip")):
                 clip = Clip(clip_soup, self, parent=track)
-                self.add_element_to_uuid_map(clip)
+                self._add_element_to_uuid_map(clip)
                 for sen, sequence_event_soup in enumerate(clip_soup.findAll("sequence_event")):
                     sequence_event = SequenceEvent(sequence_event_soup, self, parent=clip)
-                    clip.add_sequence_event(sequence_event)
-                    self.add_element_to_uuid_map(sequence_event)
-                track.add_clip(clip)
-            session.add_track(track)
+                    clip._add_sequence_event(sequence_event)
+                    self._add_element_to_uuid_map(sequence_event)
+                track._add_clip(clip)
+            session._add_track(track)
         self.state.session = session
 
         self.state.send_controller_ready_message_to_backend()
@@ -747,16 +764,16 @@ class ShepherdBackendInterface(StateSynchronizer):
 
 class ShepherdBackendControllerApp(object):
 
-    shepherd_interface = None
+    shepherd_interface: ShepherdBackendInterface
 
-    def __init__(self, ws_port=8126, verbose_level=1, debugger_port=5100):
+    def __init__(self, ws_port=8126, verbose_level=1, debugger_port=None):
         self.shepherd_interface = ShepherdBackendInterface(app=self,
                                                            ws_port=ws_port,
                                                            verbose_level=verbose_level,
                                                            debugger_port=debugger_port)
 
     @property
-    def state(self):
+    def state(self) -> Optional[State]:
         try:
             return self.shepherd_interface.state
         except AttributeError as e:
@@ -764,7 +781,7 @@ class ShepherdBackendControllerApp(object):
         return None
 
     @property
-    def session(self):
+    def session(self) -> Optional[Session]:
         try:
             return self.shepherd_interface.state.session
         except AttributeError as e:

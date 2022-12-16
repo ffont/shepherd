@@ -266,3 +266,53 @@ Shepherd is released under the **GPLv3** open source software license (see [LICE
 
 * [juce](https://juce.com), available under GPLv3 license ([@46ea879](https://github.com/juce-framework/JUCE/tree/46ea879739533ca0cdc689b967edfc5390c46ef7), v6.1.2)
 * [Simple-Web-Server](https://gitlab.com/eidheim/Simple-Web-Server), available under MIT license ([@bdb1057](https://gitlab.com/eidheim/Simple-Web-Server/-/tree/bdb105712bc4cebc993de89b62e382b92102b347))
+
+
+## App example
+
+````python
+from pyshepherd.pyshepherd import ShepherdBackendControllerApp
+import time
+
+
+class App(ShepherdBackendControllerApp):
+
+    def on_backend_connected(self):
+        print('on_backend_connected')
+
+    def on_backend_state_ready(self):
+        clip = self.session.tracks[0].clips[0]
+        clip.clear()
+        clip.add_sequence_note_event(60, 1.0, 0.0, 0.5)
+        clip.add_sequence_note_event(61, 1.0, 0.5, 0.5)
+        clip.add_sequence_note_event(62, 1.0, 1.0, 0.5)
+        clip.add_sequence_note_event(63, 1.0, 1.5, 0.5)
+        clip.set_length(2.0)
+        clip.play()
+
+        clip = self.session.tracks[1].clips[0]
+        clip.clear()
+        clip.add_sequence_note_event(62, 1.0, 0.0, 0.5)
+        clip.add_sequence_note_event(64, 1.0, 0.5, 0.5)
+        clip.add_sequence_note_event(66, 1.0, 1.0, 0.5)
+        clip.set_length(1.5)
+        clip.play()
+
+        self.session.play()
+
+    def on_state_update_received(self, update_data):
+        print(update_data)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            if self.session is not None:
+                self.session.stop()
+
+
+if __name__ == "__main__":
+    app = App(debugger_port=5100)
+````
