@@ -211,7 +211,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
 
     def notes_to_pads(self):
         notes = [event for event in self.clip.sequence_events if event.is_type_note() and 
-                                                                 (event.rendered_start_timestamp < self.end_displayed_time or event.renderedendtimestamp > self.start_displayed_time) and
+                                                                 (event.rendered_start_timestamp < self.end_displayed_time or event.rendered_end_timestamp > self.start_displayed_time) and
                                                                  self.pads_min_note_offset <= event.midi_note < self.pads_min_note_offset + 8]
         notes_to_display = []
         for event in notes:
