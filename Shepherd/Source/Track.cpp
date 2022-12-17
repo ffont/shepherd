@@ -72,8 +72,9 @@ juce::MidiBuffer* Track::getMidiOutputDeviceBufferIfDevice()
         // If device is null pointer, it means no hardware device is yet assinged and no therefore no corresponding MIDI buffer
         return nullptr;
     }
-    
-    juce::MidiBuffer* bufferToFill = &getMidiOutputDeviceData(outputHwDevice->getMidiOutputDeviceName())->buffer;
+    auto midiOutputDeviceData = getMidiOutputDeviceData(outputHwDevice->getMidiOutputDeviceName());
+    if (midiOutputDeviceData == nullptr) { return nullptr; }
+    juce::MidiBuffer* bufferToFill = &midiOutputDeviceData->buffer;
     if (bufferToFill == nullptr){
         // If the buffer to fill is null pointer, it means the corresponding MIDI device could not be initialized and there's no corresponding MIDI buffer
         return nullptr;

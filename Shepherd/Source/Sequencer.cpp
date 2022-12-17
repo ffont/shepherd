@@ -445,7 +445,7 @@ void Sequencer::initializeOSC()
 bool Sequencer::midiOutputDeviceAlreadyInitialized(const juce::String& deviceName)
 {
     for (auto deviceData: midiOutDevices){
-        if (deviceData->name == deviceName){
+        if (deviceData != nullptr && deviceData->name == deviceName){
             // If device already initialized, early return
             return true;
         }
@@ -456,7 +456,7 @@ bool Sequencer::midiOutputDeviceAlreadyInitialized(const juce::String& deviceNam
 bool Sequencer::midiInputDeviceAlreadyInitialized(const juce::String& deviceName)
 {
     for (auto deviceData: midiInDevices){
-        if (deviceData->name == deviceName){
+        if (deviceData != nullptr && deviceData->name == deviceName){
             // If device already initialized, early return
             return true;
         }
@@ -489,22 +489,30 @@ void Sequencer::initializeMIDIInputs()
             } else {
                 // If device is already initialized, then re-initialize it and replace existing one
                 auto initializedMidiDevice = getMidiInputDeviceData(hwDevice->getMidiInputDeviceName());
+                
                 for (int i=0; i<midiInDevices.size(); i++){
-                    if (midiInDevices[i]->identifier == initializedMidiDevice->identifier){
-                        midiInDevices[i]->device->stop();
-                        auto reinitializedMidiDeviceData = initializeMidiInputDevice(hwDevice->getMidiInputDeviceName());
-                        midiInDevices.set(i, reinitializedMidiDeviceData);
-                        break;
-                    }
+                    if (midiInDevices[i] != nullptr) {
+                        if (midiInDevices[i]->identifier == initializedMidiDevice->identifier){
+                            midiInDevices[i]->device->stop();
+                            auto reinitializedMidiDeviceData = initializeMidiInputDevice(hwDevice->getMidiInputDeviceName());
+                            midiInDevices.set(i, reinitializedMidiDeviceData);
+                            break;
+                        }
+                    }                    
                 }
             }
         }
     }
     
-    for (auto device: midiInDevices){
-        if (device != nullptr){
-            std::cout << "- " << device->device->getName() << std::endl;
+    // Remove elements from midiInDevices that could be remaining null pointers of previous sessions
+    for (int i=midiInDevices.size() - 1; i>0; i--){
+        if (midiInDevices[i] == nullptr){
+            midiInDevices.remove(i);
         }
+    }
+    
+    for (auto device: midiInDevices){
+        std::cout << "- " << device->device->getName() << std::endl;
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiInputs = false;
@@ -575,6 +583,13 @@ void Sequencer::initializeMIDIOutputs()
         }
     }
     
+    // Remove elements from midiOutDevices that could be remaining null pointers of previous sessions
+    for (int i=midiOutDevices.size() - 1; i>0; i--){
+        if (midiOutDevices[i] == nullptr){
+            midiOutDevices.remove(i);
+        }
+    }
+    
     for (auto device: midiOutDevices){
         std::cout << "- " << device->device->getName() << std::endl;
     }
@@ -615,7 +630,7 @@ MidiOutputDeviceData* Sequencer::initializeMidiOutputDevice(juce::String deviceN
 MidiOutputDeviceData* Sequencer::getMidiOutputDeviceData(juce::String deviceName)
 {
     for (auto deviceData: midiOutDevices){
-        if (deviceData->name == deviceName){
+        if (deviceData != nullptr && deviceData->name == deviceName){
             return deviceData;
         }
     }
@@ -667,7 +682,7 @@ MidiInputDeviceData* Sequencer::initializeMidiInputDevice(juce::String deviceNam
 MidiInputDeviceData* Sequencer::getMidiInputDeviceData(juce::String deviceName)
 {
     for (auto deviceData: midiInDevices){
-        if (deviceData->name == deviceName){
+        if (deviceData != nullptr && deviceData->name == deviceName){
             return deviceData;
         }
     }
@@ -682,21 +697,27 @@ MidiInputDeviceData* Sequencer::getMidiInputDeviceData(juce::String deviceName)
 void Sequencer::collectorsRetrieveLatestBlockOfMessages(int sliceNumSamples)
 {
     for (auto deviceData: midiInDevices){
-        deviceData->collector.removeNextBlockOfMessages (deviceData->buffer, sliceNumSamples);
+        if (deviceData != nullptr){
+            deviceData->collector.removeNextBlockOfMessages (deviceData->buffer, sliceNumSamples);
+        }
     }
 }
 
 void Sequencer::resetMidiInCollectors(double sampleRate)
 {
     for (auto deviceData: midiInDevices){
-        deviceData->collector.reset(sampleRate);
+        if (deviceData != nullptr){
+            deviceData->collector.reset(sampleRate);
+        }
     }
 }
 
 void Sequencer::clearMidiDeviceInputBuffers()
 {
     for (auto deviceData: midiInDevices){
-        deviceData->buffer.clear();
+        if (deviceData != nullptr){
+            deviceData->buffer.clear();
+        }
     }
 }
 
@@ -704,7 +725,9 @@ void Sequencer::clearMidiDeviceInputBuffers()
 void Sequencer::clearMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
-        deviceData->buffer.clear();
+        if (deviceData != nullptr){
+            deviceData->buffer.clear();
+        }
     }
 }
 
@@ -718,17 +741,22 @@ void Sequencer::clearMidiTrackBuffers()
 void Sequencer::sendMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
-        deviceData->device->sendBlockOfMessagesNow(deviceData->buffer);
+        if (deviceData != nullptr){
+            deviceData->device->sendBlockOfMessagesNow(deviceData->buffer);
+        }
     }
 }
 
 void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vector<juce::String> midiOutDeviceNames)
 {
     for (auto deviceName: midiOutDeviceNames){
-        auto bufferToWrite = &getMidiOutputDeviceData(deviceName)->buffer;
-        if (bufferToWrite != nullptr){
-            if (buffer.getNumEvents() > 0){
-                bufferToWrite->addEvents(buffer, 0, samplesPerSlice, 0);
+        auto deviceData = getMidiOutputDeviceData(deviceName);
+        if (deviceData != nullptr){
+            auto bufferToWrite = &deviceData->buffer;
+            if (bufferToWrite != nullptr){
+                if (buffer.getNumEvents() > 0){
+                    bufferToWrite->addEvents(buffer, 0, samplesPerSlice, 0);
+                }
             }
         }
     }
@@ -962,7 +990,9 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         // not be created or removed...
 
         if (inputDevice->isTypeInput() && inputDevice->isMidiInitialized()){
-            juce::MidiBuffer& deviceLastBlockOfMessages = getMidiInputDeviceData(inputDevice->getMidiInputDeviceName())->buffer;
+            auto inputDeviceData = getMidiInputDeviceData(inputDevice->getMidiInputDeviceName());
+            if (inputDeviceData == nullptr) { continue; }
+            juce::MidiBuffer& deviceLastBlockOfMessages = inputDeviceData->buffer;
             
             // Apply fixed velocity filter
             for (const auto metadata: deviceLastBlockOfMessages){
@@ -1105,7 +1135,9 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         // All buffers are combined into a single buffer which is then sent to the synth
         internalSynthCombinedBuffer.clear();
         for (auto deviceData: midiOutDevices){
-            internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
+            if (deviceData != nullptr){
+                internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
+            }
         }
         sineSynth.renderNextBlock (*bufferToFill.buffer, internalSynthCombinedBuffer, bufferToFill.startSample, sliceNumSamples);
     }

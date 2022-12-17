@@ -138,7 +138,9 @@ void HardwareDevice::renderPendingMidiMessagesToRenderInBuffer()
 {
     // If there are pending MIDI messages to be rendered in the hardware device buffer buffer, send them
     juce::MidiMessage msg;
-    juce::MidiBuffer* buffer = &getMidiOutputDeviceData(getMidiOutputDeviceName())->buffer;
+    auto midiOutputDeviceData = getMidiOutputDeviceData(getMidiOutputDeviceName());
+    if (midiOutputDeviceData == nullptr) { return; }
+    juce::MidiBuffer* buffer = &midiOutputDeviceData->buffer;
     while (midiMessagesToRenderInBuffer.pull(msg)) {
         int deviceMidiOutputChannel = getMidiOutputChannel();
         if ((buffer != nullptr) && (deviceMidiOutputChannel > -1)){
@@ -223,7 +225,9 @@ bool HardwareDevice::filterAndProcessIncomingMidiMessage(juce::MidiMessage& msg,
 void HardwareDevice::processAndRenderIncomingMessagesIntoBuffer(juce::MidiBuffer& bufferToFill, HardwareDevice* outputDevice)
 {
     // use getMidiInputDeviceData to get latest block of messages for the device, process them and add to the buffer
-    juce::MidiBuffer* lastBlockOfMessages = &getMidiInputDeviceData(getMidiInputDeviceName())->buffer;
+    auto midiInputDeviceData = getMidiInputDeviceData(getMidiInputDeviceName());
+    if (midiInputDeviceData == nullptr) { return; }
+    juce::MidiBuffer* lastBlockOfMessages = &midiInputDeviceData->buffer;
     if (lastBlockOfMessages != nullptr){
         for (auto metadata: *lastBlockOfMessages){
             juce::MidiMessage msg = metadata.getMessage();
