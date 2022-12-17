@@ -280,7 +280,13 @@ class App(ShepherdBackendControllerApp):
     def on_backend_connected(self):
         print('on_backend_connected')
 
-    def on_backend_state_ready(self):
+    def on_state_first_synced(self):
+        # Create new empty session when  we first sync with backend
+        self.session.new(num_tracks=2, num_scenes=1)
+
+    def on_new_session_loaded(self):
+        # When the session has been loaded, add events to some clips and play them
+
         clip = self.session.tracks[0].clips[0]
         clip.clear()
         clip.add_sequence_note_event(60, 1.0, 0.0, 0.5)
