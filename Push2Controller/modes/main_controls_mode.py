@@ -33,7 +33,7 @@ class MainControlsMode(definitions.ShepherdControllerMode):
         self.update_buttons()
 
     def get_transport_buttons_state(self):
-        is_playing = self.session.is_playing
+        is_playing = self.session.playing
         is_recording = False
         for track in self.session.tracks:
             for clip in track.clips:

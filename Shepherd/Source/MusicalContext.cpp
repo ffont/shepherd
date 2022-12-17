@@ -23,7 +23,7 @@ void MusicalContext::bindState()
     // For variables that have a "state" version and a non-cached version, also assign the non-cached one so it is loaded from state
     statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
     playheadPositionInBeats = statePlayheadPositionInBeats;
-    stateIsPlaying.referTo(state, IDs::isPlaying, nullptr, Defaults::isPlaying);
+    stateIsPlaying.referTo(state, IDs::playing, nullptr, Defaults::playing);
     isPlaying = stateIsPlaying;
     stateDoingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
     doingCountIn = stateDoingCountIn;

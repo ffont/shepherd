@@ -101,7 +101,6 @@ namespace Defaults
 inline juce::String emptyString = "";
 inline int order = -1;
 inline double playheadPosition = 0.0;
-inline bool isPlaying = false;
 inline bool doingCountIn = false;
 inline int fixedLengthRecordingBars = 0;
 inline bool recordAutomationEnabled = true;
@@ -157,7 +156,6 @@ DECLARE_ID (order)
 DECLARE_ID (type)
 DECLARE_ID (length)
 DECLARE_ID (playheadPositionInBeats)
-DECLARE_ID (isPlaying)
 DECLARE_ID (shouldToggleIsPlaying)
 DECLARE_ID (doingCountIn)
 DECLARE_ID (countInPlayheadPositionInBeats)
@@ -169,7 +167,7 @@ DECLARE_ID (meter)
 DECLARE_ID (barCount)
 DECLARE_ID (metronomeOn)
 DECLARE_ID (inputMonitoring)
-DECLARE_ID (hardwareDeviceName)
+DECLARE_ID (outputHardwareDeviceName)
 DECLARE_ID (clipLengthInBeats)
 DECLARE_ID (currentQuantizationStep)
 DECLARE_ID (wrapEventsAcrossClipLoop)

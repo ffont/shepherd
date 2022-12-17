@@ -13,70 +13,72 @@ verbose_level = 0
 
 
 parameters_data = {
-    'allowaftertouchmessages': bool,
-    'allowchannelpressuremessages': bool,
-    'allowcontrollermessages': bool,
-    'allowedmidiinputchannel': int,
-    'allownotemessages': bool,
-    'allowpitchbendmessages': bool,
-    'barcount': int,
-    'bpm': float,
-    'chance': float,
-    'cliplengthinbeats': float,
-    'controlchangemapping': str,
-    'controlchangemessagesarerelative': bool,
-    'countinplayheadpositioninbeats': float,
-    'currentquantizationstep': float,
-    'datalocation': str,
-    'doingcountin': bool,
-    'duration': float,
-    'eventmidibytes': str,
-    'fixedlengthrecordingbars': int,
-    'fixedvelocity': bool,
-    'hardwaredevicename': str,
-    'inputmonitoring': bool,
-    'isplaying': bool,
-    'meter': int,
-    'metronomeon': bool,
-    'midiccparametervalueslist': str,
-    'midichannel': int,
-    'mididevicename': str,
-    'midiinputdevicename': str,
-    'midinote': int,
-    'midioutputdevicename': str,
-    'midivelocity': float,  # . 0.0-1.0
-    'name': str,
-    'notesmapping': str,
-    'notesmonitoringdevicename': str,
-    'order': int,
-    'playheadpositioninbeats': float,
-    'playing': bool,
-    'recordautomationenabled': bool,
-    'recording': bool,
-    'renderedendtimestamp': float,
-    'renderedstarttimestamp': float,
-    'renderwithinternalsynth': bool,
-    'shortname': str,
-    'timestamp': float,
-    'type': int,  # SequenceEventType {midi=0, note=1} or HardwareDeviceType {input=0, output=1}
-    'utime': float,
-    'uuid': str,
-    'version': str,
-    'willplayat': float,
-    'willstartrecordingat': float,
-    'willstopat': float,
-    'willstoprecordingat': float,
-    'wrapeventsacrosscliploop': bool,
+    'allowaftertouchmessages': (bool, "allow_aftertouch_messages"),
+    'allowchannelpressuremessages': (bool, "allow_channel_pressure_messages"),
+    'allowcontrollermessages': (bool, "allow_controller_messages"),
+    'allowedmidiinputchannel': (int, "allowed_midi_input_channel"),
+    'allownotemessages': (bool, "allow_note_messages"),
+    'allowpitchbendmessages': (bool, "allow_pitchbend_messages"),
+    'barcount': (int, "bar_count"),
+    'bpm': (float, "bpm"),
+    'chance': (float, "chance"),
+    'cliplengthinbeats': (float, "clip_length_in_beats"),
+    'controlchangemapping': (str, "control_change_mapping"),
+    'controlchangemessagesarerelative': (bool, "control_change_messages_are_relative"),
+    'countinplayheadpositioninbeats': (float, "count_in_playhead_position_in_beats"),
+    'currentquantizationstep': (float, "current_quantization_step"),
+    'datalocation': (str, "data_location"),
+    'doingcountin': (bool, "doing_count_in"),
+    'duration': (float, "duration"),
+    'eventmidibytes': (str, "_midi_bytes"),
+    'fixedlengthrecordingbars': (int, "fixed_length_recording_bars"),
+    'fixedvelocity': (bool, "fixed_velocity"),
+    'outputhardwaredevicename': (str, "output_hardware_device_name"),
+    'inputmonitoring': (bool, "input_monitoring"),
+    'meter': (int, "meter"),
+    'metronomeon': (bool, "metronome_on"),
+    'midiccparametervalueslist': (str, "midi_cc_parameter_values_list"),
+    'midichannel': (int, "midi_channel"),
+    'mididevicename': (str, "midi_device_name"),
+    'midiinputdevicename': (str, "midi_input_device_name"),
+    'midinote': (int, "midi_note"),
+    'midioutputdevicename': (str, "midi_output_device_name"),
+    'midivelocity': (float, "midi_velocity"),  # . 0.0-1.0
+    'name': (str, "name"),
+    'notesmapping': (str, "notes_mapping"),
+    'notesmonitoringdevicename': (str, "notes_monitoring_device_name"),
+    'order': (int, "order"),
+    'playheadpositioninbeats': (float, "playhead_position_in_beats"),
+    'playing': (bool, "playing"),
+    'recordautomationenabled': (bool, "record_automation_enabled"),
+    'recording': (bool, "recording"),
+    'renderedendtimestamp': (float, "rendered_end_timestamp"),
+    'renderedstarttimestamp': (float, "rendered_start_timestamp"),
+    'renderwithinternalsynth': (bool, "render_with_internal_synth"),
+    'shortname': (str, "short_name"),
+    'timestamp': (float, "timestamp"),
+    'type': (int, "type"),  # SequenceEventType {midi=0, note=1} or HardwareDeviceType {input=0, output=1}
+    'utime': (float, "utime"),
+    'uuid': (str, "uuid"),
+    'version': (str, "version"),
+    'willplayat': (float, "will_play_at"),
+    'willstartrecordingat': (float, "will_start_recording_at"),
+    'willstopat': (float, "will_stop_at"),
+    'willstoprecordingat': (float, "will_stop_recording_at"),
+    'wrapeventsacrosscliploop': (bool, "wrap_events_across_clip_loop"),
 }
 
 
-def modified_prop_name(attr_name):
-    # make properties "private" by default, we access them thorugh corresponding hardcoded @property  
-    return '_' + attr_name
+def get_attr_type(attr_raw_name):
+    return parameters_data.get(attr_raw_name, [None, None])[0]
 
 
-def backend_value_to_python_value(attr_name, value):
-    attr_type = parameters_data.get(attr_name, None)
+def modified_prop_name(attr_raw_name):
+    return parameters_data.get(attr_raw_name, [None, None])[1]
+
+
+def backend_value_to_python_value(attr_raw_name, value):
+    attr_type = get_attr_type(attr_raw_name)
     try:
         if attr_type == float:
             return float(value)
@@ -88,19 +90,16 @@ def backend_value_to_python_value(attr_name, value):
             return value
         elif attr_type is None:
             if verbose_level >= 1:
-                print('WARNING: unknown parameter {} of received type {}'.format(attr_name, type(value)))
+                print('WARNING: unknown parameter {} of received type {}'.format(attr_raw_name, type(value)))
             return value
     except Exception as e:
-        raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_name, str(e)))
+        raise Exception('Error converting value {} for attribute {}: {}'.format(value, attr_raw_name, str(e)))
 
 
 class BaseShepherdClass(object):
 
     _parent = None
-
-    @property
-    def uuid(self) -> str:
-        return self._uuid
+    uuid: str
 
     def __init__(self, soup, shepherd_backend_interface, parent=None):
         # Set parent
@@ -119,34 +118,31 @@ class BaseShepherdClass(object):
     def render_object_attributes(self, num_spaces_offset=0):
         text = ''
         for attr_name in dir(self):
-            if not attr_name.startswith('_') \
-                    and not callable(getattr(self, attr_name)) \
-                    and not type(getattr(self, attr_name)) == list \
-                    and not attr_name.startswith('_') \
-                    and attr_name != 'shepherd_backend_interface' \
-                    and attr_name != 'track' \
-                    and attr_name != 'clip' \
-                    and attr_name != 'state' \
-                    and attr_name != 'session':
-                text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(self, attr_name))
+            try:
+                if not attr_name.startswith('_') \
+                        and not callable(getattr(self, attr_name)) \
+                        and not type(getattr(self, attr_name)) == list \
+                        and not attr_name.startswith('_') \
+                        and attr_name != 'shepherd_backend_interface' \
+                        and attr_name != 'track' \
+                        and attr_name != 'clip' \
+                        and attr_name != 'state' \
+                        and attr_name != 'session':
+
+                        text += '{}{}: {}\n'.format(' ' * num_spaces_offset, attr_name, getattr(self, attr_name))
+            except AttributeError:
+                pass
         return text
 
 
 class State(BaseShepherdClass):
     hardware_devices: List[HardwareDevice] = []
-    session = None
+    session: Optional[Session] = None
 
-    @property
-    def data_location(self):
-        return self._datalocation
-
-    @property
-    def notes_monitoring_device_name(self):
-        return self._notesmonitoringdevicename
-
-    @property
-    def render_with_internal_synth(self):
-        return self._renderwithinternalsynth
+    data_location: str
+    notes_monitoring_device_name: str
+    render_with_internal_synth: str
+    version: str
 
     def __init__(self, *args, **kwargs):
         self.hardware_devices = []
@@ -223,53 +219,22 @@ class State(BaseShepherdClass):
 class Session(BaseShepherdClass):
     tracks: List[Track] = []
 
+    bar_count: int
+    bpm: float
+    count_in_playhead_position_in_beats: float
+    doing_count_in: bool
+    fixed_length_recording_bars: int
+    fixed_velocity: bool
+    meter: int
+    metronome_on: bool
+    name: str
+    playing: bool
+    record_automation_enabled: bool
+    version: str
+
     @property
     def state(self) -> State:
         return self._parent
-        
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def fixed_length_recording_bars(self) -> int:
-        return self._fixedlengthrecordingbars
-
-    @property
-    def fixed_velocity(self) -> bool:
-        return self._fixedvelocity
-
-    @property
-    def is_playing(self) -> bool:
-        return self._isplaying
-
-    @property
-    def record_automation_enabled(self) -> bool:
-        return self._recordautomationenabled
-
-    @property
-    def meter(self) -> int:
-        return self._meter
-
-    @property
-    def metronome_on(self) -> bool:
-        return self._metronomeon
-
-    @property
-    def doing_count_in(self) -> bool:
-        return self._doingcountin
-
-    @property
-    def count_in_playhead_position_in_beats(self) -> float:
-        return self._countinplayheadpositioninbeats
-
-    @property
-    def bar_count(self) -> int:
-        return self._barcount
-
-    @property
-    def bpm(self) -> float:
-        return self._bpm
 
     def __init__(self, *args, **kwargs):
         self.tracks = []
@@ -349,25 +314,14 @@ class Session(BaseShepherdClass):
 class Track(BaseShepherdClass):
     clips: List[Clip] = []
 
+    input_monitoring: bool
+    name: str
+    order: str
+    output_hardware_device_name: str
+
     @property
     def session(self) -> Session():
         return self._parent
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def order(self) -> str:
-        return self._order
-
-    @property
-    def input_monitoring(self) -> bool:
-        return self._inputmonitoring
-
-    @property
-    def output_hardware_device_name(self) -> str:
-        return self._hardwaredevicename    
     
     def __init__(self, *args, **kwargs):
         self.clips = []
@@ -400,53 +354,21 @@ class Track(BaseShepherdClass):
 class Clip(BaseShepherdClass):
     sequence_events: List[SequenceEvent] = []
 
+    clip_length_in_beats: float
+    current_quantization_step: float
+    name: str
+    playhead_position_in_beats: float
+    playing: bool
+    recording: bool
+    will_play_at: float
+    will_start_recording_at: float
+    will_stop_at: float
+    will_stop_recording_at: float
+    wrap_events_across_clip_loop: bool
+
     @property
     def track(self) -> Track():
         return self._parent
- 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def playhead_position_in_beats(self) -> float:
-        return self._playheadpositioninbeats
-
-    @property
-    def playing(self) -> bool:
-        return self._playing
-
-    @property
-    def recording(self) -> bool:
-        return self._recording
-
-    @property
-    def will_play_at(self) -> float:
-        return self._willplayat
-
-    @property
-    def will_start_recording_at(self) -> float:
-        return self._willstartrecordingat
-
-    @property
-    def will_stop_at(self) -> float:
-        return self._willstopat
-
-    @property
-    def will_stop_recording_at(self) -> float:
-        return self._willstoprecordingat
-
-    @property
-    def wrap_events_across_clip_loop(self) -> bool:
-        return self._wrapeventsacrosscliploop
-
-    @property
-    def clip_length_in_beats(self) -> float:
-        return self._cliplengthinbeats
-
-    @property
-    def current_quantization_step(self) -> float:
-        return self._currentquantizationstep
 
     def __init__(self, *args, **kwargs):
         self.sequence_events = []
@@ -618,49 +540,20 @@ class Clip(BaseShepherdClass):
 
 class SequenceEvent(BaseShepherdClass):
 
+    chance: float
+    duration: float
+    midi_bytes: str
+    midi_note: int
+    midi_velocity: float
+    rendered_end_timestamp: float
+    rendered_start_timestamp: float
+    timestamp: float
+    type: int
+    utime: float
+
     @property
     def clip(self) -> Clip:
         return self._parent
-
-    @property
-    def type(self) -> int:
-        return self._type
-    
-    @property
-    def timestamp(self) -> float:
-        return self._timestamp
-
-    @property
-    def utime(self) -> float:
-        return self._utime
-
-    @property
-    def rendered_end_timestamp(self) -> float:
-        return self._renderedendtimestamp
-
-    @property
-    def rendered_start_timestamp(self) -> float:
-        return self._renderedstarttimestamp
-
-    @property
-    def midi_velocity(self) -> float:
-        return self._midivelocity
-
-    @property
-    def midi_note(self) -> int:
-        return self._midinote
-
-    @property
-    def duration(self) -> float:
-        return self._duration
-
-    @property
-    def midi_bytes(self) -> str:
-        return self._eventmidibytes
-
-    @property
-    def chance(self) -> float:
-        return self._chance
 
     def is_type_note(self):
         return self.type == 1
@@ -697,73 +590,26 @@ class SequenceEvent(BaseShepherdClass):
 
 class HardwareDevice(BaseShepherdClass):
 
-    _midiccparametervalueslist_used_for_splitting = None
-    _midiccparametervalueslist_splitted = []
+    allow_aftertouch_messages: bool
+    allow_channel_pressure_messages: bool
+    allow_controller_messages: bool
+    allow_note_messages: bool
+    allow_pitch_bend_messages: bool
+    allowed_midi_input_channel: int
+    control_change_mapping: str
+    control_change_messages_are_relative: bool
+    midi_cc_parameter_values_list: str
+    midi_channel: int
+    midi_input_device_name: str
+    midi_output_device_name: str
+    name: str
+    notes_mapping: str
+    short_name: str
+    type: int
 
-    @property
-    def name(self) -> str:
-        return self._name
+    _midi_cc_parameter_values_list_used_for_splitting = None
+    _midi_cc_parameter_values_list_splitted = []
 
-    @property
-    def type(self) -> int:
-        return self._type
-
-    @property
-    def short_name(self) -> str:
-        return self._shortname
-
-    @property
-    def notes_mapping(self) -> str:
-        return self._notesmapping
-
-    @property
-    def midi_input_device_name(self) -> str:
-        return self._midiinputdevicename
-
-    @property
-    def midi_output_device_name(self) -> str:
-        return self._midioutputdevicename
-
-    @property
-    def midi_channel(self) -> int:
-        return self._midichannel
-
-    @property
-    def midi_cc_parameter_values_list(self) -> str:
-        return self._midiccparametervalueslist
-
-    @property
-    def control_change_mapping(self) -> str:
-        return self._controlchangemapping
-
-    @property
-    def control_change_messages_are_relative(self) -> bool:
-        return self._controlchangemessagesarerelative
-
-    @property
-    def allow_aftertouch_messages(self) -> bool:
-        return self._allowaftertouchmessages
-
-    @property
-    def allow_channel_pressure_messages(self) -> bool:
-        return self._allowchannelpressuremessages
-
-    @property
-    def allow_controller_messages(self) -> bool:
-        return self._allowcontrollermessages
-
-    @property
-    def allow_note_messages(self) -> bool:
-        return self._allownotemessages
-
-    @property
-    def allow_pitch_bend_messages(self) -> bool:
-        return self._allowpitchbendmessages
-
-    @property
-    def allowed_midi_input_channel(self) -> int:
-        return self._allowedmidiinputchannel
-    
     def is_type_output(self):
         return self.type == 1
 
@@ -780,10 +626,10 @@ class HardwareDevice(BaseShepherdClass):
         self._send_msg_to_app('/device/loadDevicePreset', [self.name, bank, preset])
 
     def get_current_midi_cc_parameter_value(self, midi_cc_num) -> int:
-        if self.midi_cc_parameter_values_list != self._midiccparametervalueslist_used_for_splitting:
-            self._midiccparametervalueslist_used_for_splitting = self.midi_cc_parameter_values_list
-            self._midiccparametervalueslist_splitted = self.midi_cc_parameter_values_list.split(',')
-        return int(self._midiccparametervalueslist_splitted[midi_cc_num])
+        if self.midi_cc_parameter_values_list != self._midi_cc_parameter_values_list_used_for_splitting:
+            self._midi_cc_parameter_values_list_used_for_splitting = self.midi_cc_parameter_values_list
+            self._midi_cc_parameter_values_list_splitted = self.midi_cc_parameter_values_list.split(',')
+        return int(self._midi_cc_parameter_values_list_splitted[midi_cc_num])
 
     def set_notes_mapping(self, mapping):
         self._send_msg_to_app('/device/setNotesMapping', [self.name, ",".join([str(item) for item in mapping])])
@@ -794,8 +640,8 @@ class HardwareDevice(BaseShepherdClass):
 
 class ShepherdBackendInterface(StateSynchronizer):
 
-    app = None
-    state = None
+    app: Optional[ShepherdBackendControllerApp] = None
+    state: Optional[State] = None
     elements_uuids_map = {}
 
     def __init__(self, *args, **kwargs):
@@ -842,14 +688,14 @@ class ShepherdBackendInterface(StateSynchronizer):
                     property_name = update_data[2].lower()
                     new_value = update_data[3]
 
-                    if hasattr(tree_element, property_name):
-                        old_value = getattr(tree_element, property_name, None)
+                    if hasattr(tree_element, modified_prop_name(property_name)):
+                        old_value = getattr(tree_element, modified_prop_name(property_name), None)
                         setattr(tree_element, modified_prop_name(property_name),
                                 backend_value_to_python_value(property_name, new_value))
                         app_notification_data = {
                             'updateType': update_type,
                             'affectedElement': tree_element,
-                            'propertyName': property_name,
+                            'propertyName': modified_prop_name(property_name),
                             'oldValue': old_value,
                             'newValue': new_value,
                         }
@@ -873,10 +719,14 @@ class ShepherdBackendInterface(StateSynchronizer):
                     index_in_parent_childs = int(update_data[2])
                     child_soup = next(BeautifulSoup(update_data[3], "lxml").find("body").children)
                     if child_soup.name == 'TRACK'.lower():
+                        # NOTE: this should never be reached because tracks can't be created dynamically
+                        # in Shepherd backend
                         added_tree_element = Track(child_soup, self)
                         parent_tree_element._add_track(added_tree_element, position=index_in_parent_childs)
                         self._add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'CLIP'.lower():
+                        # NOTE: this should never be reached because clips can't be created dynamically
+                        # in Shepherd backend
                         added_tree_element = Clip(child_soup, self, parent=parent_tree_element)
                         parent_tree_element._add_clip(added_tree_element, position=index_in_parent_childs)
                         self._add_element_to_uuid_map(added_tree_element)
@@ -885,6 +735,8 @@ class ShepherdBackendInterface(StateSynchronizer):
                         parent_tree_element._add_sequence_event(added_tree_element, position=index_in_parent_childs)
                         self._add_element_to_uuid_map(added_tree_element)
                     elif child_soup.name == 'HARDWARE_DEVICE'.lower():
+                        # NOTE: this should never be reached because hardware devices can't be created dynamically
+                        # in Shepherd backend
                         added_tree_element = HardwareDevice(child_soup, self)
                         parent_tree_element._add_hardware_device(added_tree_element, position=index_in_parent_childs)
                         self._add_element_to_uuid_map(added_tree_element)

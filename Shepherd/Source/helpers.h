@@ -43,6 +43,7 @@ namespace Helpers
         state.setProperty (IDs::renderWithInternalSynth, Defaults::renderWithInternalSynth, nullptr);
         state.setProperty (IDs::dataLocation, Defaults::emptyString, nullptr);
         state.setProperty (IDs::notesMonitoringDeviceName, SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME, nullptr);
+        state.setProperty (IDs::version, ProjectInfo::versionString , nullptr);  // Version of running shepherd backend
         return state;
     }
 
@@ -53,7 +54,7 @@ namespace Helpers
         session.setProperty (IDs::version, ProjectInfo::versionString , nullptr);
         session.setProperty (IDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
         session.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
-        session.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
+        session.setProperty (IDs::playing, Defaults::playing, nullptr);
         session.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
         session.setProperty (IDs::countInPlayheadPositionInBeats, Defaults::playheadPosition, nullptr);
         session.setProperty (IDs::barCount, Defaults::barCount, nullptr);
@@ -73,13 +74,13 @@ namespace Helpers
             t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
             const juce::String trackName ("Track " + juce::String (tn + 1));
             t.setProperty (IDs::name, trackName, nullptr);
-            t.setProperty (IDs::hardwareDeviceName, Defaults::emptyString, nullptr);
+            t.setProperty (IDs::outputHardwareDeviceName, Defaults::emptyString, nullptr);
 
             // Add hardware device to track
             if (tn < availableHardwareDeviceNames.size()){
-                t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
+                t.setProperty (IDs::outputHardwareDeviceName, availableHardwareDeviceNames[tn], nullptr);
             } else {
-                t.setProperty (IDs::hardwareDeviceName, availableHardwareDeviceNames[availableHardwareDeviceNames.size() - 1], nullptr);
+                t.setProperty (IDs::outputHardwareDeviceName, availableHardwareDeviceNames[availableHardwareDeviceNames.size() - 1], nullptr);
             }
             
             // Now add clips to track (for now clips are still empty and disabled)

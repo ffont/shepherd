@@ -42,7 +42,7 @@ void Track::bindState()
     order.referTo(state, IDs::order, nullptr, Defaults::order);
     
     inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
-    hardwareDeviceName.referTo(state, IDs::hardwareDeviceName, nullptr, Defaults::emptyString);
+    hardwareDeviceName.referTo(state, IDs::outputHardwareDeviceName, nullptr, Defaults::emptyString);
 }
 
 void Track::setOutputHardwareDeviceByName(juce::String deviceName)

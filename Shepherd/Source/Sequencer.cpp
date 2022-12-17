@@ -111,7 +111,7 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
     // play/recording state and other things which are "voaltile"
     juce::ValueTree savedState = state.getChildWithName(IDs::SESSION).createCopy();
     savedState.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
-    savedState.setProperty (IDs::isPlaying, Defaults::isPlaying, nullptr);
+    savedState.setProperty (IDs::playing, Defaults::playing, nullptr);
     savedState.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
     savedState.setProperty (IDs::countInPlayheadPositionInBeats, Defaults::playheadPosition, nullptr);
     savedState.setProperty (IDs::barCount, Defaults::barCount, nullptr);

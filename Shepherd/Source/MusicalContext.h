@@ -63,7 +63,7 @@ public:
 private:
     
     double playheadPositionInBeats = Defaults::playheadPosition;
-    bool isPlaying = Defaults::isPlaying;
+    bool isPlaying = Defaults::playing;
     bool doingCountIn = Defaults::doingCountIn;
     double countInPlayheadPositionInBeats = Defaults::playheadPosition;
     int barCount = Defaults::barCount;

@@ -114,8 +114,9 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
         # Check if playhead is changing while doing count in, and show notification message
         if update_data['updateType'] == 'propertyChanged':
             property_name = update_data['propertyName']
-            if update_data['affectedElement'] == self.session and (property_name == 'playheadpositioninbeats' or
-                                                                   property_name == 'countinplayheadpositioninbeats'):
+            if update_data['affectedElement'] == self.session \
+                    and (property_name == 'playhead_position_in_beats' or
+                         property_name == 'count_in_playhead_position_in_beats'):
                 if self.session.doing_count_in:
                     self.showing_countin_message = True
                     self.add_display_notification("Will start recording in: {0:.0f}"
