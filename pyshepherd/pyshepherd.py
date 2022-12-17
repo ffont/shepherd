@@ -641,6 +641,7 @@ class ShepherdBackendInterface(StateSynchronizer):
     app: Optional[ShepherdBackendControllerApp] = None
     state: Optional[State] = None
     elements_uuids_map = {}
+    state_never_synced = True
 
     def __init__(self, *args, **kwargs):
         self.state = None
@@ -798,11 +799,24 @@ class ShepherdBackendInterface(StateSynchronizer):
                 self.app.on_state_update_received(app_notification_data)
 
     def on_full_state_received(self, full_state_soup):
+        if self.state is not None:
+            old_session_uuid = self.state.session.uuid
+        else:
+            old_session_uuid = None
         self.build_objects_from_full_state(full_state_soup)
 
         # Notify app that new state has been fully loaded
         if self.app is not None:
-            self.app.on_backend_state_ready()
+            self.app.on_full_state_received()
+
+        # Notify app that this is the first time state is synced
+        if self.state_never_synced:
+            self.app.on_state_first_synced()
+            self.state_never_synced = False
+
+        # If session uuid has changed, notify that new session has been loaded
+        if old_session_uuid != self.state.session.uuid:
+            self.app.on_new_session_loaded()
 
     def build_objects_from_full_state(self, full_state_soup):
         self.elements_uuids_map = {}
@@ -873,8 +887,14 @@ class ShepherdBackendControllerApp(object):
     def on_backend_connection_lost(self):
         pass
 
-    def on_backend_state_ready(self):
+    def on_full_state_received(self):
         pass
 
     def on_state_update_received(self, update_data):
+        pass
+
+    def on_state_first_synced(self):
+        pass
+
+    def on_new_session_loaded(self):
         pass

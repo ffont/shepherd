@@ -96,7 +96,7 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
             settings = {}
         return settings
 
-    def on_backend_state_ready(self):
+    def on_full_state_received(self):
         if not self.modes_initialized:
             self.init_modes(self.load_settings_from_file())
         else:
