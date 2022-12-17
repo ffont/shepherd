@@ -3,12 +3,16 @@ import push2_python
 import colorsys
 import os
 import subprocess
+import sys
 import threading
-import traceback
 
 from functools import wraps
 
 from push2_python.constants import ANIMATION_STATIC
+
+# Add parent directory to python path and import pyshepherd
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+import pyshepherd.pyshepherd
 
 VERSION = '0.30'
 CURRENT_COMMIT = str(subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip())[2:-1]
@@ -148,9 +152,6 @@ class Timer():
 
 
 class ShepherdControllerMode(object):
-    """
-    """
-
     name = ''
     xor_group = None
     buttons_used = []
@@ -160,15 +161,15 @@ class ShepherdControllerMode(object):
         self.initialize(settings=settings)
 
     @property
-    def state(self):
+    def state(self) -> pyshepherd.pyshepherd.State:
         return self.app.state  # will be None if no session is synced
 
     @property
-    def session(self):
+    def session(self) -> pyshepherd.pyshepherd.Session:
         return self.app.session  # will be None if no session is synced
 
     @property
-    def push(self):
+    def push(self) -> push2_python.Push2:
         return self.app.push
 
     # Method run only once when the mode object is created, may receive settings dictionary from main app

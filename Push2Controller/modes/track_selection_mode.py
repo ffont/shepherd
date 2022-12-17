@@ -5,6 +5,8 @@ import json
 
 from utils import show_text
 
+import pyshepherd.pyshepherd
+
 
 class TrackSelectionMode(definitions.ShepherdControllerMode):
 
@@ -60,11 +62,15 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
     def get_current_track_device_short_name(self):
         return self.get_selected_track().output_hardware_device_name
     
-    def get_track_color(self, i):
-        return definitions.COLORS_NAMES[i % 8]
+    def get_track_color(self, track: pyshepherd.pyshepherd.Track):
+        try:
+            track_idx = [idx for idx, t in enumerate(self.session.tracks) if track.uuid == t.uuid][0]
+        except IndexError:
+            track_idx = 0
+        return definitions.COLORS_NAMES[track_idx % 8]
     
     def get_current_track_color(self):
-        return self.get_track_color(self.selected_track)
+        return self.get_track_color(self.get_selected_track())
 
     def get_current_track_color_rgb(self):
         return definitions.get_color_rgb_float(self.get_current_track_color())
@@ -119,14 +125,14 @@ class TrackSelectionMode(definitions.ShepherdControllerMode):
 
     def update_buttons(self):
         for count, name in enumerate(self.track_button_names):
-            color = self.get_track_color(count)
+            color = self.get_track_color(self.session.tracks[count])
             self.push.buttons.set_button_color(name, color)
             
     def update_display(self, ctx, w, h):
         # Draw track selector labels
         height = 20
         for i in range(0, len(self.session.tracks)):
-            track_color = self.get_track_color(i)
+            track_color = self.get_track_color(self.session.tracks[i])
             if self.selected_track == i:
                 background_color = track_color
                 font_color = definitions.BLACK

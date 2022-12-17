@@ -77,7 +77,6 @@ private:
     
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
-    juce::CachedValue<int> order;
     
     juce::CachedValue<juce::String> hardwareDeviceName;
     juce::CachedValue<bool> inputMonitoring;

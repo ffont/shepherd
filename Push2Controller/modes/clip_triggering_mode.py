@@ -90,7 +90,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                     # Add playing percentage with background bar
                     height = (h - 20) // num_clips
                     y = height * i
-                    track_color = self.app.track_selection_mode.get_track_color(track_num)
+                    track_color = self.app.track_selection_mode.get_track_color(clip.track)
                     background_color = track_color
                     font_color = track_color + '_darker1'
                     if clip_length > 0.0:
@@ -155,7 +155,7 @@ class ClipTriggeringMode(definitions.ShepherdControllerMode):
                 clip = self.session.get_clip_by_idx(j, i)
                 state = clip.get_status()
 
-                track_color = self.app.track_selection_mode.get_track_color(j)
+                track_color = self.app.track_selection_mode.get_track_color(self.session.tracks[j])
                 cell_animation = 0
 
                 if 'E' in state:

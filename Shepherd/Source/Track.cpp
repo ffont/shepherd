@@ -39,7 +39,6 @@ void Track::bindState()
 {
     uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
     name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
-    order.referTo(state, IDs::order, nullptr, Defaults::order);
     
     inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
     hardwareDeviceName.referTo(state, IDs::outputHardwareDeviceName, nullptr, Defaults::emptyString);

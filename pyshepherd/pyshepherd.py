@@ -47,7 +47,6 @@ parameters_data = {
     'name': (str, "name"),
     'notesmapping': (str, "notes_mapping"),
     'notesmonitoringdevicename': (str, "notes_monitoring_device_name"),
-    'order': (int, "order"),
     'playheadpositioninbeats': (float, "playhead_position_in_beats"),
     'playing': (bool, "playing"),
     'recordautomationenabled': (bool, "record_automation_enabled"),
@@ -316,7 +315,6 @@ class Track(BaseShepherdClass):
 
     input_monitoring: bool
     name: str
-    order: str
     output_hardware_device_name: str
 
     @property

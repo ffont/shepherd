@@ -70,7 +70,6 @@ namespace Helpers
             // Create track
             juce::ValueTree t (IDs::TRACK);
             Helpers::createUuidProperty (t);
-            t.setProperty (IDs::order, tn, nullptr);
             t.setProperty (IDs::inputMonitoring, Defaults::inputMonitoring, nullptr);
             const juce::String trackName ("Track " + juce::String (tn + 1));
             t.setProperty (IDs::name, trackName, nullptr);
@@ -88,7 +87,7 @@ namespace Helpers
             {
                 juce::ValueTree c (IDs::CLIP);
                 Helpers::createUuidProperty (c);
-                c.setProperty (IDs::name, t.getProperty(IDs::order).toString() + "-" + juce::String (cn), nullptr);
+                c.setProperty (IDs::name, "Clip " + juce::String (tn + 1) + "-" + juce::String (cn + 1), nullptr);
                 c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
                 c.setProperty (IDs::currentQuantizationStep, Defaults::currentQuantizationStep, nullptr);
                 c.setProperty (IDs::wrapEventsAcrossClipLoop, Defaults::wrapEventsAcrossClipLoop, nullptr);

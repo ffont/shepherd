@@ -224,7 +224,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 'duration_n_pads': int(math.ceil((duration) / self.pads_pad_beat_scale)),
                 'is_selected_in_note_edit_mode': event.uuid == self.selected_event_uuid
             })
-        track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
+        track_color = self.app.track_selection_mode.get_track_color(self.clip.track)
         color_matrix = []
         animation_matrix = []
         for i in range(0, 8):
@@ -282,7 +282,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     def update_display(self, ctx, w, h):
         if not self.app.is_mode_active(self.app.settings_mode) and not self.app.is_mode_active(self.app.ddrm_tone_selector_mode):
             part_w = w // 8
-            track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
+            track_color = self.app.track_selection_mode.get_track_color(self.clip.track)
             track_color_rgb = definitions.get_color_rgb_float(track_color)
 
             if self.mode == self.MODE_CLIP:
@@ -398,7 +398,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
             else:
                 self.push.buttons.set_button_color(push2_python.constants.BUTTON_RECORD, definitions.WHITE)
 
-            track_color = self.app.track_selection_mode.get_track_color(self.clip.track.order)
+            track_color = self.app.track_selection_mode.get_track_color(self.clip.track)
             if self.clip.playing or self.clip.will_play_at > -1.0:
                 if self.clip.playing:
                     self.push.buttons.set_button_color(push2_python.constants.BUTTON_UPPER_ROW_1, track_color)

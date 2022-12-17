@@ -3,7 +3,6 @@ import math
 import os
 import time
 import traceback
-import subprocess
 import sys
 
 import cairo

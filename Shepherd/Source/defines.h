@@ -99,7 +99,6 @@
 namespace Defaults
 {
 inline juce::String emptyString = "";
-inline int order = -1;
 inline double playheadPosition = 0.0;
 inline bool doingCountIn = false;
 inline int fixedLengthRecordingBars = 0;
@@ -152,7 +151,6 @@ DECLARE_ID (version)
 DECLARE_ID (name)
 DECLARE_ID (shortName)
 DECLARE_ID (uuid)
-DECLARE_ID (order)
 DECLARE_ID (type)
 DECLARE_ID (length)
 DECLARE_ID (playheadPositionInBeats)
