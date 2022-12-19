@@ -114,7 +114,7 @@ This is how the `backendSettings.json` should look like:
 {
     "metronomeMidiDevice": "OUTPUT_MIDI_DEVICE_NAME",
     "metronomeMidiChannel": "MIDI_DEVICE_CHANNEL_FROM_1_TO_16",
-    "midiDevicesToSendClockTo": [OUTPUT_MIDI_DEVICE_NAME1, OUTPUT_MIDI_DEVICE_NAME2, ...],
+    "midiDevicesToSendClockTo": ["OUTPUT_MIDI_DEVICE_NAME1", "OUTPUT_MIDI_DEVICE_NAME2", ...],
     "pushClockDeviceName": "OUTPUT_MIDI_DEVICE_NAME",
 }
 ```
@@ -143,7 +143,7 @@ This is how the `hardwareDevices.json` should look like:
             "type": "output",
             "name": "A GIVEN NAME",
 	    "shortName": "A GIVEN NAME WHICH IS SHORTER",
-	    "midiChannel": MIDI_DEVICE_CHANNEL_TO_SEND_MESSAGES_TO_FROM_1_TO_16,
+	    "midiChannel": "MIDI_DEVICE_CHANNEL_TO_SEND_MESSAGES_TO_FROM_1_TO_16",
 	    "midiOutputDeviceName": "OUTPUT_MIDI_DEVICE_NAME:"
 	},{
             "type": "input",
