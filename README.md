@@ -110,7 +110,7 @@ messages, and a special kind of MIDI clock syncing required to send tempo inform
 is **optional**, and if left blank then no metronome note messages and no MIDI clock data will be sent to any device.
 This is how the `backendSettings.json` should look like:
 
-```
+```json
 {
     "metronomeMidiDevice": "OUTPUT_MIDI_DEVICE_NAME",
     "metronomeMidiChannel": "MIDI_DEVICE_CHANNEL_FROM_1_TO_16",
@@ -121,7 +121,7 @@ This is how the `backendSettings.json` should look like:
 
 For example, in my Rpi-based setup, my `backendSettings.json` file looks like this: 
 
-```
+```json
 {
     "metronomeMidiDevice": "ESI M4U eX MIDI 5",
     "metronomeMidiChannel": "16",
@@ -137,17 +137,17 @@ surely do as otherwise Shepherd is useless :)). Using this file you configure a 
 *hardware devices* to which you give a name, indicate the corresponding MIDI port names and add some other extra info. 
 This is how the `hardwareDevices.json` should look like:
 
-```
+```json
 [
 	{
-		"type": "output",
-		"name": "A GIVEN NAME",
+            "type": "output",
+            "name": "A GIVEN NAME",
 	    "shortName": "A GIVEN NAME WHICH IS SHORTER",
 	    "midiChannel": MIDI_DEVICE_CHANNEL_TO_SEND_MESSAGES_TO_FROM_1_TO_16,
 	    "midiOutputDeviceName": "OUTPUT_MIDI_DEVICE_NAME:"
 	},{
-		"type": "input",
-		"name": "A GIVEN NAME",
+            "type": "input",
+            "name": "A GIVEN NAME",
 	    "shortName": "A GIVEN NAME WHICH IS SHORTER",
 	    "midiInputDeviceName": "INPUT_MIDI_DEVICE_NAME"
 	},
@@ -158,67 +158,67 @@ This is how the `hardwareDevices.json` should look like:
 It can contain any number of input/output hardware devices. Here is an example `hardwareDevices.json` that I use in
 my local development setup:
 
-```
+```json
 [
 	{
-		"type": "output",
-		"name": "Bus1 ch 1",
+            "type": "output",
+            "name": "Bus1 ch 1",
 	    "shortName": "B1-1",
 	    "midiChannel": 1,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 2",
+            "type": "output",
+            "name": "Bus1 ch 2",
 	    "shortName": "B1-2",
 	    "midiChannel": 2,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 3",
+            "type": "output",
+            "name": "Bus1 ch 3",
 	    "shortName": "B1-3",
 	    "midiChannel": 3,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 4",
+            "type": "output",
+            "name": "Bus1 ch 4",
 	    "shortName": "B1-4",
 	    "midiChannel": 4,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 5",
+            "type": "output",
+            "name": "Bus1 ch 5",
 	    "shortName": "B1-5",
 	    "midiChannel": 5,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 6",
+            "type": "output",
+            "name": "Bus1 ch 6",
 	    "shortName": "B1-6",
 	    "midiChannel": 6,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 7",
+            "type": "output",
+            "name": "Bus1 ch 7",
 	    "shortName": "B1-7",
 	    "midiChannel": 7,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "output",
-		"name": "Bus1 ch 8",
+            "type": "output",
+            "name": "Bus1 ch 8",
 	    "shortName": "B1-8",
 	    "midiChannel": 8,
 	    "midiOutputDeviceName": "IAC Driver Bus 1"
 	},{
-		"type": "input",
-		"name": "Push",
+            "type": "input",
+            "name": "Push",
 	    "shortName": "Push",
 	    "midiInputDeviceName": "Push2Simulator",
 	    "controlChangeMessagesAreRelative": true,
 	    "notesMapping": "-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1",
 	    "controlChangeMapping": "-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,64,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1"
 	},{
-		"type": "input",
-		"name": "iConKeyboard",
+            "type": "input",
+            "name": "iConKeyboard",
 	    "shortName": "iConKeyboard",
 	    "midiInputDeviceName": "iCON iKEY V1.02"
 	}
@@ -237,10 +237,7 @@ To run Shepherd Controller you'll need to install the Python requirements and si
 pip install -r requirements.txt
 python app.py
 ```
-
-When not running in the Rapsberry Pi, the controller app initializes a Push2 simulator that can be used for development 
-without the Push2 device being connected. You can open the simulator by pointing your browser at `localhost:6128` while 
-running the controller app. The Shepherd Controller app is based on 
+The Shepherd Controller app is based on 
 [push2-python](https://github.com/ffont/push2-python). `push2-python` requires [pyusb](https://github.com/pyusb/pyusb) 
 which is based in [libusb](https://libusb.info/). You'll most probably need to manually install `libusb` for your 
 operative system if `pip install -r requirements.txt` does not do it for you. Moreover, to draw on Push2's screen, 
@@ -250,6 +247,17 @@ you (see [this page](https://pycairo.readthedocs.io/en/latest/getting_started.ht
 
 **NOTE**: if running Push2Controller in macOS, there seem to be compatibility issues with Python versions other than
 3.8 so please use that Python version :).
+
+
+#### Local development with Push2 simulator
+
+The Push2Controller script initializes a Push2 simulator that can be used for development without the actual Push2 
+device being connected. While running the script, you can open the simulator by pointing your browser at `localhost:6128`.
+If running the backend in Debug mode, a window will automatically be opened which will run a simple web browser loading
+`localhost:6128` so you don't need to manually open your browser. Here is a screenshot of the simulator in action:
+
+![simulator_screenshot](https://user-images.githubusercontent.com/478615/208401787-9c055069-9904-4f10-9cd1-6b065b762e37.png)
+
 
 #### Push2Controller device definition files
 
