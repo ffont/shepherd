@@ -2,7 +2,7 @@
 
 Shepherd is an **open source MIDI sequencer** which I built to learn how sequencers work and to have an open, hackeable
 environment to experiment with music sequencing. Shepherd consists of a *backend* application written in C++ using JUCE 
-which does the actual sequencing of the MIDI messages, and a *controller* application (written in Python) which controls
+which does the actual sequencing of the MIDI messages (see [Shepherd](/tree/main/Shepherd) folder in this repo), and a *controller* application (written in Python) which controls
 the backend and provides a user interface. Bi-directional communication between the backend and the controller is 
 achieved using Web Sockets. Even though in this repository we provide code to make it very easy to develop alternative
 controller applications using Python (see below), these could be developed in any other language as long as they 
@@ -24,6 +24,8 @@ happy to help.
 
 
 ## Shepherd Backend
+
+The Shepherd backend implements a MIDI clip trigger system which works in an Ableton Live-like style. Shepherd *sessions* consist of a number of MIDI tracks and a number of scenes that must be defined when creating a new session (and can't be changed until a new session is loaded). This creates a *num tracks* * *num scenes* grid of MIDI clips that can be triggered independently, but only one clip per track can be played at the same time.
 
 TODO: add more general information about the backend, block diagram, description of features
 
@@ -247,6 +249,35 @@ you (see [this page](https://pycairo.readthedocs.io/en/latest/getting_started.ht
 
 **NOTE**: if running Push2Controller in macOS, there seem to be compatibility issues with Python versions other than
 3.8 so please use that Python version :).
+
+Here are some screenshots of Push2Controller and Shepherd running using a real Push2 device:
+
+<p align="center">
+<img src="docs/ss_session_mode_playing.png"/>
+Session mode
+</p>
+
+<p align="center">
+<img src="docs/ss_melodic_mode.png"/>
+Melodic mode
+</p>
+
+<p align="center">
+<img src="docs/ss_clip_edit.png"/>
+Clip edit mode
+</p>
+
+<p align="center">
+<img src="docs/ss_note_edit.png"/>
+Note edit mode
+</p>
+
+<p align="center">
+<img src="docs/ss_generator.png"/>
+Generator mode
+</p>
+
+
 
 
 #### Local development with Push2 simulator
