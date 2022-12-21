@@ -55,7 +55,7 @@ public:
          std::function<TrackSettingsStruct()> trackSettingsGetter,
          std::function<MusicalContext*()> musicalContextGetter
          );
-    void loadStateFromOtherClipState(const juce::ValueTree& _state);
+    void loadStateFromOtherClipState(const juce::ValueTree& _state, bool replaceSequenceEventUUIDs);
     void bindState();
     void updateStateMemberVersions();
     juce::ValueTree state;

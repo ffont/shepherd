@@ -36,6 +36,12 @@ namespace Helpers
         return v;
     }
 
+    inline juce::ValueTree updateUuidProperty (juce::ValueTree& v)
+    {
+        v.setProperty (IDs::uuid, juce::Uuid().toString(), nullptr);
+        return v;
+    }
+
     inline juce::ValueTree createDefaultStateRoot()
     {
         juce::ValueTree state (IDs::STATE);

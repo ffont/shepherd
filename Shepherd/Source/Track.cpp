@@ -297,7 +297,8 @@ void Track::duplicateClipAt(int clipN)
         juce::ValueTree previousClipState = clips->objects[clipN]->state.createCopy();
         for (int i=clipN + 1; i<clips->objects.size(); i++){
             juce::ValueTree previousClipStateAux = clips->objects[i]->state.createCopy();
-            clips->objects[i]->loadStateFromOtherClipState(previousClipState);
+            bool replaceSequenceEventUUIDs = i == (clipN + 1);  // For the duplicated clip, change UUIDs of sequence events to avoid their repetitions
+            clips->objects[i]->loadStateFromOtherClipState(previousClipState, replaceSequenceEventUUIDs);
             previousClipState = previousClipStateAux;
         }
     }

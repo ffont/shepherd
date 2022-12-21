@@ -29,10 +29,16 @@ Clip::Clip(const juce::ValueTree& _state,
     startTimer(50); // Check if sequence should be updated and do it!
 }
 
-void Clip::loadStateFromOtherClipState(const juce::ValueTree& otherClipState)
+void Clip::loadStateFromOtherClipState(const juce::ValueTree& otherClipState, bool replaceSequenceEventUUIDs)
 {
     if (otherClipState.hasType(IDs::CLIP)){
         currentQuantizationStep = otherClipState.getProperty(IDs::currentQuantizationStep);
+        if (replaceSequenceEventUUIDs == true){
+            // Note that otherClipState should be a copy of the other clip's state so modifying it here won't modify the original
+            for (auto child: otherClipState){
+                Helpers::updateUuidProperty(child);
+            }
+        }
         replaceSequence(otherClipState, otherClipState.getProperty(IDs::clipLengthInBeats));
         updateStateMemberVersions();
     }
@@ -452,13 +458,16 @@ void Clip::replaceSequence(juce::ValueTree newSequence, double newLength)
     shouldSendRemainingNotesOff = true;
     
     // Now add the new sequence events to the clip
+    int count = 0;
     for (int i=0; i<newSequence.getNumChildren(); i++){
         auto child = newSequence.getChild(i);
         if (child.hasType (IDs::SEQUENCE_EVENT)){
             auto childToAdd = child.createCopy();
             state.addChild(childToAdd, -1, nullptr);
+            count += 1;
         }
     }
+    numSequenceEvents = count;
     
     // Finally replace length
     setClipLength(newLength);

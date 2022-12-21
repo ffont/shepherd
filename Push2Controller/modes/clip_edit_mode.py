@@ -425,13 +425,13 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         
         # For all modes
         if button_name == push2_python.constants.BUTTON_UP:
-            self.pads_min_note_offset += 1
+            self.pads_min_note_offset += (7 if not shift else 1)
             if self.pads_min_note_offset > 128 - 8:
                 self.pads_min_note_offset = 128 - 8
             self.update_pads()
             return True
         elif button_name == push2_python.constants.BUTTON_DOWN:
-            self.pads_min_note_offset -= 1
+            self.pads_min_note_offset -= (7 if not shift else 1)
             if self.pads_min_note_offset < 0:
                 self.pads_min_note_offset = 0
             self.update_pads()
@@ -515,7 +515,7 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 if next_pad_scale < 0:
                     next_pad_scale = 0
                 elif next_pad_scale >= len(self.pads_pad_beat_scales) - 1:
-                    next_pad_scale = self.pads_pad_beat_scales
+                    next_pad_scale = len(self.pads_pad_beat_scales) - 1
                 self.pads_pad_beat_scale = self.pads_pad_beat_scales[next_pad_scale]
                 self.update_pads()
                 return True  # Don't trigger this encoder moving in any other mode

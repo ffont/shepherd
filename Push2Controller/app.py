@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import subprocess
 import time
 import traceback
 import sys
@@ -28,7 +29,7 @@ from utils import show_notification
 
 # Add parent directory to python path and import pyshepherd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from pyshepherd.pyshepherd import ShepherdBackendInterface, ShepherdBackendControllerApp
+from pyshepherd.pyshepherd import ShepherdBackendControllerApp
 
 
 class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
@@ -80,7 +81,7 @@ class ShepherdPush2ControllerApp(ShepherdBackendControllerApp):
         if run_backend_from_frontend:
             # If "run_backend_from_frontend" is set in settings.json as a command list to be
             # run by subprocess, do it (e.g. ["xvfb-run", "-a", "../Shepherd/Builds/LinuxMakefile/build/Shepherd"])
-            pass#subprocess.Popen(run_backend_from_frontend)
+            subprocess.Popen(run_backend_from_frontend)
 
         time.sleep(0.5)  # Give some time for push to initialize and backend (if need be)
 

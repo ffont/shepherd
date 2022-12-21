@@ -346,6 +346,9 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 # Deactivate settings mode by setting current page to last page and calling "rotate settings page" method from app
                 self.current_page = self.n_pages - 1
                 self.app.toggle_and_rotate_settings_mode()
+
+                self.app.set_clip_triggering_mode()
+                self.app.main_controls_mode.track_triggering_button_pressing_time = time.time()
                 
                 return True
             elif button_name == push2_python.constants.BUTTON_UPPER_ROW_3:
