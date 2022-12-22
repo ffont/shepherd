@@ -95,6 +95,7 @@ namespace Helpers
                 Helpers::createUuidProperty (c);
                 c.setProperty (IDs::name, "Clip " + juce::String (tn + 1) + "-" + juce::String (cn + 1), nullptr);
                 c.setProperty (IDs::clipLengthInBeats, Defaults::clipLengthInBeats, nullptr);
+                c.setProperty (IDs::bpmMultiplier, Defaults::bpmMultiplier, nullptr);
                 c.setProperty (IDs::currentQuantizationStep, Defaults::currentQuantizationStep, nullptr);
                 c.setProperty (IDs::wrapEventsAcrossClipLoop, Defaults::wrapEventsAcrossClipLoop, nullptr);
                 

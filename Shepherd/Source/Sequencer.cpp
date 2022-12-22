@@ -1271,6 +1271,10 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                     jassert(parameters.size() == 3);
                     double newLength = (double)parameters[2].getFloatValue();
                     clip->setClipLength(newLength);
+                } else if (action == ACTION_ADDRESS_CLIP_SET_BPM_MULTIPLIER){
+                    jassert(parameters.size() == 3);
+                    double newBpmMultiplier = (double)parameters[2].getFloatValue();
+                    clip->setBpmMultiplier(newBpmMultiplier);
                 } else if (action == ACTION_ADDRESS_CLIP_SET_SEQUENCE) {
                     // New sequence data is passed in JSON format, eg:
                     /*{

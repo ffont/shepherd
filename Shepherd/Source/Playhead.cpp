@@ -10,9 +10,13 @@
 
 #include "Playhead.h"
 
-Playhead::Playhead(const juce::ValueTree& _state, std::function<juce::Range<double>()> parentSliceGetter): state(_state)
+Playhead::Playhead(const juce::ValueTree& _state,
+                   std::function<juce::Range<double>()> parentSliceGetter,
+                   std::function<double()> localSliceLengthGetter
+                   ): state(_state)
 {
     getParentSlice = parentSliceGetter;
+    getLocalSliceLength = localSliceLengthGetter;
     bindState();
 }
 
@@ -124,8 +128,8 @@ void Playhead::captureSlice()
     if (! playing)
         return;
     
-    const auto parentSliceLength = getParentSlice().getLength();
-    currentSlice.setEnd(currentSlice.getStart() + parentSliceLength);
+    const auto sliceLength = getLocalSliceLength(); //getParentSlice().getLength();
+    currentSlice.setEnd(currentSlice.getStart() + sliceLength);
 }
 
 void Playhead::releaseSlice()

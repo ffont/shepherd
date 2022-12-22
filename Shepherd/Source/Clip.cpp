@@ -24,7 +24,7 @@ Clip::Clip(const juce::ValueTree& _state,
     
     bindState();
     
-    playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter);
+    playhead = std::make_unique<Playhead>(state, playheadParentSliceGetter, [this]{ return getLocalSliceLength(); });
     
     startTimer(50); // Check if sequence should be updated and do it!
 }
@@ -39,6 +39,8 @@ void Clip::loadStateFromOtherClipState(const juce::ValueTree& otherClipState, bo
                 Helpers::updateUuidProperty(child);
             }
         }
+        bpmMultiplier = otherClipState.getProperty(IDs::bpmMultiplier, Defaults::bpmMultiplier);
+        wrapEventsAcrossClipLoop = otherClipState.getProperty(IDs::wrapEventsAcrossClipLoop, Defaults::wrapEventsAcrossClipLoop);
         replaceSequence(otherClipState, otherClipState.getProperty(IDs::clipLengthInBeats));
         updateStateMemberVersions();
     }
@@ -49,6 +51,7 @@ void Clip::bindState()
     uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
     name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
     clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
+    bpmMultiplier.referTo(state, IDs::bpmMultiplier, nullptr, Defaults::bpmMultiplier);
     wrapEventsAcrossClipLoop.referTo(state, IDs::wrapEventsAcrossClipLoop, nullptr, Defaults::wrapEventsAcrossClipLoop);
     
     // For variables that have a "state" version and a non-cached version, also assign the non-cached one so it is loaded from state
@@ -359,6 +362,10 @@ void Clip::setClipLength(double newLength)
     }
 }
 
+void Clip::setBpmMultiplier(double newBpmMultiplier){
+    bpmMultiplier = newBpmMultiplier;
+}
+
 void Clip::setClipLengthToGlobalFixedLength()
 {
     double newLength = (double)getGlobalSettings().fixedLengthRecordingBars * (double)getMusicalContext()->getMeter();
@@ -510,6 +517,14 @@ void Clip::renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill)
             sustainPedalBeingPressed = false;
         }
     }
+}
+
+double Clip::getLocalSliceLength () {
+    return (double)getGlobalSettings().samplesPerSlice / (60.0 * getGlobalSettings().sampleRate / getClipBpm());
+}
+
+double Clip::getClipBpm() {
+    return getMusicalContext()->getBpm() * bpmMultiplier.get();
 }
 
 /** Pulls pending ClipSequence from the fifo and assigns to pointer
@@ -668,7 +683,7 @@ void Clip::processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* buf
                     }
 
                     // Calculate note position for the MIDI buffer (in samples)
-                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getMusicalContext()->getBpm());
+                    int eventPositionInSliceInSamples = eventPositionInSliceInBeats * (int)std::round(60.0 * getGlobalSettings().sampleRate / getClipBpm());
                     jassert(juce::isPositiveAndBelow(eventPositionInSliceInSamples, getGlobalSettings().samplesPerSlice));
                     
                     // Re-write MIDI channel to use track's configured device, and add note to the buffer

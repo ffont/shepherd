@@ -64,6 +64,8 @@ public:
     juce::String getName() { return name.get(); };
     void stopAsyncTimer(){stopTimer();};
     
+    double getLocalSliceLength();
+    double getClipBpm();
     void prepareSlice();
     void processSlice(juce::MidiBuffer& incommingBuffer, juce::MidiBuffer* bufferToFill, juce::Array<juce::MidiMessage>& lastMidiNoteOnMessages);
     void renderRemainingNoteOffsIntoMidiBuffer(juce::MidiBuffer* bufferToFill);
@@ -87,6 +89,7 @@ public:
     void clearStopRecordingCue();
     
     void setClipLength(double newLength);
+    void setBpmMultiplier(double newBpmMultiplier);
     void setClipLengthToGlobalFixedLength();
     void clearClipSequence();
     void clearClip();
@@ -127,6 +130,7 @@ private:
     juce::CachedValue<juce::String> uuid;
     juce::CachedValue<juce::String> name;
     juce::CachedValue<double> clipLengthInBeats;
+    juce::CachedValue<double> bpmMultiplier;
     juce::CachedValue<bool> wrapEventsAcrossClipLoop;
     
     // The following members (starting with stateX) have non-CachedValue equivalents below which are the ones really used.

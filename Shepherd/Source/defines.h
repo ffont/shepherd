@@ -36,6 +36,7 @@
 #define ACTION_ADDRESS_CLIP_QUANTIZE "/clip/quantize"
 #define ACTION_ADDRESS_CLIP_UNDO "/clip/undo"
 #define ACTION_ADDRESS_CLIP_SET_LENGTH "/clip/setLength"
+#define ACTION_ADDRESS_CLIP_SET_BPM_MULTIPLIER "/clip/setBpmMultiplier"
 #define ACTION_ADDRESS_CLIP_SET_SEQUENCE "/clip/setSequence"
 #define ACTION_ADDRESS_CLIP_EDIT_SEQUENCE "/clip/editSequence"
 
@@ -105,6 +106,7 @@ inline int fixedLengthRecordingBars = 0;
 inline bool recordAutomationEnabled = true;
 inline int fixedVelocity = -1;
 inline double bpm = 120.0;
+inline double bpmMultiplier = 1.0;
 inline int meter = 4;
 inline int barCount = 0;
 inline bool metronomeOn = true;
@@ -161,6 +163,7 @@ DECLARE_ID (fixedLengthRecordingBars)
 DECLARE_ID (recordAutomationEnabled)
 DECLARE_ID (fixedVelocity)
 DECLARE_ID (bpm)
+DECLARE_ID (bpmMultiplier)
 DECLARE_ID (meter)
 DECLARE_ID (barCount)
 DECLARE_ID (metronomeOn)

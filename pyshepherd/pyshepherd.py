@@ -21,6 +21,7 @@ parameters_data = {
     'allowpitchbendmessages': (bool, "allow_pitchbend_messages"),
     'barcount': (int, "bar_count"),
     'bpm': (float, "bpm"),
+    'bpmmultiplier': (float, "bpm_multiplier"),
     'chance': (float, "chance"),
     'cliplengthinbeats': (float, "clip_length_in_beats"),
     'controlchangemapping': (str, "control_change_mapping"),
@@ -352,6 +353,7 @@ class Track(BaseShepherdClass):
 class Clip(BaseShepherdClass):
     sequence_events: List[SequenceEvent] = []
 
+    bpm_multiplier: float
     clip_length_in_beats: float
     current_quantization_step: float
     name: str
@@ -451,6 +453,9 @@ class Clip(BaseShepherdClass):
 
     def set_length(self, new_length):
         self._send_msg_to_app('/clip/setLength', [self.track.uuid, self.uuid, new_length])
+
+    def set_bpm_multiplier(self, new_bpm_multiplier):
+        self._send_msg_to_app('/clip/setBpmMultiplier', [self.track.uuid, self.uuid, new_bpm_multiplier])
 
     def set_sequence(self, new_sequence):
         """new_sequence must be passed as a dictionary with this form:

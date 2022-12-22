@@ -1,9 +1,12 @@
+from typing import Optional
+
 import definitions
 import push2_python
 import math
 
 from utils import show_title, show_value, draw_clip, clamp, clamp01
 
+import pyshepherd.pyshepherd
 from .generator_algorithms import RandomGeneratorAlgorithm, RandomGeneratorAlgorithmPlus
 
 
@@ -55,7 +58,8 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
     Slot 1 = select clip (Slot 1 button triggers clip play/stop)
     Slot 2 = clip length
     Slot 3 = quantization
-    Slot 4 = view scale
+    Slot 4 = bpm multiplier
+    Slot 5 = view scale
     Slots 5-8 = clip preview 
 
     MODE_EVENT
@@ -79,14 +83,14 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
         ]
 
     @property
-    def clip(self):
+    def clip(self) -> Optional[pyshepherd.pyshepherd.Clip]:
         if self.selected_clip_uuid is not None:
             return self.app.shepherd_interface.get_element_with_uuid(self.selected_clip_uuid)
         else:
             return None
 
     @property
-    def event(self):
+    def event(self) -> Optional[pyshepherd.pyshepherd.SequenceEvent]:
         if self.selected_event_uuid is not None:
             try:
                 return self.app.shepherd_interface.get_element_with_uuid(self.selected_event_uuid)
@@ -239,9 +243,13 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                     }
                     show_value(ctx, part_w * 2, h, '{}'.format(quantization_step_labels.get(self.clip.current_quantization_step, self.clip.current_quantization_step)))
 
-                    # Slot 4, view scale
-                    show_title(ctx, part_w * 3, h, 'VIEW SCALE')
-                    show_value(ctx, part_w * 3, h, '{:.3f}'.format(self.pads_pad_beat_scale))
+                    # Slot 4, bpm multiplier
+                    show_title(ctx, part_w * 3, h, 'BPM MULTIPLIER')
+                    show_value(ctx, part_w * 3, h, '{:.3f}'.format(self.clip.bpm_multiplier))
+
+                    # Slot 5, view scale
+                    show_title(ctx, part_w * 4, h, 'VIEW SCALE')
+                    show_value(ctx, part_w * 4, h, '{:.3f}'.format(self.pads_pad_beat_scale))
  
             elif self.mode == self.MODE_EVENT:
                 if self.event is not None and self.event.is_type_note():
@@ -509,6 +517,13 @@ class ClipEditgMode(definitions.ShepherdControllerMode):
                 return True  # Don't trigger this encoder moving in any other mode
 
             elif encoder_name == push2_python.constants.ENCODER_TRACK4_ENCODER:
+                new_bpm_multiplier = self.clip.bpm_multiplier + increment * 0.001
+                if new_bpm_multiplier <= 0.0:
+                    new_bpm_multiplier = 0.001
+                self.clip.set_bpm_multiplier(new_bpm_multiplier)
+                return True  # Don't trigger this encoder moving in any other mode
+
+            elif encoder_name == push2_python.constants.ENCODER_TRACK5_ENCODER:
                 # Set pad beat zoom
                 current_pad_scale = self.pads_pad_beat_scales.index(self.pads_pad_beat_scale)
                 next_pad_scale = current_pad_scale + increment

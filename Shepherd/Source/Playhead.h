@@ -16,7 +16,9 @@
 class Playhead
 {
 public:
-    Playhead(const juce::ValueTree& state, std::function<juce::Range<double>()> parentSliceGetter);
+    Playhead(const juce::ValueTree& state,
+             std::function<juce::Range<double>()> parentSliceGetter,
+             std::function<double()> localSliceLengthGetter);
     void bindState();
     void updateStateMemberVersions();
     juce::ValueTree state;
@@ -44,6 +46,7 @@ public:
 
     juce::Range<double> getCurrentSlice() const noexcept;
     std::function<juce::Range<double>()> getParentSlice;
+    std::function<double()> getLocalSliceLength;
 
 private:
     juce::Range<double> currentSlice { 0.0, 0.0 };
