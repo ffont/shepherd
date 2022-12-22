@@ -4,7 +4,7 @@ import definitions
 import push2_python
 import math
 
-from utils import show_title, show_value, draw_clip, clamp, clamp01
+from utils import show_title, show_value, draw_clip, clamp, clamp01, draw_knob
 
 import pyshepherd.pyshepherd
 from .generator_algorithms import RandomGeneratorAlgorithm, RandomGeneratorAlgorithmPlus

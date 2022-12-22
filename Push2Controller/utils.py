@@ -1,4 +1,6 @@
 import cairo
+import math
+
 import definitions
 import push2_python
 
@@ -84,6 +86,7 @@ def show_text(ctx, x_part, pixels_from_top, text, height=20, font_color=definiti
         ctx.show_text(line)
 
     ctx.restore()
+
 
 def show_notification(ctx, text, opacity=1.0):
     ctx.save()
@@ -188,3 +191,53 @@ def draw_clip(ctx,
             x0 = xoffset_percentage + highglight_notes_beat_frame[2]/displaybeatslength * width_percentage
             w = (highglight_notes_beat_frame[3] - highglight_notes_beat_frame[2])/displaybeatslength* width_percentage
             show_rectangle(ctx, x0, y0 - h, w, h, background_color=definitions.WHITE, alpha=0.25)
+
+
+def draw_knob(ctx, x_part, parameter_name, value, vmin, vmax, value_display, color, margin_top=0):
+
+    def get_rad_for_value(value):
+        total_degrees = 360 - circle_break_degrees
+        return start_rad + total_degrees * ((value - vmin) / (vmax - vmin)) * (math.pi / 180)
+
+    # Param name
+    name_height = 20
+    show_text(ctx, x_part, margin_top, parameter_name, height=name_height, font_color=definitions.WHITE)
+
+    # Param value
+    val_height = 30
+    show_text(ctx, x_part, margin_top + name_height, value_display, height=val_height, font_color=color)
+
+    # Knob
+    ctx.save()
+
+    circle_break_degrees = 80
+    height = 55
+    radius = height / 2
+
+    display_w = push2_python.constants.DISPLAY_LINE_PIXELS
+    x = (display_w // 8) * x_part
+    y = margin_top + name_height + val_height + radius + 5
+
+    start_rad = (90 + circle_break_degrees // 2) * (math.pi / 180)
+    end_rad = (90 - circle_break_degrees // 2) * (math.pi / 180)
+    xc = x + radius + 3
+    yc = y
+
+    # This is needed to prevent showing line from previous position
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.move_to(xc, yc)
+    ctx.stroke()
+
+    # Inner circle
+    ctx.arc(xc, yc, radius, start_rad, end_rad)
+    ctx.set_source_rgb(*definitions.get_color_rgb_float(definitions.GRAY_LIGHT))
+    ctx.set_line_width(1)
+    ctx.stroke()
+
+    # Outer circle
+    ctx.arc(xc, yc, radius, start_rad, get_rad_for_value(value))
+    ctx.set_source_rgb(*definitions.get_color_rgb_float(color))
+    ctx.set_line_width(3)
+    ctx.stroke()
+
+    ctx.restore()
