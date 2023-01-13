@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "helpers.h"
+#include "helpers_shepherd.h"
 
 class Playhead
 {
@@ -50,10 +50,10 @@ public:
 
 private:
     juce::Range<double> currentSlice { 0.0, 0.0 };
-    double playheadPositionInBeats = Defaults::playheadPosition;
-    bool playing = Defaults::playing;
-    double willPlayAt = Defaults::willPlayAt;
-    double willStopAt = Defaults::willStopAt;
+    double playheadPositionInBeats = ShepherdDefaults::playheadPosition;
+    bool playing = ShepherdDefaults::playing;
+    double willPlayAt = ShepherdDefaults::willPlayAt;
+    double willStopAt = ShepherdDefaults::willStopAt;
     
     juce::CachedValue<double> statePlayheadPositionInBeats;  // Used only so that current position is somehow stored in the state
     juce::CachedValue<bool> statePlaying;

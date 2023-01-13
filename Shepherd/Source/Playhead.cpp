@@ -22,10 +22,10 @@ Playhead::Playhead(const juce::ValueTree& _state,
 
 void Playhead::bindState()
 {
-    statePlaying.referTo(state, IDs::playing, nullptr, Defaults::playing);
-    stateWillPlayAt.referTo(state, IDs::willPlayAt, nullptr, Defaults::willPlayAt);
-    stateWillStopAt.referTo(state, IDs::willStopAt, nullptr, Defaults::willStopAt);
-    statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    statePlaying.referTo(state, ShepherdIDs::playing, nullptr, ShepherdDefaults::playing);
+    stateWillPlayAt.referTo(state, ShepherdIDs::willPlayAt, nullptr, ShepherdDefaults::willPlayAt);
+    stateWillStopAt.referTo(state, ShepherdIDs::willStopAt, nullptr, ShepherdDefaults::willStopAt);
+    statePlayheadPositionInBeats.referTo(state, ShepherdIDs::playheadPositionInBeats, nullptr, ShepherdDefaults::playheadPosition);
 }
 
 void Playhead::updateStateMemberVersions()

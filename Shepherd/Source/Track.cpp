@@ -37,11 +37,11 @@ Track::Track(const juce::ValueTree& _state,
 
 void Track::bindState()
 {
-    uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
-    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
+    uuid.referTo(state, ShepherdIDs::uuid, nullptr, ShepherdDefaults::emptyString);
+    name.referTo(state, ShepherdIDs::name, nullptr, ShepherdDefaults::emptyString);
     
-    inputMonitoring.referTo(state, IDs::inputMonitoring, nullptr, Defaults::inputMonitoring);
-    hardwareDeviceName.referTo(state, IDs::outputHardwareDeviceName, nullptr, Defaults::emptyString);
+    inputMonitoring.referTo(state, ShepherdIDs::inputMonitoring, nullptr, ShepherdDefaults::inputMonitoring);
+    hardwareDeviceName.referTo(state, ShepherdIDs::outputHardwareDeviceName, nullptr, ShepherdDefaults::emptyString);
 }
 
 void Track::setOutputHardwareDeviceByName(juce::String deviceName)

@@ -31,37 +31,37 @@ Clip::Clip(const juce::ValueTree& _state,
 
 void Clip::loadStateFromOtherClipState(const juce::ValueTree& otherClipState, bool replaceSequenceEventUUIDs)
 {
-    if (otherClipState.hasType(IDs::CLIP)){
-        currentQuantizationStep = otherClipState.getProperty(IDs::currentQuantizationStep);
+    if (otherClipState.hasType(ShepherdIDs::CLIP)){
+        currentQuantizationStep = otherClipState.getProperty(ShepherdIDs::currentQuantizationStep);
         if (replaceSequenceEventUUIDs == true){
             // Note that otherClipState should be a copy of the other clip's state so modifying it here won't modify the original
             for (auto child: otherClipState){
                 Helpers::updateUuidProperty(child);
             }
         }
-        bpmMultiplier = otherClipState.getProperty(IDs::bpmMultiplier, Defaults::bpmMultiplier);
-        wrapEventsAcrossClipLoop = otherClipState.getProperty(IDs::wrapEventsAcrossClipLoop, Defaults::wrapEventsAcrossClipLoop);
-        replaceSequence(otherClipState, otherClipState.getProperty(IDs::clipLengthInBeats));
+        bpmMultiplier = otherClipState.getProperty(ShepherdIDs::bpmMultiplier, ShepherdDefaults::bpmMultiplier);
+        wrapEventsAcrossClipLoop = otherClipState.getProperty(ShepherdIDs::wrapEventsAcrossClipLoop, ShepherdDefaults::wrapEventsAcrossClipLoop);
+        replaceSequence(otherClipState, otherClipState.getProperty(ShepherdIDs::clipLengthInBeats));
         updateStateMemberVersions();
     }
 }
 
 void Clip::bindState()
 {
-    uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
-    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
-    clipLengthInBeats.referTo(state, IDs::clipLengthInBeats, nullptr, Defaults::clipLengthInBeats);
-    bpmMultiplier.referTo(state, IDs::bpmMultiplier, nullptr, Defaults::bpmMultiplier);
-    wrapEventsAcrossClipLoop.referTo(state, IDs::wrapEventsAcrossClipLoop, nullptr, Defaults::wrapEventsAcrossClipLoop);
+    uuid.referTo(state, ShepherdIDs::uuid, nullptr, ShepherdDefaults::emptyString);
+    name.referTo(state, ShepherdIDs::name, nullptr, ShepherdDefaults::emptyString);
+    clipLengthInBeats.referTo(state, ShepherdIDs::clipLengthInBeats, nullptr, ShepherdDefaults::clipLengthInBeats);
+    bpmMultiplier.referTo(state, ShepherdIDs::bpmMultiplier, nullptr, ShepherdDefaults::bpmMultiplier);
+    wrapEventsAcrossClipLoop.referTo(state, ShepherdIDs::wrapEventsAcrossClipLoop, nullptr, ShepherdDefaults::wrapEventsAcrossClipLoop);
     
     // For variables that have a "state" version and a non-cached version, also assign the non-cached one so it is loaded from state
-    stateCurrentQuantizationStep.referTo(state, IDs::currentQuantizationStep, nullptr, state.getProperty(IDs::currentQuantizationStep));
+    stateCurrentQuantizationStep.referTo(state, ShepherdIDs::currentQuantizationStep, nullptr, state.getProperty(ShepherdIDs::currentQuantizationStep));
     currentQuantizationStep = stateCurrentQuantizationStep;
-    stateWillStartRecordingAt.referTo(state, IDs::willStartRecordingAt, nullptr, Defaults::willStartRecordingAt);
+    stateWillStartRecordingAt.referTo(state, ShepherdIDs::willStartRecordingAt, nullptr, ShepherdDefaults::willStartRecordingAt);
     willStartRecordingAt = stateWillStartRecordingAt;
-    stateWillStopRecordingAt.referTo(state, IDs::willStopRecordingAt, nullptr, Defaults::willStopRecordingAt);
+    stateWillStopRecordingAt.referTo(state, ShepherdIDs::willStopRecordingAt, nullptr, ShepherdDefaults::willStopRecordingAt);
     willStopRecordingAt = stateWillStopRecordingAt;
-    stateRecording.referTo(state, IDs::recording, nullptr, Defaults::recording);
+    stateRecording.referTo(state, ShepherdIDs::recording, nullptr, ShepherdDefaults::recording);
     recording = stateRecording;
     
     state.addListener(this);
@@ -378,7 +378,7 @@ void Clip::clearClipSequence()
     // Removes all sequence events from VT
     for (int i=state.getNumChildren() - 1; i>=0; i--){
         auto child = state.getChild(i);
-        if (child.hasType (IDs::SEQUENCE_EVENT)){
+        if (child.hasType (ShepherdIDs::SEQUENCE_EVENT)){
             state.removeChild(i, nullptr);
         }
     }
@@ -407,9 +407,9 @@ void Clip::doubleSequence()
     int numChildrenBeforeDoubling = state.getNumChildren();
     for (int i=0; i<numChildrenBeforeDoubling; i++){
         auto child = state.getChild(i);
-        if (child.hasType (IDs::SEQUENCE_EVENT)){
+        if (child.hasType (ShepherdIDs::SEQUENCE_EVENT)){
             auto childAtDoubleTime = child.createCopy();
-            childAtDoubleTime.setProperty(IDs::timestamp, (double)child.getProperty(IDs::timestamp) + clipLengthInBeats, nullptr);
+            childAtDoubleTime.setProperty(ShepherdIDs::timestamp, (double)child.getProperty(ShepherdIDs::timestamp) + clipLengthInBeats, nullptr);
             state.addChild(childAtDoubleTime, -1, nullptr);
         }
     }
@@ -423,7 +423,7 @@ void Clip::saveToUndoStack()
     
     // Add copy of clip state to the undo stack
     // If more than X elements are added to the stack, remove the older ones
-    updateStateMemberVersions(); // Make sure state member versions are updated before adding to stack as IDs::clipLengthInBeats will be needed when undoing
+    updateStateMemberVersions(); // Make sure state member versions are updated before adding to stack as ShepherdIDs::clipLengthInBeats will be needed when undoing
     midiSequenceAndClipLengthUndoStack.push_back(state.createCopy());
     if (midiSequenceAndClipLengthUndoStack.size() > allowedUndoLevels){
         midiSequenceAndClipLengthUndoStack.erase(midiSequenceAndClipLengthUndoStack.begin());
@@ -438,7 +438,7 @@ void Clip::undo()
     // If there are, replace the relevant parts of the current state with the relevant parts of the saved state
     if (midiSequenceAndClipLengthUndoStack.size() > 0){
         auto newState = midiSequenceAndClipLengthUndoStack.back().createCopy();
-        replaceSequence(newState, newState.getProperty(IDs::clipLengthInBeats));
+        replaceSequence(newState, newState.getProperty(ShepherdIDs::clipLengthInBeats));
         midiSequenceAndClipLengthUndoStack.pop_back();
     }
 }
@@ -456,7 +456,7 @@ void Clip::replaceSequence(juce::ValueTree newSequence, double newLength)
     // First remove all sequence events
     for (int i=0; i<state.getNumChildren(); i++){
         auto child = state.getChild(i);
-        if (child.hasType (IDs::SEQUENCE_EVENT)){
+        if (child.hasType (ShepherdIDs::SEQUENCE_EVENT)){
             state.removeChild(i, nullptr);
             i = i-1;
         }
@@ -468,7 +468,7 @@ void Clip::replaceSequence(juce::ValueTree newSequence, double newLength)
     int count = 0;
     for (int i=0; i<newSequence.getNumChildren(); i++){
         auto child = newSequence.getChild(i);
-        if (child.hasType (IDs::SEQUENCE_EVENT)){
+        if (child.hasType (ShepherdIDs::SEQUENCE_EVENT)){
             auto childToAdd = child.createCopy();
             state.addChild(childToAdd, -1, nullptr);
             count += 1;
@@ -1076,7 +1076,7 @@ juce::ValueTree Clip::getSequenceEventWithUUID(const juce::String& uuid)
 {
     for (int i=state.getNumChildren() - 1; i>=0; i--){
         auto child = state.getChild(i);
-        if (child.hasType (IDs::SEQUENCE_EVENT) && child.getProperty(IDs::uuid) == uuid){
+        if (child.hasType (ShepherdIDs::SEQUENCE_EVENT) && child.getProperty(ShepherdIDs::uuid) == uuid){
             return child;
         }
     }
@@ -1088,8 +1088,8 @@ void Clip::removeSequenceEventWithUUID(const juce::String& uuid)
     auto sequenceEvent = getSequenceEventWithUUID(uuid);
     if (sequenceEvent.isValid()){
         int midiNote = -1;
-        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note){
-            midiNote = (int)sequenceEvent.getProperty(IDs::midiNote);
+        if ((int)sequenceEvent.getProperty(ShepherdIDs::type) == SequenceEventType::note){
+            midiNote = (int)sequenceEvent.getProperty(ShepherdIDs::midiNote);
         }
         state.removeChild(sequenceEvent, nullptr);
         if (midiNote > -1){
@@ -1107,15 +1107,15 @@ void Clip::removeSequenceEventWithUUID(const juce::String& uuid)
 void Clip::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
     // Eg: change in quantization or individual note property
-    if ((property == IDs::currentQuantizationStep) ||
-        (property == IDs::clipLengthInBeats) ||
-        (property == IDs::timestamp) ||
-        (property == IDs::uTime) ||
-        (property == IDs::chance) ||
-        (property == IDs::midiNote) ||
-        (property == IDs::duration) ||
-        (property == IDs::eventMidiBytes) ||
-        (property == IDs::midiVelocity)){
+    if ((property == ShepherdIDs::currentQuantizationStep) ||
+        (property == ShepherdIDs::clipLengthInBeats) ||
+        (property == ShepherdIDs::timestamp) ||
+        (property == ShepherdIDs::uTime) ||
+        (property == ShepherdIDs::chance) ||
+        (property == ShepherdIDs::midiNote) ||
+        (property == ShepherdIDs::duration) ||
+        (property == ShepherdIDs::eventMidiBytes) ||
+        (property == ShepherdIDs::midiVelocity)){
         sequenceNeedsUpdate = true;
     }
 }
@@ -1127,7 +1127,7 @@ void Clip::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTree& ch
     
     // Update "numSequenceEvents"
     int count = 0;
-    for (auto child: state) { if (child.hasType(IDs::SEQUENCE_EVENT)) {count += 1;}}
+    for (auto child: state) { if (child.hasType(ShepherdIDs::SEQUENCE_EVENT)) {count += 1;}}
     numSequenceEvents = count;
 }
 
@@ -1138,7 +1138,7 @@ void Clip::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueTree& 
     
     // Update "numSequenceEvents"
     int count = 0;
-    for (auto child: state) { if (child.hasType(IDs::SEQUENCE_EVENT)) {count += 1;}}
+    for (auto child: state) { if (child.hasType(ShepherdIDs::SEQUENCE_EVENT)) {count += 1;}}
     numSequenceEvents = count;
 }
 

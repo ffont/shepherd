@@ -97,7 +97,7 @@
 #define PUSH_MIDI_CLOCK_BURST_DURATION_MILLISECONDS 500
 
 
-namespace Defaults
+namespace ShepherdDefaults
 {
 inline juce::String emptyString = "";
 inline double playheadPosition = 0.0;
@@ -135,7 +135,7 @@ inline bool allowChannelPressureMessages = true;
 inline bool controlChangeMessagesAreRelative = false;
 }
 
-namespace IDs
+namespace ShepherdIDs
 {
 #define DECLARE_ID(name) const juce::Identifier name (#name);
 

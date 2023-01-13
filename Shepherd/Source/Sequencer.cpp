@@ -82,14 +82,14 @@ void Sequencer::bindState()
 {
     state.addListener(this);
     
-    juce::ValueTree sessionState = state.getChildWithName(IDs::SESSION);
-    name.referTo(sessionState, IDs::name, nullptr, Defaults::emptyString);
-    fixedLengthRecordingBars.referTo(sessionState, IDs::fixedLengthRecordingBars, nullptr, Defaults::fixedLengthRecordingBars);
-    recordAutomationEnabled.referTo(sessionState, IDs::recordAutomationEnabled, nullptr, Defaults::recordAutomationEnabled);
-    fixedVelocity.referTo(state, IDs::fixedVelocity, nullptr, Defaults::fixedVelocity);
+    juce::ValueTree sessionState = state.getChildWithName(ShepherdIDs::SESSION);
+    name.referTo(sessionState, ShepherdIDs::name, nullptr, ShepherdDefaults::emptyString);
+    fixedLengthRecordingBars.referTo(sessionState, ShepherdIDs::fixedLengthRecordingBars, nullptr, ShepherdDefaults::fixedLengthRecordingBars);
+    recordAutomationEnabled.referTo(sessionState, ShepherdIDs::recordAutomationEnabled, nullptr, ShepherdDefaults::recordAutomationEnabled);
+    fixedVelocity.referTo(state, ShepherdIDs::fixedVelocity, nullptr, ShepherdDefaults::fixedVelocity);
     
-    state.setProperty(IDs::dataLocation, getDataLocation().getFullPathName(), nullptr);
-    renderWithInternalSynth.referTo(state, IDs::renderWithInternalSynth, nullptr, Defaults::renderWithInternalSynth);
+    state.setProperty(ShepherdIDs::dataLocation, getDataLocation().getFullPathName(), nullptr);
+    renderWithInternalSynth.referTo(state, ShepherdIDs::renderWithInternalSynth, nullptr, ShepherdDefaults::renderWithInternalSynth);
 }
 
 juce::File Sequencer::getDataLocation() {
@@ -109,25 +109,25 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
     
     // Get the part of the state that corresponds to the session, remove things from it like playhead positions,
     // play/recording state and other things which are "voaltile"
-    juce::ValueTree savedState = state.getChildWithName(IDs::SESSION).createCopy();
-    savedState.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
-    savedState.setProperty (IDs::playing, Defaults::playing, nullptr);
-    savedState.setProperty (IDs::doingCountIn, Defaults::doingCountIn, nullptr);
-    savedState.setProperty (IDs::countInPlayheadPositionInBeats, Defaults::playheadPosition, nullptr);
-    savedState.setProperty (IDs::barCount, Defaults::barCount, nullptr);
+    juce::ValueTree savedState = state.getChildWithName(ShepherdIDs::SESSION).createCopy();
+    savedState.setProperty (ShepherdIDs::playheadPositionInBeats, ShepherdDefaults::playheadPosition, nullptr);
+    savedState.setProperty (ShepherdIDs::playing, ShepherdDefaults::playing, nullptr);
+    savedState.setProperty (ShepherdIDs::doingCountIn, ShepherdDefaults::doingCountIn, nullptr);
+    savedState.setProperty (ShepherdIDs::countInPlayheadPositionInBeats, ShepherdDefaults::playheadPosition, nullptr);
+    savedState.setProperty (ShepherdIDs::barCount, ShepherdDefaults::barCount, nullptr);
     for (auto t: savedState) {
-        if (t.hasType(IDs::TRACK)) {
+        if (t.hasType(ShepherdIDs::TRACK)) {
             for (auto c: t) {
-                if (c.hasType(IDs::CLIP)) {
-                    c.setProperty (IDs::recording, Defaults::recording, nullptr);
-                    c.setProperty (IDs::willStartRecordingAt, Defaults::willStartRecordingAt, nullptr);
-                    c.setProperty (IDs::willStopRecordingAt, Defaults::willStopRecordingAt, nullptr);
-                    c.setProperty (IDs::playing, Defaults::playing, nullptr);
-                    c.setProperty (IDs::willPlayAt, Defaults::willPlayAt, nullptr);
-                    c.setProperty (IDs::willStopAt, Defaults::willStopAt, nullptr);
-                    c.setProperty (IDs::playheadPositionInBeats, Defaults::playheadPosition, nullptr);
+                if (c.hasType(ShepherdIDs::CLIP)) {
+                    c.setProperty (ShepherdIDs::recording, ShepherdDefaults::recording, nullptr);
+                    c.setProperty (ShepherdIDs::willStartRecordingAt, ShepherdDefaults::willStartRecordingAt, nullptr);
+                    c.setProperty (ShepherdIDs::willStopRecordingAt, ShepherdDefaults::willStopRecordingAt, nullptr);
+                    c.setProperty (ShepherdIDs::playing, ShepherdDefaults::playing, nullptr);
+                    c.setProperty (ShepherdIDs::willPlayAt, ShepherdDefaults::willPlayAt, nullptr);
+                    c.setProperty (ShepherdIDs::willStopAt, ShepherdDefaults::willStopAt, nullptr);
+                    c.setProperty (ShepherdIDs::playheadPositionInBeats, ShepherdDefaults::playheadPosition, nullptr);
                     for (auto se: c) {
-                        if (se.hasType(IDs::SEQUENCE_EVENT)) {
+                        if (se.hasType(ShepherdIDs::SEQUENCE_EVENT)) {
                             // Do nothing...
                         }
                     }
@@ -137,7 +137,7 @@ void Sequencer::saveCurrentSessionToFile(juce::String filePath)
     }
     
     // Update version
-    savedState.setProperty (IDs::version, ProjectInfo::versionString , nullptr);
+    savedState.setProperty (ShepherdIDs::version, ProjectInfo::versionString , nullptr);
     
     if (auto xml = std::unique_ptr<juce::XmlElement> (savedState.createXml())) {
         xml->writeTo(outputFile);
@@ -151,7 +151,7 @@ bool Sequencer::validateAndUpdateStateToLoad(juce::ValueTree& stateToCheck)
     // not available in older versions of shepherd, etc
     
     // Check root element type
-    if (!stateToCheck.hasType(IDs::SESSION)){
+    if (!stateToCheck.hasType(ShepherdIDs::SESSION)){
         DBG("Root element is not of type SESSION");
         DBG(stateToCheck.toXmlString());
         return false;
@@ -161,25 +161,25 @@ bool Sequencer::validateAndUpdateStateToLoad(juce::ValueTree& stateToCheck)
     std::vector<int> numClipsPerTrack = {};
     for (int i=0; i<stateToCheck.getNumChildren(); i++){
         auto firstLevelChild = stateToCheck.getChild(i);
-        if (!firstLevelChild.hasType(IDs::TRACK)){
+        if (!firstLevelChild.hasType(ShepherdIDs::TRACK)){
             DBG("Session element contains child elements of type other than TRACK");
             return false;
         }
         
-        if (firstLevelChild.hasType(IDs::TRACK)){
+        if (firstLevelChild.hasType(ShepherdIDs::TRACK)){
             int nClips = 0;
             for (int j=0; j<firstLevelChild.getNumChildren(); j++){
                 auto secondLevelChild = firstLevelChild.getChild(j);
-                if (!secondLevelChild.hasType(IDs::CLIP)){
+                if (!secondLevelChild.hasType(ShepherdIDs::CLIP)){
                     DBG("Track element contains child elements of type other than CLIP");
                     return false;
                 }
                 
-                if (secondLevelChild.hasType(IDs::CLIP)){
+                if (secondLevelChild.hasType(ShepherdIDs::CLIP)){
                     nClips += 1;
                     for (int k=0; k<secondLevelChild.getNumChildren(); k++){
                         auto thirdLevelChild = secondLevelChild.getChild(k);
-                        if (!thirdLevelChild.hasType(IDs::SEQUENCE_EVENT)){
+                        if (!thirdLevelChild.hasType(ShepherdIDs::SEQUENCE_EVENT)){
                             DBG("Clip element contains child elements of type other than SEQUENCE_EVENT");
                             return false;
                         }
@@ -218,8 +218,8 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
         }
         
         // Remove current session state and assign new one
-        if (state.getChildWithName(IDs::SESSION).isValid()){
-            state.removeChild(state.getChildWithName(IDs::SESSION), nullptr);
+        if (state.getChildWithName(ShepherdIDs::SESSION).isValid()){
+            state.removeChild(state.getChildWithName(ShepherdIDs::SESSION), nullptr);
         }
         state.addChild(stateToLoad, 0, nullptr);
         
@@ -227,14 +227,14 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
         bindState();
         
         // Initialize musical context
-        musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state.getChildWithName(IDs::SESSION));
+        musicalContext = std::make_unique<MusicalContext>([this]{return getGlobalSettings();}, state.getChildWithName(ShepherdIDs::SESSION));
         const int metronomeMidiChannel = getIntPropertyFromSettingsFile("metronomeMidiChannel");
         if (metronomeMidiChannel != -1){
             musicalContext->setMetronomeMidiChannel(metronomeMidiChannel);
         }
         
         // Initialize tracks
-        tracks = std::make_unique<TrackList>(state.getChildWithName(IDs::SESSION),
+        tracks = std::make_unique<TrackList>(state.getChildWithName(ShepherdIDs::SESSION),
                                              [this]{
                                                  return juce::Range<double>{musicalContext->getPlayheadPositionInBeats(), musicalContext->getPlayheadPositionInBeats() + musicalContext->getSliceLengthInBeats()};
                                              },
@@ -764,7 +764,7 @@ void Sequencer::writeMidiToDevicesMidiBuffer(juce::MidiBuffer& buffer, std::vect
 
 void Sequencer::initializeHardwareDevices()
 {
-    juce::ValueTree hardwareDevicesState (IDs::HARDWARE_DEVICES);
+    juce::ValueTree hardwareDevicesState (ShepherdIDs::HARDWARE_DEVICES);
     
     // Initialize INPUT and OUTPUT hardware devices from the definitions file
     juce::File hardwareDeviceDefinitionsLocation = getDataLocation().getChildFile("hardwareDevices").withFileExtension("json");
@@ -799,13 +799,13 @@ void Sequencer::initializeHardwareDevices()
                                                                                           midiChannel), -1, nullptr);
                     } else if (type == "input"){
                         juce::String midiInDeviceName = deviceInfo.getProperty("midiInputDeviceName", "NoMIDIInDevice").toString();
-                        bool controlChangeMessagesAreRelative = (bool)deviceInfo.getProperty("controlChangeMessagesAreRelative", Defaults::controlChangeMessagesAreRelative);
-                        int allowedMidiInputChannel = (int)deviceInfo.getProperty("allowedMidiInputChannel", Defaults::allowedMidiInputChannel);
-                        bool allowNoteMessages = (bool)deviceInfo.getProperty("allowNoteMessages", Defaults::allowNoteMessages);
-                        bool allowControllerMessages = (bool)deviceInfo.getProperty("allowControllerMessages", Defaults::allowControllerMessages);
-                        bool allowPitchBendMessages = (bool)deviceInfo.getProperty("allowPitchBendMessages", Defaults::allowPitchBendMessages);
-                        bool allowAftertouchMessages = (bool)deviceInfo.getProperty("allowAftertouchMessages", Defaults::allowAftertouchMessages);
-                        bool allowChannelPressureMessages = (bool)deviceInfo.getProperty("allowChannelPressureMessages", Defaults::allowChannelPressureMessages);
+                        bool controlChangeMessagesAreRelative = (bool)deviceInfo.getProperty("controlChangeMessagesAreRelative", ShepherdDefaults::controlChangeMessagesAreRelative);
+                        int allowedMidiInputChannel = (int)deviceInfo.getProperty("allowedMidiInputChannel", ShepherdDefaults::allowedMidiInputChannel);
+                        bool allowNoteMessages = (bool)deviceInfo.getProperty("allowNoteMessages", ShepherdDefaults::allowNoteMessages);
+                        bool allowControllerMessages = (bool)deviceInfo.getProperty("allowControllerMessages", ShepherdDefaults::allowControllerMessages);
+                        bool allowPitchBendMessages = (bool)deviceInfo.getProperty("allowPitchBendMessages", ShepherdDefaults::allowPitchBendMessages);
+                        bool allowAftertouchMessages = (bool)deviceInfo.getProperty("allowAftertouchMessages", ShepherdDefaults::allowAftertouchMessages);
+                        bool allowChannelPressureMessages = (bool)deviceInfo.getProperty("allowChannelPressureMessages", ShepherdDefaults::allowChannelPressureMessages);
                         juce::String notesMapping = deviceInfo.getProperty("notesMapping", "").toString(); // Empty string will be standard 1-128 mapping
                         juce::String controlChangeMapping = deviceInfo.getProperty("controlChangeMapping", "").toString(); // Empty string will be standard 1-128 mapping
                         hardwareDevicesState.addChild(Helpers::createInputHardwareDevice(name,
@@ -844,12 +844,12 @@ void Sequencer::initializeHardwareDevices()
     }*/
     
     // Now do create the actual HardwareDevice objects
-    if (state.getChildWithName(IDs::HARDWARE_DEVICES).isValid()){
+    if (state.getChildWithName(ShepherdIDs::HARDWARE_DEVICES).isValid()){
         // Remove existing child (if any?)
-        state.removeChild(state.getChildWithName(IDs::HARDWARE_DEVICES), nullptr);
+        state.removeChild(state.getChildWithName(ShepherdIDs::HARDWARE_DEVICES), nullptr);
     }
     state.addChild(hardwareDevicesState, -1, nullptr);
-    hardwareDevices = std::make_unique<HardwareDeviceList>(state.getChildWithName(IDs::HARDWARE_DEVICES),
+    hardwareDevices = std::make_unique<HardwareDeviceList>(state.getChildWithName(ShepherdIDs::HARDWARE_DEVICES),
                                                            [this](juce::String deviceName){return getMidiOutputDeviceData(deviceName);},
                                                            [this](juce::String deviceName){return getMidiInputDeviceData(deviceName);}
                                                            );
@@ -1323,36 +1323,36 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                         clip->removeSequenceEventWithUUID(editSequenceData["eventUUID"]);
                     } else if (editAction == "editEvent"){
                         juce::ValueTree sequenceEvent = clip->getSequenceEventWithUUID(editSequenceData["eventUUID"]);
-                        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note){
+                        if ((int)sequenceEvent.getProperty(ShepherdIDs::type) == SequenceEventType::note){
                             juce::var eventData = editSequenceData["eventData"];
                             if (eventData.hasProperty("midiNote")) {
-                                sequenceEvent.setProperty(IDs::midiNote, (int)eventData["midiNote"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::midiNote, (int)eventData["midiNote"], nullptr);
                             }
                             if (eventData.hasProperty("midiVelocity")) {
-                                sequenceEvent.setProperty(IDs::midiVelocity, (float)eventData["midiVelocity"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::midiVelocity, (float)eventData["midiVelocity"], nullptr);
                             }
                             if (eventData.hasProperty("chance")) {
-                                sequenceEvent.setProperty(IDs::chance, (float)eventData["chance"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::chance, (float)eventData["chance"], nullptr);
                             }
                             if (eventData.hasProperty("timestamp")) {
-                                sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::timestamp, (double)eventData["timestamp"], nullptr);
                             }
                             if (eventData.hasProperty("utime")) {
-                                sequenceEvent.setProperty(IDs::uTime, (double)eventData["utime"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::uTime, (double)eventData["utime"], nullptr);
                             }
                             if (eventData.hasProperty("duration")) {
-                                sequenceEvent.setProperty(IDs::duration, (double)eventData["duration"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::duration, (double)eventData["duration"], nullptr);
                             }
-                        } else if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::midi){
+                        } else if ((int)sequenceEvent.getProperty(ShepherdIDs::type) == SequenceEventType::midi){
                             juce::var eventData = editSequenceData["eventData"];
                             if (eventData.hasProperty("timestamp")) {
-                                sequenceEvent.setProperty(IDs::timestamp, (double)eventData["timestamp"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::timestamp, (double)eventData["timestamp"], nullptr);
                             }
                             if (eventData.hasProperty("utime")) {
-                                sequenceEvent.setProperty(IDs::uTime, (double)eventData["utime"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::uTime, (double)eventData["utime"], nullptr);
                             }
                             if (eventData.hasProperty("eventMidiBytes")) {
-                                sequenceEvent.setProperty(IDs::eventMidiBytes, (float)eventData["eventMidiBytes"], nullptr);
+                                sequenceEvent.setProperty(ShepherdIDs::eventMidiBytes, (float)eventData["eventMidiBytes"], nullptr);
                             }
                         }
                     } else if (editAction == "addEvent") {
@@ -1595,7 +1595,7 @@ void Sequencer::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasC
     juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_STATE_UPDATE);
     message.addString("propertyChanged");
     message.addInt32(stateUpdateID);
-    message.addString(treeWhosePropertyHasChanged[IDs::uuid].toString());
+    message.addString(treeWhosePropertyHasChanged[ShepherdIDs::uuid].toString());
     message.addString(treeWhosePropertyHasChanged.getType().toString());
     message.addString(property.toString());
     message.addString(treeWhosePropertyHasChanged[property].toString());
@@ -1612,7 +1612,7 @@ void Sequencer::valueTreeChildAdded (juce::ValueTree& parentTree, juce::ValueTre
     juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_STATE_UPDATE);
     message.addString("addedChild");
     message.addInt32(stateUpdateID);
-    message.addString(parentTree[IDs::uuid].toString());
+    message.addString(parentTree[ShepherdIDs::uuid].toString());
     message.addString(parentTree.getType().toString());
     message.addInt32(parentTree.indexOf(childWhichHasBeenAdded));
     message.addString(childWhichHasBeenAdded.toXmlString(juce::XmlElement::TextFormat().singleLine()));
@@ -1629,7 +1629,7 @@ void Sequencer::valueTreeChildRemoved (juce::ValueTree& parentTree, juce::ValueT
     juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_STATE_UPDATE);
     message.addString("removedChild");
     message.addInt32(stateUpdateID);
-    message.addString(childWhichHasBeenRemoved[IDs::uuid].toString());
+    message.addString(childWhichHasBeenRemoved[ShepherdIDs::uuid].toString());
     message.addString(childWhichHasBeenRemoved.getType().toString());
     sendMessageToController(message);
     stateUpdateID += 1;

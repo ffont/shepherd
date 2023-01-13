@@ -6,8 +6,10 @@
               defines="ASIO_STANDALONE=1">
   <MAINGROUP id="zLUL6I" name="Shepherd">
     <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Main">
-      <FILE id="FkBujr" name="defines.h" compile="0" resource="0" file="Source/defines.h"/>
-      <FILE id="w1nHsg" name="helpers.h" compile="0" resource="0" file="Source/helpers.h"/>
+      <FILE id="zmUAPT" name="defines_shepherd.h" compile="0" resource="0"
+            file="Source/defines_shepherd.h"/>
+      <FILE id="Hzv8Vv" name="helpers_shepherd.h" compile="0" resource="0"
+            file="Source/helpers_shepherd.h"/>
       <FILE id="KatrYF" name="Sequencer.h" compile="0" resource="0" file="Source/Sequencer.h"/>
       <FILE id="SozEZ5" name="Sequencer.cpp" compile="1" resource="0" file="Source/Sequencer.cpp"/>
       <FILE id="nsnrj4" name="MusicalContext.h" compile="0" resource="0"

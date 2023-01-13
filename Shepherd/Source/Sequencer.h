@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "helpers.h"
+#include "helpers_shepherd.h"
 #include "MusicalContext.h"
 #include "HardwareDevice.h"
 #include "SynthAudioSource.h"

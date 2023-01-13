@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "defines.h"
+#include "defines_shepherd.h"
 #include "Sequencer.h"
 
 //==============================================================================

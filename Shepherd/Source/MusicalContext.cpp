@@ -21,20 +21,20 @@ void MusicalContext::bindState()
 {
     // Bind cached values to state
     // For variables that have a "state" version and a non-cached version, also assign the non-cached one so it is loaded from state
-    statePlayheadPositionInBeats.referTo(state, IDs::playheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    statePlayheadPositionInBeats.referTo(state, ShepherdIDs::playheadPositionInBeats, nullptr, ShepherdDefaults::playheadPosition);
     playheadPositionInBeats = statePlayheadPositionInBeats;
-    stateIsPlaying.referTo(state, IDs::playing, nullptr, Defaults::playing);
+    stateIsPlaying.referTo(state, ShepherdIDs::playing, nullptr, ShepherdDefaults::playing);
     isPlaying = stateIsPlaying;
-    stateDoingCountIn.referTo(state, IDs::doingCountIn, nullptr, Defaults::doingCountIn);
+    stateDoingCountIn.referTo(state, ShepherdIDs::doingCountIn, nullptr, ShepherdDefaults::doingCountIn);
     doingCountIn = stateDoingCountIn;
-    stateCountInPlayheadPositionInBeats.referTo(state, IDs::countInPlayheadPositionInBeats, nullptr, Defaults::playheadPosition);
+    stateCountInPlayheadPositionInBeats.referTo(state, ShepherdIDs::countInPlayheadPositionInBeats, nullptr, ShepherdDefaults::playheadPosition);
     countInPlayheadPositionInBeats = stateCountInPlayheadPositionInBeats;
-    stateBarCount.referTo(state, IDs::barCount, nullptr, Defaults::barCount);
+    stateBarCount.referTo(state, ShepherdIDs::barCount, nullptr, ShepherdDefaults::barCount);
     barCount = stateBarCount;
     
-    bpm.referTo(state, IDs::bpm, nullptr, Defaults::bpm);
-    meter.referTo(state, IDs::meter, nullptr, Defaults::meter);
-    metronomeOn.referTo(state, IDs::metronomeOn, nullptr, Defaults::metronomeOn);
+    bpm.referTo(state, ShepherdIDs::bpm, nullptr, ShepherdDefaults::bpm);
+    meter.referTo(state, ShepherdIDs::meter, nullptr, ShepherdDefaults::meter);
+    metronomeOn.referTo(state, ShepherdIDs::metronomeOn, nullptr, ShepherdDefaults::metronomeOn);
 }
 
 void MusicalContext::updateStateMemberVersions()

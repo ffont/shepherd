@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "helpers.h"
+#include "helpers_shepherd.h"
 
 
 class MusicalContext
@@ -62,11 +62,11 @@ public:
     
 private:
     
-    double playheadPositionInBeats = Defaults::playheadPosition;
-    bool isPlaying = Defaults::playing;
-    bool doingCountIn = Defaults::doingCountIn;
-    double countInPlayheadPositionInBeats = Defaults::playheadPosition;
-    int barCount = Defaults::barCount;
+    double playheadPositionInBeats = ShepherdDefaults::playheadPosition;
+    bool isPlaying = ShepherdDefaults::playing;
+    bool doingCountIn = ShepherdDefaults::doingCountIn;
+    double countInPlayheadPositionInBeats = ShepherdDefaults::playheadPosition;
+    int barCount = ShepherdDefaults::barCount;
     
     juce::CachedValue<double> statePlayheadPositionInBeats;
     juce::CachedValue<bool> stateIsPlaying;

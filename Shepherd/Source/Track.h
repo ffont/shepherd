@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "helpers.h"
+#include "helpers_shepherd.h"
 #include "Clip.h"
 #include "MusicalContext.h"
 #include "HardwareDevice.h"
@@ -128,7 +128,7 @@ struct TrackList: public drow::ValueTreeObjectList<Track>
 
     bool isSuitableType (const juce::ValueTree& v) const override
     {
-        return v.hasType (IDs::TRACK);
+        return v.hasType (ShepherdIDs::TRACK);
     }
 
     Track* createNewObject (const juce::ValueTree& v) override

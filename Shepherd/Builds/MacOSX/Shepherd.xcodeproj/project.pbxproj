@@ -49,6 +49,7 @@
 		1165206DA23C1C4B0EFDBB10 /* juce_gui_basics */ /* juce_gui_basics */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_gui_basics; path = ../../3rdParty/JUCE/modules/juce_gui_basics; sourceTree = SOURCE_ROOT; };
 		1A65617FD5CE7F0E6F9D8299 /* drow_ValueTreeObjectList.h */ /* drow_ValueTreeObjectList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = drow_ValueTreeObjectList.h; path = ../../Source/drow_ValueTreeObjectList.h; sourceTree = SOURCE_ROOT; };
 		1DAD1704B1D93FDEC6C715C8 /* CoreAudioKit.framework */ /* CoreAudioKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudioKit.framework; path = System/Library/Frameworks/CoreAudioKit.framework; sourceTree = SDKROOT; };
+		1E3BC2DE81768E6DFB4A98DA /* defines_shepherd.h */ /* defines_shepherd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = defines_shepherd.h; path = ../../Source/defines_shepherd.h; sourceTree = SOURCE_ROOT; };
 		27547FAF8278FA3D1DBF58EC /* Carbon.framework */ /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		2AE33E40AC8487429A60201C /* Playhead.cpp */ /* Playhead.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = Playhead.cpp; path = ../../Source/Playhead.cpp; sourceTree = SOURCE_ROOT; };
 		347D271E3822C98BF61CED41 /* Clip.cpp */ /* Clip.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = Clip.cpp; path = ../../Source/Clip.cpp; sourceTree = SOURCE_ROOT; };
@@ -71,8 +72,8 @@
 		7959E7B0FCC83F0B2980B8EF /* Track.cpp */ /* Track.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = Track.cpp; path = ../../Source/Track.cpp; sourceTree = SOURCE_ROOT; };
 		79F8C866EEDCFAEFF254BA0C /* MainComponent.h */ /* MainComponent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MainComponent.h; path = ../../Source/MainComponent.h; sourceTree = SOURCE_ROOT; };
 		8139639C53A5B420A289B75D /* include_juce_audio_utils.mm */ /* include_juce_audio_utils.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_audio_utils.mm; path = ../../JuceLibraryCode/include_juce_audio_utils.mm; sourceTree = SOURCE_ROOT; };
+		8290C101A27E979AC2476805 /* helpers_shepherd.h */ /* helpers_shepherd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = helpers_shepherd.h; path = ../../Source/helpers_shepherd.h; sourceTree = SOURCE_ROOT; };
 		87DDF9398F72D1EAB9701314 /* juce_audio_utils */ /* juce_audio_utils */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_utils; path = ../../3rdParty/JUCE/modules/juce_audio_utils; sourceTree = SOURCE_ROOT; };
-		88047A17ACDCB94896047705 /* helpers.h */ /* helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = helpers.h; path = ../../Source/helpers.h; sourceTree = SOURCE_ROOT; };
 		88C0F7CBD93248F22F6F10B6 /* juce_graphics */ /* juce_graphics */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_graphics; path = ../../3rdParty/JUCE/modules/juce_graphics; sourceTree = SOURCE_ROOT; };
 		89FFEF4F826D3E3EE97C2CCC /* Info-App.plist */ /* Info-App.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-App.plist"; path = "Info-App.plist"; sourceTree = SOURCE_ROOT; };
 		8C2179545E791DEE5C13CEDD /* juce_osc */ /* juce_osc */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_osc; path = ../../3rdParty/JUCE/modules/juce_osc; sourceTree = SOURCE_ROOT; };
@@ -93,7 +94,6 @@
 		BA9B90BA1960C94D5B03CE05 /* CoreAudio.framework */ /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		BCE5654759C4BA074BCA8007 /* App */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Shepherd.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC527982EC7EEBC1C0D1B2A8 /* DiscRecording.framework */ /* DiscRecording.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiscRecording.framework; path = System/Library/Frameworks/DiscRecording.framework; sourceTree = SDKROOT; };
-		DBC84B163AD356A9BA6CAC06 /* defines.h */ /* defines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = defines.h; path = ../../Source/defines.h; sourceTree = SOURCE_ROOT; };
 		DC6FF832889AB08AD96EA65E /* RecentFilesMenuTemplate.nib */ /* RecentFilesMenuTemplate.nib */ = {isa = PBXFileReference; lastKnownFileType = file.nib; name = RecentFilesMenuTemplate.nib; path = RecentFilesMenuTemplate.nib; sourceTree = SOURCE_ROOT; };
 		DC9B13C1B81B3E0E11B7FA3E /* juce_data_structures */ /* juce_data_structures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_data_structures; path = ../../3rdParty/JUCE/modules/juce_data_structures; sourceTree = SOURCE_ROOT; };
 		E86C13006901652FBA4B7731 /* include_juce_gui_extra.mm */ /* include_juce_gui_extra.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = include_juce_gui_extra.mm; path = ../../JuceLibraryCode/include_juce_gui_extra.mm; sourceTree = SOURCE_ROOT; };
@@ -243,8 +243,8 @@
 		F220529C75B9D659A292A07F /* Main */ = {
 			isa = PBXGroup;
 			children = (
-				DBC84B163AD356A9BA6CAC06,
-				88047A17ACDCB94896047705,
+				1E3BC2DE81768E6DFB4A98DA,
+				8290C101A27E979AC2476805,
 				F4EDFB8702DF9205C31ED205,
 				442D7CABE1D5961677767D2F,
 				987267E20591A1C35113C0E2,
@@ -287,7 +287,7 @@
 		7E8DEF92E1413EFB9E2D2BE4 = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1300;
+				LastUpgradeCheck = 1320;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
 					07E8D1F4D17B555E66BE1553 = {
@@ -381,6 +381,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)/build/$(CONFIGURATION)";
 				DEAD_CODE_STRIPPING = YES;
+				EXCLUDED_ARCHS = "";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -388,7 +389,7 @@
 					"NDEBUG=1",
 					"JUCE_DISPLAY_SPLASH_SCREEN=0",
 					"JUCE_USE_DARK_SPLASH_SCREEN=1",
-					"JUCE_PROJUCER_VERSION=0x60102",
+					"JUCE_PROJUCER_VERSION=0x60106",
 					"JUCE_MODULE_AVAILABLE_juce_audio_basics=1",
 					"JUCE_MODULE_AVAILABLE_juce_audio_devices=1",
 					"JUCE_MODULE_AVAILABLE_juce_audio_formats=1",
@@ -431,6 +432,7 @@
 				LLVM_LTO = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../3rdParty/JUCE/modules $(SRCROOT)/../../3rdParty/Simple-WebSocket-Server/ $(SRCROOT)/../../3rdParty/asio/asio/include/";
+				OTHER_CFLAGS = "-DCPPHTTPLIB_OPENSSL_SUPPORT -I/usr/local/opt/openssl/include";
 				OTHER_CPLUSPLUSFLAGS = "-DCPPHTTPLIB_OPENSSL_SUPPORT -I/usr/local/opt/openssl/include";
 				OTHER_LDFLAGS = "-L/usr/local/opt/openssl/lib -lssl  -lcrypto";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.Shepherd;
@@ -498,6 +500,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)/build/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
+				EXCLUDED_ARCHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -505,7 +508,7 @@
 					"DEBUG=1",
 					"JUCE_DISPLAY_SPLASH_SCREEN=0",
 					"JUCE_USE_DARK_SPLASH_SCREEN=1",
-					"JUCE_PROJUCER_VERSION=0x60102",
+					"JUCE_PROJUCER_VERSION=0x60106",
 					"JUCE_MODULE_AVAILABLE_juce_audio_basics=1",
 					"JUCE_MODULE_AVAILABLE_juce_audio_devices=1",
 					"JUCE_MODULE_AVAILABLE_juce_audio_formats=1",
@@ -547,6 +550,7 @@
 				INSTALL_PATH = "$(HOME)/Applications";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../3rdParty/JUCE/modules $(SRCROOT)/../../3rdParty/Simple-WebSocket-Server/ $(SRCROOT)/../../3rdParty/asio/asio/include/";
+				OTHER_CFLAGS = "-DCPPHTTPLIB_OPENSSL_SUPPORT -I/usr/local/opt/openssl/include";
 				OTHER_CPLUSPLUSFLAGS = "-DCPPHTTPLIB_OPENSSL_SUPPORT -I/usr/local/opt/openssl/include";
 				OTHER_LDFLAGS = "-L/usr/local/opt/openssl/lib -lssl  -lcrypto";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.Shepherd;

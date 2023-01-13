@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "defines.h"
+#include "helpers_shepherd.h"
 #include "Playhead.h"
 #include "MusicalContext.h"
 #include "HardwareDevice.h"
@@ -140,10 +140,10 @@ private:
     juce::CachedValue<double> stateWillStopRecordingAt;
     juce::CachedValue<double> stateCurrentQuantizationStep;
     
-    bool recording = Defaults::recording;
-    double willStartRecordingAt = Defaults::willStopRecordingAt;
-    double willStopRecordingAt = Defaults::willStopRecordingAt;
-    double currentQuantizationStep = Defaults::currentQuantizationStep;
+    bool recording = ShepherdDefaults::recording;
+    double willStartRecordingAt = ShepherdDefaults::willStopRecordingAt;
+    double willStopRecordingAt = ShepherdDefaults::willStopRecordingAt;
+    double currentQuantizationStep = ShepherdDefaults::currentQuantizationStep;
     int numSequenceEvents = 0;
     double shouldUpdateClipLenthInTimerTo = -1.0;
     
@@ -193,14 +193,14 @@ private:
         std::vector<std::pair<juce::MidiMessage, SequenceEventAnnotations*>> rawAnnotations;
         for (int i=0; i<state.getNumChildren(); i++){
             auto sequenceEvent = state.getChild(i);
-            if (sequenceEvent.hasType (IDs::SEQUENCE_EVENT)){
+            if (sequenceEvent.hasType (ShepherdIDs::SEQUENCE_EVENT)){
                 bool shouldRenderEvent = true;
                 
-                if ((double)sequenceEvent.getProperty(IDs::timestamp) < clipLengthInBeats) {
+                if ((double)sequenceEvent.getProperty(ShepherdIDs::timestamp) < clipLengthInBeats) {
                     // If event starts before clip length, this will be rendered as MIDI message in the sequence
                     
                     // Quantize the start time (add uTime to the start time)
-                    double originalStartTimestamp = (double)sequenceEvent.getProperty(IDs::timestamp) + (double)sequenceEvent.getProperty(IDs::uTime);
+                    double originalStartTimestamp = (double)sequenceEvent.getProperty(ShepherdIDs::timestamp) + (double)sequenceEvent.getProperty(ShepherdIDs::uTime);
                     if (originalStartTimestamp < 0.0){
                         // If start time become negative because of uTime, make start of the event wrap
                         originalStartTimestamp += clipLengthInBeats;
@@ -213,8 +213,8 @@ private:
                     // start time of the event was already inside clip length. Another option would be to set the
                     // timestamp to the clip length itself, but then we would not be able to have notes that start
                     // in the middle of the clip and finish after the clip has looped
-                    if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
-                        double duration = sequenceEvent.getProperty(IDs::duration);
+                    if ((int)sequenceEvent.getProperty(ShepherdIDs::type) == SequenceEventType::note) {
+                        double duration = sequenceEvent.getProperty(ShepherdIDs::duration);
                         if (wrapEventsAcrossClipLoop) {
                             quantizedEndTimestamp = std::fmod(quantizedStartTimestamp + duration, clipLengthInBeats);
                         } else {
@@ -227,13 +227,13 @@ private:
                     }
                     if (shouldRenderEvent){
                         // Set computed properties, create annotation objects and render MIDI messages
-                        sequenceEvent.setProperty(IDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
-                        sequenceEvent.setProperty(IDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
+                        sequenceEvent.setProperty(ShepherdIDs::renderedStartTimestamp, quantizedStartTimestamp, nullptr);
+                        sequenceEvent.setProperty(ShepherdIDs::renderedEndTimestamp, quantizedEndTimestamp, nullptr);
                         
                         SequenceEventAnnotations* eventAnnotations = new SequenceEventAnnotations();
-                        eventAnnotations->sequenceEventUUID = sequenceEvent.getProperty(IDs::uuid);
-                        if ((int)sequenceEvent.getProperty(IDs::type) == SequenceEventType::note) {
-                            eventAnnotations->chance = sequenceEvent.getProperty(IDs::chance);
+                        eventAnnotations->sequenceEventUUID = sequenceEvent.getProperty(ShepherdIDs::uuid);
+                        if ((int)sequenceEvent.getProperty(ShepherdIDs::type) == SequenceEventType::note) {
+                            eventAnnotations->chance = sequenceEvent.getProperty(ShepherdIDs::chance);
                         }
                         for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
                             midiSequence.addEvent(msg);
@@ -250,8 +250,8 @@ private:
                 
                 if (!shouldRenderEvent){
                     // If sequence event has timestamp above clip length, don't even render it as MIDI message
-                    sequenceEvent.setProperty(IDs::renderedStartTimestamp, -1.0, nullptr);
-                    sequenceEvent.setProperty(IDs::renderedEndTimestamp, -1.0, nullptr);
+                    sequenceEvent.setProperty(ShepherdIDs::renderedStartTimestamp, -1.0, nullptr);
+                    sequenceEvent.setProperty(ShepherdIDs::renderedEndTimestamp, -1.0, nullptr);
                 }
             }
         }
@@ -326,7 +326,7 @@ struct ClipList: public drow::ValueTreeObjectList<Clip>
 
     bool isSuitableType (const juce::ValueTree& v) const override
     {
-        return v.hasType (IDs::CLIP);
+        return v.hasType (ShepherdIDs::CLIP);
     }
 
     Clip* createNewObject (const juce::ValueTree& v) override

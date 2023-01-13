@@ -51,26 +51,26 @@ HardwareDevice::HardwareDevice(const juce::ValueTree& _state,
 
 void HardwareDevice::bindState()
 {
-    uuid.referTo(state, IDs::uuid, nullptr, Defaults::emptyString);
-    type.referTo(state, IDs::type, nullptr, HardwareDeviceType::output);
-    name.referTo(state, IDs::name, nullptr, Defaults::emptyString);
-    shortName.referTo(state, IDs::shortName, nullptr, Defaults::emptyString);
+    uuid.referTo(state, ShepherdIDs::uuid, nullptr, ShepherdDefaults::emptyString);
+    type.referTo(state, ShepherdIDs::type, nullptr, HardwareDeviceType::output);
+    name.referTo(state, ShepherdIDs::name, nullptr, ShepherdDefaults::emptyString);
+    shortName.referTo(state, ShepherdIDs::shortName, nullptr, ShepherdDefaults::emptyString);
     
-    midiOutputDeviceName.referTo(state, IDs::midiOutputDeviceName, nullptr, Defaults::emptyString);
-    midiOutputChannel.referTo(state, IDs::midiChannel, nullptr, -1);
+    midiOutputDeviceName.referTo(state, ShepherdIDs::midiOutputDeviceName, nullptr, ShepherdDefaults::emptyString);
+    midiOutputChannel.referTo(state, ShepherdIDs::midiChannel, nullptr, -1);
     
-    midiInputDeviceName.referTo(state, IDs::midiInputDeviceName, nullptr, Defaults::emptyString);
-    allowedMidiInputChannel.referTo(state, IDs::allowedMidiInputChannel, nullptr, Defaults::allowedMidiInputChannel);
-    allowNoteMessages.referTo(state, IDs::allowNoteMessages, nullptr, Defaults::allowNoteMessages);
-    allowControllerMessages.referTo(state, IDs::allowControllerMessages, nullptr, Defaults::allowControllerMessages);
-    allowPitchBendMessages.referTo(state, IDs::allowPitchBendMessages, nullptr, Defaults::allowPitchBendMessages);
-    allowAftertouchMessages.referTo(state, IDs::allowAftertouchMessages, nullptr, Defaults::allowAftertouchMessages);
-    allowChannelPressureMessages.referTo(state, IDs::allowChannelPressureMessages, nullptr, Defaults::allowChannelPressureMessages);
-    controlChangeMessagesAreRelative.referTo(state, IDs::controlChangeMessagesAreRelative, nullptr, Defaults::controlChangeMessagesAreRelative);
+    midiInputDeviceName.referTo(state, ShepherdIDs::midiInputDeviceName, nullptr, ShepherdDefaults::emptyString);
+    allowedMidiInputChannel.referTo(state, ShepherdIDs::allowedMidiInputChannel, nullptr, ShepherdDefaults::allowedMidiInputChannel);
+    allowNoteMessages.referTo(state, ShepherdIDs::allowNoteMessages, nullptr, ShepherdDefaults::allowNoteMessages);
+    allowControllerMessages.referTo(state, ShepherdIDs::allowControllerMessages, nullptr, ShepherdDefaults::allowControllerMessages);
+    allowPitchBendMessages.referTo(state, ShepherdIDs::allowPitchBendMessages, nullptr, ShepherdDefaults::allowPitchBendMessages);
+    allowAftertouchMessages.referTo(state, ShepherdIDs::allowAftertouchMessages, nullptr, ShepherdDefaults::allowAftertouchMessages);
+    allowChannelPressureMessages.referTo(state, ShepherdIDs::allowChannelPressureMessages, nullptr, ShepherdDefaults::allowChannelPressureMessages);
+    controlChangeMessagesAreRelative.referTo(state, ShepherdIDs::controlChangeMessagesAreRelative, nullptr, ShepherdDefaults::controlChangeMessagesAreRelative);
 
-    stateMidiCCParameterValues.referTo(state, IDs::midiCCParameterValuesList, nullptr, Defaults::emptyString);
-    stateControlChangeMapping.referTo(state, IDs::controlChangeMapping, nullptr, Defaults::emptyString);
-    stateNotesMapping.referTo(state, IDs::notesMapping, nullptr, Defaults::emptyString);
+    stateMidiCCParameterValues.referTo(state, ShepherdIDs::midiCCParameterValuesList, nullptr, ShepherdDefaults::emptyString);
+    stateControlChangeMapping.referTo(state, ShepherdIDs::controlChangeMapping, nullptr, ShepherdDefaults::emptyString);
+    stateNotesMapping.referTo(state, ShepherdIDs::notesMapping, nullptr, ShepherdDefaults::emptyString);
     // NOTE: unlike other stateXXX properties in other objects like Clip, midiCCParameterValues and others here should never be loaded from state, so we don't do it here
 }
 
