@@ -507,6 +507,6 @@ Shepherd is released under the **GPLv3** open source software license
 at [https://github.com/ffont/shepherd](https://github.com/ffont/shepherd). Source uses the following open source 
 software libraries: 
 
-* [juce](https://juce.com), available under GPLv3 license ([@46ea879](https://github.com/juce-framework/JUCE/tree/46ea879739533ca0cdc689b967edfc5390c46ef7), v6.1.2)
+* [juce](https://juce.com), available under GPLv3 license ([@46ea879](https://github.com/juce-framework/JUCE/tree/2f980209cc4091a4490bb1bafc5d530f16834e58), v6.1.6)
 * [asio](https://github.com/chriskohlhoff/asio), available under Boost Software License] ([@f0a1e1c](https://github.com/chriskohlhoff/asio/tree/f0a1e1c7c0387ad16358c81eb52528f190df625c))
 * [Simple-WebSocket-Server](https://gitlab.com/eidheim/Simple-WebSocket-Server), available under MIT license ([@293a407](https://gitlab.com/eidheim/Simple-WebSocket-Server/-/tree/293a407f39fe50e285c8599b3d98a7da25371d20))
