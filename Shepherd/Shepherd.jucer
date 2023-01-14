@@ -2,7 +2,7 @@
 
 <JUCERPROJECT id="Dgct1A" name="Shepherd" projectType="guiapp" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" projectLineFeed="&#10;"
-              headerPath="../../3rdParty/Simple-WebSocket-Server/&#10;../../3rdParty/asio/asio/include/"
+              headerPath="../../3rdParty/Simple-WebSocket-Server/&#10;../../3rdParty/asio/asio/include/&#10;../../Source/common/"
               defines="ASIO_STANDALONE=1">
   <MAINGROUP id="zLUL6I" name="Shepherd">
     <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Main">
@@ -32,12 +32,12 @@
       <FILE id="yJw2cK" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="pJ65YQ" name="DevelopmentUIComponent.h" compile="0" resource="0"
             file="Source/DevelopmentUIComponent.h"/>
-      <FILE id="hEcX4G" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
-            file="Source/drow_ValueTreeObjectList.h"/>
-      <FILE id="UK1WQx" name="Fifo.h" compile="0" resource="0" file="Source/Fifo.h"/>
-      <FILE id="A2KC9D" name="ReleasePool.h" compile="0" resource="0" file="Source/ReleasePool.h"/>
       <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
             file="Source/SynthAudioSource.h"/>
+      <FILE id="uAVujS" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
+            file="Source/common/drow_ValueTreeObjectList.h"/>
+      <FILE id="PfRo2t" name="Fifo.h" compile="0" resource="0" file="Source/common/Fifo.h"/>
+      <FILE id="VzNiJY" name="ReleasePool.h" compile="0" resource="0" file="Source/common/ReleasePool.h"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
