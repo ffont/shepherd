@@ -26,15 +26,15 @@ class Sequencer; // Forward declaration
 using WsServer = SimpleWeb::SocketServer<SimpleWeb::WS>;
 
 
-class WebSocketsServer: public juce::Thread
+class ShepherdWebSocketsServer: public juce::Thread
 {
 public:
    
-    WebSocketsServer(): juce::Thread ("ShepherdWebsocketsServer")
+    ShepherdWebSocketsServer(): juce::Thread ("ShepherdWebsocketsServer")
     {
     }
    
-    ~WebSocketsServer(){
+    ~ShepherdWebSocketsServer(){
         if (serverPtr != nullptr){
             serverPtr.release();
         }
@@ -106,7 +106,7 @@ private:
     std::vector<juce::String> getListStringPropertyFromSettingsFile(juce::String propertyName);
     
     // Communication with controller
-    WebSocketsServer wsServer;
+    ShepherdWebSocketsServer wsServer;
     juce::OSCSender oscSender;
     int oscReceivePort = OSC_BACKEND_RECEIVE_PORT;
     int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
@@ -202,7 +202,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Sequencer)
 };
 
-void WebSocketsServer::run()
+void ShepherdWebSocketsServer::run()
 {
     WsServer server;
     server.config.port = WEBSOCKETS_SERVER_PORT;  // Use a known port so python UI can connect to it
