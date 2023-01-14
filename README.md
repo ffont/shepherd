@@ -507,6 +507,8 @@ Shepherd is released under the **GPLv3** open source software license
 at [https://github.com/ffont/shepherd](https://github.com/ffont/shepherd). Source uses the following open source 
 software libraries: 
 
-* [juce](https://juce.com), available under GPLv3 license ([@46ea879](https://github.com/juce-framework/JUCE/tree/2f980209cc4091a4490bb1bafc5d530f16834e58), v6.1.6)
+* [juce](https://juce.com), available under GPLv3 license ([@2f98020](https://github.com/juce-framework/JUCE/tree/2f980209cc4091a4490bb1bafc5d530f16834e58), v6.1.6)
 * [asio](https://github.com/chriskohlhoff/asio), available under Boost Software License] ([@f0a1e1c](https://github.com/chriskohlhoff/asio/tree/f0a1e1c7c0387ad16358c81eb52528f190df625c))
 * [Simple-WebSocket-Server](https://gitlab.com/eidheim/Simple-WebSocket-Server), available under MIT license ([@293a407](https://gitlab.com/eidheim/Simple-WebSocket-Server/-/tree/293a407f39fe50e285c8599b3d98a7da25371d20))
+* [source](https://github.com/ffont/source), available under GPLv3 license ([@ae89f3a](https://github.com/ffont/source/commit/ae89f3a8d48f461a5045fa45ed256637c62825ca)) - Only required if enabling the "sampler" mode
+* [ff_meters](https://github.com/ffAudio/ff_meters), available under BSD 3 clause license ([@968bb8e](https://github.com/ffAudio/ff_meters/tree/968bb8e00c5e47aaf18b388341493edc771a088f) - Only required if enabling the "sampler" mode

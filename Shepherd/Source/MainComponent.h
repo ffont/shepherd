@@ -4,6 +4,9 @@
 #include <JuceHeader.h>
 #include "Sequencer.h"
 #include "DevelopmentUIComponent.h"
+#if INCLUDE_SAMPLER
+#include "SourceSampler.h"
+#endif
 
 
 //==============================================================================
@@ -22,22 +25,30 @@ public:
     MainComponent()
     #endif
     {
+        internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES * 10);
+        
+        int numInputChannels = 0;
+        int numOutputChannels = 2;
+        
         // Some platforms require permissions to open input channels so request that here
         if (juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
             && ! juce::RuntimePermissions::isGranted (juce::RuntimePermissions::recordAudio))
         {
             juce::RuntimePermissions::request (juce::RuntimePermissions::recordAudio,
-                                               [&] (bool granted) { setAudioChannels (granted ? 2 : 0, 2); });
+                                               [&] (bool granted) { setAudioChannels (granted ? numInputChannels : 0, numOutputChannels); });
         }
         else
         {
             // Specify the number of input and output channels that we want to open
-            setAudioChannels (2, 2);
+            setAudioChannels (numInputChannels, numOutputChannels);
         }
+        
+        #if INCLUDE_SAMPLER
+        sampler.setTotalNumOutputChannels(numOutputChannels);
+        #endif
         
         // Init sine synth with nSynthVoices voices (used for testig purposes only)
         #if JUCE_DEBUG
-        internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
         for (auto i = 0; i < nSynthVoices; ++i)
             sineSynth.addVoice (new SineWaveVoice());
         sineSynth.addSound (new SineWaveSound());
@@ -77,6 +88,9 @@ public:
         std::cout << "Prepare to play called with samples per block " << samplesPerBlockExpected << " and sample rate " << sampleRate << std::endl;
         sineSynth.setCurrentPlaybackSampleRate (sampleRate);
         sequencer.prepareSequencer(samplesPerBlockExpected, sampleRate);
+        #if INCLUDE_SAMPLER
+        sampler.prepareToPlay(sampleRate, samplesPerBlockExpected);
+        #endif
     }
     
     void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
@@ -86,22 +100,32 @@ public:
         int sliceNumSamples = bufferToFill.numSamples;
         sequencer.getNextMIDISlice(sliceNumSamples);
         
-        #if JUCE_DEBUG
-        if (sequencer.shouldRenderWithInternalSynth()){
-            // All buffers are combined into a single buffer which is then sent to the synth
-            internalSynthCombinedBuffer.clear();
-            for (auto deviceData: *sequencer.getMidiOutDevices()){
-                if (deviceData != nullptr){
-                    internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
-                }
+        #if JUCE_DEBUG || INCLUDE_SAMPLER
+        // All buffers are combined into a single buffer which is then sent to the synth (and the internal sampler if sampler mode on)
+        internalSynthCombinedBuffer.clear();
+        for (auto deviceData: *sequencer.getMidiOutDevices()){
+            if (deviceData != nullptr){
+                internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
             }
+        }
+        
+        #if not INCLUDE_SAMPLER
+        if (sequencer.shouldRenderWithInternalSynth()){
             sineSynth.renderNextBlock (*bufferToFill.buffer, internalSynthCombinedBuffer, bufferToFill.startSample, sliceNumSamples);
         }
+        #endif
+        
+        #if INCLUDE_SAMPLER
+        sampler.processBlock(*bufferToFill.buffer, internalSynthCombinedBuffer);
+        #endif
         #endif
     }
     
     void releaseResources() override
     {
+        #if INCLUDE_SAMPLER
+        sampler.releaseResources();
+        #endif
     }
 
     void paint (juce::Graphics& g) override
@@ -121,10 +145,16 @@ public:
 private:
     Sequencer sequencer;
     
+    #if INCLUDE_SAMPLER
+    SourceSampler sampler;
+    #endif
+    
+    // Internal midi buffer used for debugging purposes or for passing MIDI to the sampler (if sampler mode on)
+    juce::MidiBuffer internalSynthCombinedBuffer;
+    
     // Internal synth for testing
     juce::Synthesiser sineSynth;
     int nSynthVoices = 32;
-    juce::MidiBuffer internalSynthCombinedBuffer;
     
     #if JUCE_DEBUG
     // Only for desktop app UI

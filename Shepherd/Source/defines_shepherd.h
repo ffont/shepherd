@@ -10,6 +10,8 @@
 
 #pragma once
 
+#define INCLUDE_SAMPLER 1  // Use this define to control whether to compile Shepherd together with Source sampler in a single app
+
 #define ENABLE_SYNC_STATE_WITH_OSC 0  // Using OSC does not seem to work well as full state is too big to bundle in an OSC message (?)
 #define ENABLE_SYNC_STATE_WITH_WS 1
 
