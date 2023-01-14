@@ -25,7 +25,7 @@ HardwareDevice::HardwareDevice(const juce::ValueTree& _state,
         for (int i=0; i<midiCCParameterValues.size(); i++){
             midiCCParameterValues[i] = 64;  // Initialize all midi ccs to 64 (middle value)
         }
-        stateMidiCCParameterValues = Helpers::serialize128IntArray(midiCCParameterValues); // Update the state version of the midiCCParameterValues list so change is reflected in state
+        stateMidiCCParameterValues = ShepherdHelpers::serialize128IntArray(midiCCParameterValues); // Update the state version of the midiCCParameterValues list so change is reflected in state
     }
     
     if (isTypeInput()){
@@ -33,18 +33,18 @@ HardwareDevice::HardwareDevice(const juce::ValueTree& _state,
             for (int i=0; i<controlChangeMapping.size(); i++){
                 controlChangeMapping[i] = i;  // Initialize all midi cc mappings to the input number (no transformation)
             }
-            stateControlChangeMapping = Helpers::serialize128IntArray(controlChangeMapping); // Update the state version of the controlChangeMapping list so change is reflected in state
+            stateControlChangeMapping = ShepherdHelpers::serialize128IntArray(controlChangeMapping); // Update the state version of the controlChangeMapping list so change is reflected in state
         } else {
-            controlChangeMapping = Helpers::deserialize128IntArray(stateControlChangeMapping);
+            controlChangeMapping = ShepherdHelpers::deserialize128IntArray(stateControlChangeMapping);
         }
 
         if (stateNotesMapping == ""){
             for (int i=0; i<notesMapping.size(); i++){
                 notesMapping[i] = i;  // Initialize all midi note number mappings to the input number (no transformation)
             }
-            stateNotesMapping = Helpers::serialize128IntArray(notesMapping); // Update the state version of the notesMapping list so change is reflected in state
+            stateNotesMapping = ShepherdHelpers::serialize128IntArray(notesMapping); // Update the state version of the notesMapping list so change is reflected in state
         } else {
-            notesMapping = Helpers::deserialize128IntArray(stateNotesMapping);
+            notesMapping = ShepherdHelpers::deserialize128IntArray(stateNotesMapping);
         }
     }
 }
@@ -121,7 +121,7 @@ void HardwareDevice::setMidiCCParameterValue(int index, int value)
     // this value to the hardware device
     jassert(index >= 0 && index < 128);
     midiCCParameterValues[index] = value;
-    stateMidiCCParameterValues = Helpers::serialize128IntArray(midiCCParameterValues); // Update the state version of the midiCCParameterValues list so change is reflected in state
+    stateMidiCCParameterValues = ShepherdHelpers::serialize128IntArray(midiCCParameterValues); // Update the state version of the midiCCParameterValues list so change is reflected in state
 }
 
 void HardwareDevice::addMidiMessageToRenderInBufferFifo(juce::MidiMessage msg)
@@ -241,12 +241,12 @@ void HardwareDevice::processAndRenderIncomingMessagesIntoBuffer(juce::MidiBuffer
 
 void HardwareDevice::setNotesMapping(juce::String& serializedNotesMapping)
 {
-    notesMapping = Helpers::deserialize128IntArray(serializedNotesMapping);
-    stateNotesMapping = Helpers::serialize128IntArray(notesMapping);
+    notesMapping = ShepherdHelpers::deserialize128IntArray(serializedNotesMapping);
+    stateNotesMapping = ShepherdHelpers::serialize128IntArray(notesMapping);
 }
 
 void HardwareDevice::setControlChangeMapping(juce::String& serializedControlChangeMapping)
 {
-    controlChangeMapping = Helpers::deserialize128IntArray(serializedControlChangeMapping);
-    stateControlChangeMapping = Helpers::serialize128IntArray(controlChangeMapping);
+    controlChangeMapping = ShepherdHelpers::deserialize128IntArray(serializedControlChangeMapping);
+    stateControlChangeMapping = ShepherdHelpers::serialize128IntArray(controlChangeMapping);
 }

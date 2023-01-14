@@ -35,6 +35,15 @@ public:
             setAudioChannels (2, 2);
         }
         
+        // Init sine synth with nSynthVoices voices (used for testig purposes only)
+        #if JUCE_DEBUG
+        internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+        for (auto i = 0; i < nSynthVoices; ++i)
+            sineSynth.addVoice (new SineWaveVoice());
+        sineSynth.addSound (new SineWaveSound());
+        #endif
+        
+        // Add debug UI components
         #if JUCE_DEBUG
         addAndMakeVisible(devUiComponent);
         setSize (devUiComponent.getWidth(), devUiComponent.getHeight());
@@ -66,12 +75,29 @@ public:
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override
     {
         std::cout << "Prepare to play called with samples per block " << samplesPerBlockExpected << " and sample rate " << sampleRate << std::endl;
+        sineSynth.setCurrentPlaybackSampleRate (sampleRate);
         sequencer.prepareSequencer(samplesPerBlockExpected, sampleRate);
     }
     
     void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
     {
-        sequencer.getNextMIDISlice(bufferToFill);
+        bufferToFill.clearActiveBufferRegion();
+        
+        int sliceNumSamples = bufferToFill.numSamples;
+        sequencer.getNextMIDISlice(sliceNumSamples);
+        
+        #if JUCE_DEBUG
+        if (sequencer.shouldRenderWithInternalSynth()){
+            // All buffers are combined into a single buffer which is then sent to the synth
+            internalSynthCombinedBuffer.clear();
+            for (auto deviceData: *sequencer.getMidiOutDevices()){
+                if (deviceData != nullptr){
+                    internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
+                }
+            }
+            sineSynth.renderNextBlock (*bufferToFill.buffer, internalSynthCombinedBuffer, bufferToFill.startSample, sliceNumSamples);
+        }
+        #endif
     }
     
     void releaseResources() override
@@ -94,6 +120,11 @@ public:
 
 private:
     Sequencer sequencer;
+    
+    // Internal synth for testing
+    juce::Synthesiser sineSynth;
+    int nSynthVoices = 32;
+    juce::MidiBuffer internalSynthCombinedBuffer;
     
     #if JUCE_DEBUG
     // Only for desktop app UI

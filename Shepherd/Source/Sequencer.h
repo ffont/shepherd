@@ -64,7 +64,7 @@ public:
     ~Sequencer();
     
     void prepareSequencer (int samplesPerBlockExpected, double sampleRate);
-    void getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFill);
+    void getNextMIDISlice (int sliceNumSamples);
     
     // Some public functions used for testing
     void debugState();
@@ -72,7 +72,11 @@ public:
     // Public method for receiving WS messages
     void wsMessageReceived  (const juce::String& serializedMessage);
     
+    // Other useful public functions
     juce::File getDataLocation();
+    bool shouldRenderWithInternalSynth() { return renderWithInternalSynth;}
+    juce::OwnedArray<MidiOutputDeviceData>* getMidiOutDevices() {return &midiOutDevices;}
+    //std::unique_ptr<HardwareDeviceList>& getHardwareDevices() {return hardwareDevices;}
     
 protected:
     juce::ValueTree state;
@@ -152,7 +156,6 @@ private:
     juce::MidiBuffer midiMetronomeMessages;
     juce::MidiBuffer pushMidiClockMessages;
     juce::MidiBuffer monitoringNotesMidiBuffer;
-    juce::MidiBuffer internalSynthCombinedBuffer; // Only used for debugging
     
     // Hardware devices
     std::unique_ptr<HardwareDeviceList> hardwareDevices;
@@ -194,9 +197,7 @@ private:
     void timerCallback() override;  // Callback used to update UI components
 
     // Other testing/debugging stuff
-    juce::Synthesiser sineSynth;
     juce::CachedValue<bool> renderWithInternalSynth;
-    int nSynthVoices = 32;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Sequencer)
 };

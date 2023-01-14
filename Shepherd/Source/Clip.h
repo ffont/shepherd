@@ -235,7 +235,7 @@ private:
                         if ((int)sequenceEvent.getProperty(ShepherdIDs::type) == SequenceEventType::note) {
                             eventAnnotations->chance = sequenceEvent.getProperty(ShepherdIDs::chance);
                         }
-                        for (auto msg: Helpers::eventValueTreeToMidiMessages(sequenceEvent)) {
+                        for (auto msg: ShepherdHelpers::eventValueTreeToMidiMessages(sequenceEvent)) {
                             midiSequence.addEvent(msg);
                             // Add the corresponding eventAnnotations object to the annotations list
                             // We also need to add the event timestamp as this will be used to sort
@@ -269,7 +269,7 @@ private:
             bool messageFound = false;
             for (int j=0; j<rawAnnotations.size(); j++){
                 juce::MidiMessage checkedMessage = rawAnnotations[j].first;
-                if (Helpers::sameMidiMessageWithSameTimestamp(targetMessage, checkedMessage)) {
+                if (ShepherdHelpers::sameMidiMessageWithSameTimestamp(targetMessage, checkedMessage)) {
                     annotations.push_back(rawAnnotations[j].second);
                     messageFound = true;
                     break;

@@ -15,7 +15,7 @@
 Sequencer::Sequencer()
 {
     // Initialize state as root
-    state = Helpers::createDefaultStateRoot();
+    state = ShepherdHelpers::createDefaultStateRoot();
     
     // Make sure data location exists
     juce::File location = getDataLocation();
@@ -34,7 +34,6 @@ Sequencer::Sequencer()
     midiMetronomeMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
     pushMidiClockMessages.ensureSize(MIDI_BUFFER_MIN_BYTES);
     monitoringNotesMidiBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
-    internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
 
     // Init hardware devices
     initializeHardwareDevices();
@@ -56,13 +55,6 @@ Sequencer::Sequencer()
 #if ENABLE_SYNC_STATE_WITH_WS
     initializeWS();
 #endif
-    
-    // Init sine synth with 16 voices (used for testig purposes only)
-    #if JUCE_DEBUG
-    for (auto i = 0; i < nSynthVoices; ++i)
-        sineSynth.addVoice (new SineWaveVoice());
-    sineSynth.addSound (new SineWaveSound());
-    #endif
     
     // Load first preset (if no presets saved, it will create an empty session)
     loadSessionFromFile("0");
@@ -262,7 +254,7 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
 void Sequencer::loadNewEmptySession(int numTracks, int numScenes)
 {
     DBG("Loading new empty state with " << numTracks << " tracks and " << numScenes << " scenes");
-    juce::ValueTree stateToLoad = Helpers::createDefaultSession(hardwareDevices->getAvailableOutputHardwareDeviceNames(), numTracks, numScenes);
+    juce::ValueTree stateToLoad = ShepherdHelpers::createDefaultSession(hardwareDevices->getAvailableOutputHardwareDeviceNames(), numTracks, numScenes);
     loadSession(stateToLoad);
 }
 
@@ -793,7 +785,7 @@ void Sequencer::initializeHardwareDevices()
                     if (type == "output"){
                         juce::String midiOutDeviceName = deviceInfo.getProperty("midiOutputDeviceName", "NoMIDIOutDevice").toString();
                         int midiChannel = (int)deviceInfo.getProperty("midiChannel", "NoMIDIOutDevice");
-                        hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name,
+                        hardwareDevicesState.addChild(ShepherdHelpers::createOutputHardwareDevice(name,
                                                                                           shortName,
                                                                                           midiOutDeviceName,
                                                                                           midiChannel), -1, nullptr);
@@ -808,7 +800,7 @@ void Sequencer::initializeHardwareDevices()
                         bool allowChannelPressureMessages = (bool)deviceInfo.getProperty("allowChannelPressureMessages", ShepherdDefaults::allowChannelPressureMessages);
                         juce::String notesMapping = deviceInfo.getProperty("notesMapping", "").toString(); // Empty string will be standard 1-128 mapping
                         juce::String controlChangeMapping = deviceInfo.getProperty("controlChangeMapping", "").toString(); // Empty string will be standard 1-128 mapping
-                        hardwareDevicesState.addChild(Helpers::createInputHardwareDevice(name,
+                        hardwareDevicesState.addChild(ShepherdHelpers::createInputHardwareDevice(name,
                                                                                          shortName,
                                                                                          midiInDeviceName,
                                                                                          controlChangeMessagesAreRelative,
@@ -839,7 +831,7 @@ void Sequencer::initializeHardwareDevices()
         for (int i=0; i<16; i++) {
             juce::String name = midiOutputDevice.name + " ch " + juce::String(i + 1);
             juce::String shortName = midiOutputDevice.name.substring(0, 10) + " ch" + juce::String(i + 1);
-            hardwareDevicesState.addChild(Helpers::createOutputHardwareDevice(name, shortName, midiOutputDevice.name, i + 1), -1, nullptr);
+            hardwareDevicesState.addChild(ShepherdHelpers::createOutputHardwareDevice(name, shortName, midiOutputDevice.name, i + 1), -1, nullptr);
         }
     }*/
     
@@ -884,7 +876,6 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
 {
     sampleRate = _sampleRate;
     samplesPerSlice = samplesPerBlockExpected; // We store samplesPerBlockExpected calling it samplesPerSlice as in our MIDI sequencer context we call our processig blocks "slices"
-    sineSynth.setCurrentPlaybackSampleRate (_sampleRate);
     resetMidiInCollectors (_sampleRate);
 }
 
@@ -894,51 +885,41 @@ void Sequencer::prepareSequencer (int samplesPerBlockExpected, double _sampleRat
  The implementation of this method is
  struecutred as follows:
  
- 1) Clear audio buffers (out app does not deal with audio...) but get buffer length (which should be same as stored samplesPerSlice)
-     
- 2) Check if main component has been fully initialized, if not do not proceed with getNextMIDISlice as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
+ 1) Check if main component has been fully initialized, if not do not proceed with getNextMIDISlice as we might be referencing some objects which have not yet been fully initialized (Tracks, HardwareDevices...)
     
- 3) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buffers and other auxiliary buffers. Clearing the buffers does not free their pre-allocated memory, so this is fine in the RT thread.
+ 2) Clear all MIDI buffers so we can re-fill them with events corresponding to the current slice. These includes hardware device buffers, track buffers and other auxiliary buffers. Clearing the buffers does not free their pre-allocated memory, so this is fine in the RT thread.
      
- 4) Check if tempo or meter should be updated and, in case we're doing a count in, check if count in finishes in this slice
+ 3) Check if tempo or meter should be updated and, in case we're doing a count in, check if count in finishes in this slice
      
- 5) Update musical context bar counter
+ 4) Update musical context bar counter
     
- 6) Get MIDI messages from MIDI inputs (external MIDI controller and Push's pads/encoders) and merge them into a single stream. Send that stream to the different tracks for input monitoring. Also, keep track of the last N played notes as this will be used to quantize events at the start of a recording.
+ 5) Get MIDI messages from MIDI inputs (external MIDI controller and Push's pads/encoders) and merge them into a single stream. Send that stream to the different tracks for input monitoring. Also, keep track of the last N played notes as this will be used to quantize events at the start of a recording.
 
- 7) Check if global playhead should be start/stopped and act accordingly
+ 6) Check if global playhead should be start/stopped and act accordingly
 
- 8) Process the current slice in each track: trigger playing clips' notes and, if needed, record incoming MIDI in clip(s)
+ 7) Process the current slice in each track: trigger playing clips' notes and, if needed, record incoming MIDI in clip(s)
     
- 9) Add generated MIDI buffers per track to the corresponding hardware device MIDI output buffer. Note that several tracks might be using the same hardware device (albeit using different MIDI channels) so at this point MIDI from several tracks might be merged in the hardware device MIDI buffers.
+ 8) Add generated MIDI buffers per track to the corresponding hardware device MIDI output buffer. Note that several tracks might be using the same hardware device (albeit using different MIDI channels) so at this point MIDI from several tracks might be merged in the hardware device MIDI buffers.
           
- 10) Render metronome and clock MIDI messages into MIDI clock and metronome auxiliary buffers. Also render MIDI clock messages in Push's MIDI buffer, used to synchronize Push colour animations with Shepherd session tempo. Copy metronome and clock messages to the corresponding hardware device buffers according to Shepherd settings.
+ 9) Render metronome and clock MIDI messages into MIDI clock and metronome auxiliary buffers. Also render MIDI clock messages in Push's MIDI buffer, used to synchronize Push colour animations with Shepherd session tempo. Copy metronome and clock messages to the corresponding hardware device buffers according to Shepherd settings.
      
- 11) Send the actual messages added to each hardware device's MIDI buffer
+ 10) Send the actual messages added to each hardware device's MIDI buffer
      
- 12) Send monitored track notes to the notes MIDI output (if any selected). This is used by the Shepherd Controller to show feedback about notes being currently played.
+ 11) Send monitored track notes to the notes MIDI output (if any selected). This is used by the Shepherd Controller to show feedback about notes being currently played.
 
- 13) Render the generated MIDI buffers with the sine synth for debugging purposes
-
- 14) Update playhead position if global playhead is playing
- 
+ 12) Update playhead position if global playhead is playing
  
  See comments in the implementation for more details about each step.
  
 */
-void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFill)
+void Sequencer::getNextMIDISlice (int sliceNumSamples)
 {
     // 1) -------------------------------------------------------------------------------------------------
-    
-    bufferToFill.clearActiveBufferRegion();
-    int sliceNumSamples = bufferToFill.numSamples;
-    
-    // 2) -------------------------------------------------------------------------------------------------
     if (!sequencerInitialized){
         return;
     }
     
-    // 3) -------------------------------------------------------------------------------------------------
+    // 2) -------------------------------------------------------------------------------------------------
     
     clearMidiDeviceInputBuffers();
     clearMidiDeviceOutputBuffers();
@@ -948,7 +929,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     pushMidiClockMessages.clear();
     monitoringNotesMidiBuffer.clear();
     
-    // 4) -------------------------------------------------------------------------------------------------
+    // 3) -------------------------------------------------------------------------------------------------
     
     // Check if tempo/meter should be updated
     if (nextBpm > 0.0){
@@ -974,12 +955,12 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         }
     }
     
-    // 5) -------------------------------------------------------------------------------------------------
+    // 4) -------------------------------------------------------------------------------------------------
     
     // This must be called before musicalContext.renderMetronomeInSlice to make sure metronome "high tone" is played when bar changes
     musicalContext->updateBarsCounter(juce::Range<double>{musicalContext->getPlayheadPositionInBeats(), musicalContext->getPlayheadPositionInBeats() + sliceLengthInBeats});
     
-    // 6) -------------------------------------------------------------------------------------------------
+    // 5) -------------------------------------------------------------------------------------------------
     
     // Collect messages from different MIDI inputs and put them into a single buffer
     collectorsRetrieveLatestBlockOfMessages(sliceNumSamples);
@@ -1017,7 +998,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         }
     }
     
-    // 7) -------------------------------------------------------------------------------------------------
+    // 6) -------------------------------------------------------------------------------------------------
     
     if (shouldToggleIsPlaying){
         if (musicalContext->playheadIsPlaying()){
@@ -1042,7 +1023,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         shouldToggleIsPlaying = false;
     }
     
-    // 8) -------------------------------------------------------------------------------------------------
+    // 7) -------------------------------------------------------------------------------------------------
     
     for (auto track: tracks->objects){
         track->clipsPrepareSlice();  // Pull sequences form the clip fifo
@@ -1054,7 +1035,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         }
     }
     
-    // 9) -------------------------------------------------------------------------------------------------
+    // 8) -------------------------------------------------------------------------------------------------
     
     for (auto track: tracks->objects){
         track->writeLastSliceMidiBufferToHardwareDeviceMidiBuffer();
@@ -1070,7 +1051,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         }
     }
     
-    // 10) -------------------------------------------------------------------------------------------------
+    // 9) -------------------------------------------------------------------------------------------------
     
     musicalContext->renderMetronomeInSlice(midiMetronomeMessages);
     if (sendMidiClock){
@@ -1107,11 +1088,11 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
     }
     
     
-    // 11) -------------------------------------------------------------------------------------------------
+    // 10) -------------------------------------------------------------------------------------------------
     
     sendMidiDeviceOutputBuffers();
     
-    // 12) -------------------------------------------------------------------------------------------------
+    // 11) -------------------------------------------------------------------------------------------------
     if ((notesMonitoringMidiOutput != nullptr) && (activeUiNotesMonitoringTrack != "")){
         auto track = getTrackWithUUID(activeUiNotesMonitoringTrack);
         if (track != nullptr){
@@ -1128,22 +1109,7 @@ void Sequencer::getNextMIDISlice (const juce::AudioSourceChannelInfo& bufferToFi
         }
     }
     
-    // 13) -------------------------------------------------------------------------------------------------
-    
-    #if JUCE_DEBUG
-    if (renderWithInternalSynth){
-        // All buffers are combined into a single buffer which is then sent to the synth
-        internalSynthCombinedBuffer.clear();
-        for (auto deviceData: midiOutDevices){
-            if (deviceData != nullptr){
-                internalSynthCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
-            }
-        }
-        sineSynth.renderNextBlock (*bufferToFill.buffer, internalSynthCombinedBuffer, bufferToFill.startSample, sliceNumSamples);
-    }
-    #endif
-    
-    // 14) -------------------------------------------------------------------------------------------------
+    // 12) -------------------------------------------------------------------------------------------------
     
     if (musicalContext->playheadIsPlaying()){
         musicalContext->setPlayheadPosition(musicalContext->getPlayheadPositionInBeats() + sliceLengthInBeats);
@@ -1298,11 +1264,11 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             int midiNote = (int)eventData["midiNote"];
                             float midiVelocity = (float)eventData["midiVelocity"];
                             double duration = (double)eventData["duration"];
-                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                            clip->state.addChild(ShepherdHelpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
                         } else if ((int)eventData["type"] == SequenceEventType::midi){
                             double timestamp = (double)eventData["timestamp"];
                             juce::String eventMidiBytes = eventData["eventMidiBytes"].toString();
-                            clip->state.addChild(Helpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes), -1, nullptr);
+                            clip->state.addChild(ShepherdHelpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes), -1, nullptr);
                         }
                     }
                 } else if (action == ACTION_ADDRESS_CLIP_EDIT_SEQUENCE) {
@@ -1365,12 +1331,12 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
                             double duration = (double)eventData["duration"];
                             double utime = (double)eventData["utime"];
                             float chance = (float)eventData["chance"];
-                            clip->state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration, utime, chance), -1, nullptr);
+                            clip->state.addChild(ShepherdHelpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration, utime, chance), -1, nullptr);
                         } else if ((int)eventData["type"] == SequenceEventType::midi){
                             double timestamp = (double)eventData["timestamp"];
                             juce::String eventMidiBytes = eventData["eventMidiBytes"].toString();
                             double utime = (double)eventData["utime"];
-                            clip->state.addChild(Helpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes, utime), -1, nullptr);
+                            clip->state.addChild(ShepherdHelpers::createSequenceEventFromMidiBytesString(timestamp, eventMidiBytes, utime), -1, nullptr);
                         }
                     }
                 }

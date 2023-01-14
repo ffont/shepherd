@@ -14,7 +14,7 @@
 #include "defines_shepherd.h"
 #include "drow_ValueTreeObjectList.h"
 
-namespace Helpers
+namespace ShepherdHelpers
 {
 
     inline bool sameMidiMessageWithSameTimestamp(juce::MidiMessage& m1, juce::MidiMessage& m2)
@@ -45,7 +45,7 @@ namespace Helpers
     inline juce::ValueTree createDefaultStateRoot()
     {
         juce::ValueTree state (ShepherdIDs::STATE);
-        Helpers::createUuidProperty (state);
+        ShepherdHelpers::createUuidProperty (state);
         state.setProperty (ShepherdIDs::renderWithInternalSynth, ShepherdDefaults::renderWithInternalSynth, nullptr);
         state.setProperty (ShepherdIDs::dataLocation, ShepherdDefaults::emptyString, nullptr);
         state.setProperty (ShepherdIDs::notesMonitoringDeviceName, SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME, nullptr);
@@ -56,7 +56,7 @@ namespace Helpers
     inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
     {
         juce::ValueTree session (ShepherdIDs::SESSION);
-        Helpers::createUuidProperty (session);
+        ShepherdHelpers::createUuidProperty (session);
         session.setProperty (ShepherdIDs::version, ProjectInfo::versionString , nullptr);
         session.setProperty (ShepherdIDs::name, juce::Time::getCurrentTime().formatted("%Y%m%d") + " unnamed", nullptr);
         session.setProperty (ShepherdIDs::playheadPositionInBeats, ShepherdDefaults::playheadPosition, nullptr);
@@ -75,7 +75,7 @@ namespace Helpers
         {
             // Create track
             juce::ValueTree t (ShepherdIDs::TRACK);
-            Helpers::createUuidProperty (t);
+            ShepherdHelpers::createUuidProperty (t);
             t.setProperty (ShepherdIDs::inputMonitoring, ShepherdDefaults::inputMonitoring, nullptr);
             const juce::String trackName ("Track " + juce::String (tn + 1));
             t.setProperty (ShepherdIDs::name, trackName, nullptr);
@@ -92,7 +92,7 @@ namespace Helpers
             for (int cn = 0; cn < numScenes; ++cn)
             {
                 juce::ValueTree c (ShepherdIDs::CLIP);
-                Helpers::createUuidProperty (c);
+                ShepherdHelpers::createUuidProperty (c);
                 c.setProperty (ShepherdIDs::name, "Clip " + juce::String (tn + 1) + "-" + juce::String (cn + 1), nullptr);
                 c.setProperty (ShepherdIDs::clipLengthInBeats, ShepherdDefaults::clipLengthInBeats, nullptr);
                 c.setProperty (ShepherdIDs::bpmMultiplier, ShepherdDefaults::bpmMultiplier, nullptr);
@@ -119,7 +119,7 @@ namespace Helpers
     inline juce::ValueTree createOutputHardwareDevice(juce::String name, juce::String shortName, juce::String midiDeviceName, int midiChannel)
     {
         juce::ValueTree device {ShepherdIDs::HARDWARE_DEVICE};
-        Helpers::createUuidProperty (device);
+        ShepherdHelpers::createUuidProperty (device);
         device.setProperty(ShepherdIDs::type, HardwareDeviceType::output, nullptr);
         device.setProperty(ShepherdIDs::name, name, nullptr);
         device.setProperty(ShepherdIDs::shortName, shortName, nullptr);
@@ -143,7 +143,7 @@ namespace Helpers
                                                      juce::String controlChangeMapping)
     {
         juce::ValueTree device {ShepherdIDs::HARDWARE_DEVICE};
-        Helpers::createUuidProperty (device);
+        ShepherdHelpers::createUuidProperty (device);
         device.setProperty(ShepherdIDs::type, HardwareDeviceType::input, nullptr);
         device.setProperty(ShepherdIDs::name, name, nullptr);
         device.setProperty(ShepherdIDs::shortName, shortName, nullptr);
@@ -163,7 +163,7 @@ namespace Helpers
     inline juce::ValueTree createSequenceEventFromMidiMessage(juce::MidiMessage msg)
     {
         juce::ValueTree sequenceEvent {ShepherdIDs::SEQUENCE_EVENT};
-        Helpers::createUuidProperty (sequenceEvent);
+        ShepherdHelpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(ShepherdIDs::type, SequenceEventType::midi, nullptr);
         sequenceEvent.setProperty(ShepherdIDs::timestamp, msg.getTimeStamp(), nullptr);
         sequenceEvent.setProperty(ShepherdIDs::uTime, ShepherdDefaults::uTime, nullptr);
@@ -181,7 +181,7 @@ namespace Helpers
     {
         // eventMidiBytes = comma separated byte values, eg: 127,75,12
         juce::ValueTree sequenceEvent {ShepherdIDs::SEQUENCE_EVENT};
-        Helpers::createUuidProperty (sequenceEvent);
+        ShepherdHelpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(ShepherdIDs::type, SequenceEventType::midi, nullptr);
         sequenceEvent.setProperty(ShepherdIDs::timestamp, timestamp, nullptr);
         sequenceEvent.setProperty(ShepherdIDs::uTime, utime, nullptr);
@@ -199,7 +199,7 @@ namespace Helpers
     inline juce::ValueTree createSequenceEventOfTypeNote(double timestamp, int note, float velocity, double duration, double utime, float chance)
     {
         juce::ValueTree sequenceEvent {ShepherdIDs::SEQUENCE_EVENT};
-        Helpers::createUuidProperty (sequenceEvent);
+        ShepherdHelpers::createUuidProperty (sequenceEvent);
         sequenceEvent.setProperty(ShepherdIDs::type, SequenceEventType::note, nullptr);
         sequenceEvent.setProperty(ShepherdIDs::timestamp, timestamp, nullptr);
         sequenceEvent.setProperty(ShepherdIDs::uTime, utime, nullptr);

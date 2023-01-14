@@ -36,7 +36,7 @@ void Clip::loadStateFromOtherClipState(const juce::ValueTree& otherClipState, bo
         if (replaceSequenceEventUUIDs == true){
             // Note that otherClipState should be a copy of the other clip's state so modifying it here won't modify the original
             for (auto child: otherClipState){
-                Helpers::updateUuidProperty(child);
+                ShepherdHelpers::updateUuidProperty(child);
             }
         }
         bpmMultiplier = otherClipState.getProperty(ShepherdIDs::bpmMultiplier, ShepherdDefaults::bpmMultiplier);
@@ -877,14 +877,14 @@ void Clip::addRecordedNotesToSequence()
                         // If duration is negative, add clip length as playhead will have wrapped
                         duration += clipLengthInBeats;
                     }
-                    state.addChild(Helpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
+                    state.addChild(ShepherdHelpers::createSequenceEventOfTypeNote(timestamp, midiNote, midiVelocity, duration), -1, nullptr);
                     recordedNoteOnMessagesPendingToAdd.erase(recordedNoteOnMessagesPendingToAdd.begin() + i);
                     break;
                 }
             }
         } else if (msg.isAftertouch() || msg.isController() || msg.isChannelPressure() || msg.isPitchWheel() ){
             // Save the message as SEQUENCE_EVENT of type "midi"
-            state.addChild(Helpers::createSequenceEventFromMidiMessage(msg), -1, nullptr);
+            state.addChild(ShepherdHelpers::createSequenceEventFromMidiMessage(msg), -1, nullptr);
         }
     }
     
