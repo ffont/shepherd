@@ -302,7 +302,10 @@ class SettingsMode(definitions.ShepherdControllerMode):
                 track = self.session.tracks[track_num]
                 available_devices = self.state.get_available_output_hardware_device_names()
                 current_hw_device = track.output_hardware_device_name
-                current_hw_device_index = available_devices.index(current_hw_device)
+                if current_hw_device in available_devices:
+                    current_hw_device_index = available_devices.index(current_hw_device)
+                else:
+                    current_hw_device_index = -1
                 next_device_name = available_devices[(current_hw_device_index + increment) % len(available_devices)]
                 track.set_output_hardware_device(next_device_name)
             except Exception as e:

@@ -78,8 +78,8 @@ void HardwareDevice::bindState()
 
 void HardwareDevice::sendMidi(juce::MidiMessage msg)
 {
-    auto midiDevice = getMidiOutputDeviceData(getMidiOutputDeviceName())->device.get();
-    if (midiDevice != nullptr){
+    auto midiOutputDeviceData = getMidiOutputDeviceData(getMidiOutputDeviceName());
+    if (midiOutputDeviceData != nullptr){
         addMidiMessageToRenderInBufferFifo(msg);
         if (msg.isController()){
             setMidiCCParameterValue(msg.getControllerNumber(), msg.getControllerValue());

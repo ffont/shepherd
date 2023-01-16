@@ -389,6 +389,10 @@ bool Sequencer::midiOutputDeviceAlreadyInitialized(const juce::String& deviceNam
             // If device already initialized, early return
             return true;
         }
+        if (deviceName == INTERNAL_OUTPUT_MIDI_DEVICE_NAME && deviceData->name == deviceName){
+            // If device name is INTERNAL_OUTPUT_MIDI_DEVICE_NAME, early return
+            return true;
+        }
     }
     return false;
 }
@@ -452,7 +456,7 @@ void Sequencer::initializeMIDIInputs()
     }
     
     for (auto device: midiInDevices){
-        std::cout << "- " << device->device->getName() << std::endl;
+        std::cout << "- " << device->name << std::endl;
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiInputs = false;
@@ -531,7 +535,7 @@ void Sequencer::initializeMIDIOutputs()
     }
     
     for (auto device: midiOutDevices){
-        std::cout << "- " << device->device->getName() << std::endl;
+        std::cout << "- " << device->name << std::endl;
     }
     
     if (!someFailedInitialization) shouldTryInitializeMidiOutputs = false;
@@ -540,6 +544,16 @@ void Sequencer::initializeMIDIOutputs()
 MidiOutputDeviceData* Sequencer::initializeMidiOutputDevice(juce::String deviceName)
 {
     JUCE_ASSERT_MESSAGE_THREAD
+    
+    if (deviceName == INTERNAL_OUTPUT_MIDI_DEVICE_NAME){
+        // If trying to initialize the internal device name, we create a MidiOutputDeviceData object without an actual midi device
+        MidiOutputDeviceData* deviceData = new MidiOutputDeviceData();
+        deviceData->buffer.ensureSize(MIDI_BUFFER_MIN_BYTES);
+        deviceData->identifier = INTERNAL_OUTPUT_MIDI_DEVICE_NAME;
+        deviceData->name = INTERNAL_OUTPUT_MIDI_DEVICE_NAME;
+        deviceData->device = nullptr;  // Set device to nullptr as this is an internal device and does not correspond to any real midi device
+        return deviceData;
+    }
     
     auto midiOutputs = juce::MidiOutput::getAvailableDevices();
     juce::String outDeviceIdentifier = "";
@@ -681,7 +695,7 @@ void Sequencer::clearMidiTrackBuffers()
 void Sequencer::sendMidiDeviceOutputBuffers()
 {
     for (auto deviceData: midiOutDevices){
-        if (deviceData != nullptr){
+        if (deviceData != nullptr && deviceData->name != INTERNAL_OUTPUT_MIDI_DEVICE_NAME){
             deviceData->device->sendBlockOfMessagesNow(deviceData->buffer);
         }
     }
@@ -734,9 +748,9 @@ void Sequencer::initializeHardwareDevices()
                         juce::String midiOutDeviceName = deviceInfo.getProperty("midiOutputDeviceName", "NoMIDIOutDevice").toString();
                         int midiChannel = (int)deviceInfo.getProperty("midiChannel", "NoMIDIOutDevice");
                         hardwareDevicesState.addChild(ShepherdHelpers::createOutputHardwareDevice(name,
-                                                                                          shortName,
-                                                                                          midiOutDeviceName,
-                                                                                          midiChannel), -1, nullptr);
+                                                                                                  shortName,
+                                                                                                  midiOutDeviceName,
+                                                                                                  midiChannel), -1, nullptr);
                     } else if (type == "input"){
                         juce::String midiInDeviceName = deviceInfo.getProperty("midiInputDeviceName", "NoMIDIInDevice").toString();
                         bool controlChangeMessagesAreRelative = (bool)deviceInfo.getProperty("controlChangeMessagesAreRelative", ShepherdDefaults::controlChangeMessagesAreRelative);
@@ -761,8 +775,6 @@ void Sequencer::initializeHardwareDevices()
                                                                                          notesMapping,
                                                                                          controlChangeMapping), -1, nullptr);
                     }
-                    
-                    
                 }
             }
         }
@@ -771,17 +783,15 @@ void Sequencer::initializeHardwareDevices()
         std::cout << "There will be no MIDI going in and out if there are no hardware devices defined :) " << std::endl;
     }
     
-    /*
-    // Then initialize extra default OUTPUT hardware devices, one per available output midi port and midi channel
-    std::cout << "Initializing default Output Hardware Devices" << std::endl;
-    juce::Array<juce::MidiDeviceInfo> availableMidiOutDevices = juce::MidiOutput::getAvailableDevices();
-    for (auto midiOutputDevice: availableMidiOutDevices) {
-        for (int i=0; i<16; i++) {
-            juce::String name = midiOutputDevice.name + " ch " + juce::String(i + 1);
-            juce::String shortName = midiOutputDevice.name.substring(0, 10) + " ch" + juce::String(i + 1);
-            hardwareDevicesState.addChild(ShepherdHelpers::createOutputHardwareDevice(name, shortName, midiOutputDevice.name, i + 1), -1, nullptr);
-        }
-    }*/
+    #if CREATE_INTERNAL_HW_OUTPUT_DEVICES
+    // Now add internal output devices for midi channels 1-16
+    for (int channel=1; channel<=16; channel++){
+        hardwareDevicesState.addChild(ShepherdHelpers::createOutputHardwareDevice("Internal ch " + (juce::String)channel,
+                                                                                  "Int" + (juce::String)channel,
+                                                                                  INTERNAL_OUTPUT_MIDI_DEVICE_NAME,
+                                                                                  channel), -1, nullptr);
+    }
+    #endif
     
     // Now do create the actual HardwareDevice objects
     if (state.getChildWithName(ShepherdIDs::HARDWARE_DEVICES).isValid()){

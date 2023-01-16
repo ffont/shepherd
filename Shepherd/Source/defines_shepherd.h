@@ -20,6 +20,12 @@
 #define APP_DATA_SUBDIRECTORY_NAME "Shepherd"
 #endif
 
+#ifndef CREATE_INTERNAL_HW_OUTPUT_DEVICES
+#define CREATE_INTERNAL_HW_OUTPUT_DEVICES 0
+#endif
+
+#define INTERNAL_OUTPUT_MIDI_DEVICE_NAME "ShpInternalOutput"
+
 #define ACTION_ADDRESS_TRANSPORT "/transport"
 #define ACTION_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
 #define ACTION_ADDRESS_TRANSPORT_PLAY "/transport/play"

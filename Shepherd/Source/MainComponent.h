@@ -26,6 +26,7 @@ public:
     #endif
     {
         internalSynthCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES * 10);
+        samplerCombinedBuffer.ensureSize(MIDI_BUFFER_MIN_BYTES * 10);
         
         int numInputChannels = 0;
         int numOutputChannels = 2;
@@ -100,8 +101,9 @@ public:
         int sliceNumSamples = bufferToFill.numSamples;
         sequencer.getNextMIDISlice(sliceNumSamples);
         
-        #if JUCE_DEBUG || INCLUDE_SAMPLER
-        // All buffers are combined into a single buffer which is then sent to the synth (and the internal sampler if sampler mode on)
+        #if JUCE_DEBUG
+        #if not INCLUDE_SAMPLER
+        // All buffers are combined into a single buffer which is then sent to the synth
         internalSynthCombinedBuffer.clear();
         for (auto deviceData: *sequencer.getMidiOutDevices()){
             if (deviceData != nullptr){
@@ -109,15 +111,20 @@ public:
             }
         }
         
-        #if not INCLUDE_SAMPLER
         if (sequencer.shouldRenderWithInternalSynth()){
             sineSynth.renderNextBlock (*bufferToFill.buffer, internalSynthCombinedBuffer, bufferToFill.startSample, sliceNumSamples);
         }
         #endif
+        #endif
         
         #if INCLUDE_SAMPLER
-        sampler.processBlock(*bufferToFill.buffer, internalSynthCombinedBuffer);
-        #endif
+        samplerCombinedBuffer.clear();
+        for (auto deviceData: *sequencer.getMidiOutDevices()){
+            if (deviceData != nullptr && deviceData->name == INTERNAL_OUTPUT_MIDI_DEVICE_NAME){
+                samplerCombinedBuffer.addEvents(deviceData->buffer, 0, sliceNumSamples, 0);
+            }
+        }
+        sampler.processBlock(*bufferToFill.buffer, samplerCombinedBuffer);
         #endif
     }
     
@@ -149,8 +156,9 @@ private:
     SourceSampler sampler;
     #endif
     
-    // Internal midi buffer used for debugging purposes or for passing MIDI to the sampler (if sampler mode on)
+    // Internal midi buffers used for debugging purposes or for passing MIDI to the sampler (if sampler mode on)
     juce::MidiBuffer internalSynthCombinedBuffer;
+    juce::MidiBuffer samplerCombinedBuffer;
     
     // Internal synth for testing
     juce::Synthesiser sineSynth;
