@@ -53,8 +53,6 @@ public:
 
 
 class Sequencer: private juce::Timer,
-                 private juce::OSCReceiver,
-                 private juce::OSCReceiver::Listener<juce::OSCReceiver::MessageLoopCallback>,
                  protected juce::ValueTree::Listener,
                  public juce::ActionBroadcaster
 
@@ -107,22 +105,14 @@ private:
     
     // Communication with controller
     ShepherdWebSocketsServer wsServer;
-    juce::OSCSender oscSender;
-    int oscReceivePort = OSC_BACKEND_RECEIVE_PORT;
-    int oscSendPort = OSC_CONRTOLLER_RECEIVE_PORT;
-    juce::String oscSendHost = "127.0.0.1";
-    bool oscSenderIsConnected = false;
     void initializeWS();
-    void initializeOSC();
+    
     juce::String serliaizeOSCMessage(const juce::OSCMessage& message);
     void sendMessageToController(const juce::OSCMessage& message);
     void sendWSMessage(const juce::OSCMessage& message);
-    void sendOscMessage (const juce::OSCMessage& message);
     // wsMessageReceived is defined in the public API
-    void oscMessageReceived (const juce::OSCMessage& message) override;
     void processMessageFromController (const juce::String action, juce::StringArray parameters);
     int stateUpdateID = 0;
-    double lastTimeIsAliveWasSent = 0;
     
     // Midi devices and other midi stuff
     bool midiOutputDeviceAlreadyInitialized(const juce::String& deviceName);

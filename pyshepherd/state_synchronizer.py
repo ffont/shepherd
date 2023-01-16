@@ -6,8 +6,6 @@ import traceback
 import websocket
 
 from bs4 import BeautifulSoup
-from oscpy.client import OSCClient
-from oscpy.server import OSCThreadServer
 
 
 state_request_hz = 10  # Only used to check if request for full state should be sent
@@ -27,45 +25,6 @@ def full_state_handler(*values):
     new_state_raw = values[1]
     if ss_instance is not None:
         ss_instance.set_full_state(update_id, new_state_raw)
-
-
-def osc_state_update_handler(*values):
-    new_values = []
-    for value in values:
-        if type(value) == bytes:
-            new_values.append(str(value.decode('utf-8')))
-        else:
-            new_values.append(value)
-    state_update_handler(*new_values)
-
-
-def osc_full_state_handler(*values):
-    new_values = []
-    for value in values:
-        if type(value) == bytes:
-            new_values.append(str(value.decode('utf-8')))
-        else:
-            new_values.append(value)
-    full_state_handler(*new_values)
-    
-
-class OSCReceiverThread(threading.Thread):
-
-    def __init__(self, port, state_synchronizer, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.port = port
-        self.state_synchronizer = state_synchronizer
-
-    def run(self):
-        asyncio.set_event_loop(asyncio.new_event_loop())
-        osc = OSCThreadServer()
-        if ss_instance.verbose_level >= 1:
-            print('* Listening OSC messages in port {}'.format(self.port))
-        osc.listen(address='0.0.0.0', port=self.port, default=True)
-        osc.bind(b'/app_started', lambda: ss_instance.app_has_started())
-        osc.bind(b'/state_update', osc_state_update_handler)
-        osc.bind(b'/full_state', osc_full_state_handler)
-        osc.bind(b'/alive', lambda: ss_instance.app_is_alive())
 
 
 def ws_on_message(ws, message):
@@ -182,9 +141,6 @@ class RequestStateThread(threading.Thread):
 
 class StateSynchronizer(object):
 
-    osc_client = None
-    last_time_app_alive = 0  # Only used when using OSC communication
-
     ws_connection = None
     ws_connection_ok = False
 
@@ -197,13 +153,9 @@ class StateSynchronizer(object):
     state_soup = None
     app = None
 
-    use_websockets = True
     verbose_level = None
 
     def __init__(self,
-                 osc_ip=None,
-                 osc_port_send=None,
-                 osc_port_receive=None,
                  ws_port=8126,
                  verbose_level=1):
 
@@ -211,26 +163,11 @@ class StateSynchronizer(object):
         ss_instance = self
         self.verbose_level = verbose_level
 
-        if (osc_port_receive is None or osc_port_send is None or osc_ip is None) is None and ws_port is None:
-            raise Exception('OSC/WS ports are not properly configured')
-
         if ws_port is None:
-            self.use_websockets = False
+            raise Exception('Web sockets port not properly configured')
 
-        if not self.use_websockets:
-            if self.verbose_level >= 1:
-                print('* Using OSC to communicate with app')
-
-            # Start OSC receiver to receive OSC messages from the app
-            OSCReceiverThread(osc_port_receive, self).start()
-            
-            # Start OSC client to send OSC messages to app
-            self.osc_client = OSCClient(osc_ip, osc_port_send, encoding='utf8')
-            if self.verbose_level >= 1:
-                print('* Sending OSC messages in port {}'.format(osc_port_send))
-        else:
-            if self.verbose_level >= 1:
-                print('* Using WebSockets to communicate with app')
+        if self.verbose_level >= 1:
+            print('* Using WebSockets to communicate with app')
 
             # Start websockets client to handle communication with app
         WSConnectionThread(ws_port, self).start()
@@ -242,8 +179,6 @@ class StateSynchronizer(object):
         self.should_request_full_state = True
 
     def send_msg_to_app(self, address, values):
-        if self.osc_client is not None:
-            self.osc_client.send_message(address, values)
         if self.ws_connection is not None and self.ws_connection_ok:
             self.ws_connection.send(address + ':' + ';'.join([str(value) for value in values]))
 
@@ -256,14 +191,8 @@ class StateSynchronizer(object):
         # Maybe subclasses want to do something with that...
         pass
 
-    def app_is_alive(self):
-        self.last_time_app_alive = time.time()
-
     def app_may_be_down(self):
-        if not self.use_websockets:
-            return time.time() - self.last_time_app_alive > 5.0  # Consider app maybe down if no alive message in 5 seconds
-        else:
-            return not self.ws_connection_ok  # Consider app down if no active WS connection
+        return not self.ws_connection_ok  # Consider app down if no active WS connection
 
     def request_full_state(self):
         if ((time.time() - self.last_time_full_state_requested) > self.full_state_request_timeout):

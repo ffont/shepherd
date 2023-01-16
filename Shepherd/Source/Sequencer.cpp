@@ -48,13 +48,8 @@ Sequencer::Sequencer()
     initializeMIDIOutputs();
     notesMonitoringMidiOutput = juce::MidiOutput::createNewDevice(SHEPHERD_NOTES_MONITORING_MIDI_DEVICE_NAME);
     
-    // Init OSC and WebSockets
-#if ENABLE_SYNC_STATE_WITH_OSC
-    initializeOSC();
-#endif
-#if ENABLE_SYNC_STATE_WITH_WS
+    // Init WebSockets
     initializeWS();
-#endif
     
     // Load first preset (if no presets saved, it will create an empty session)
     loadSessionFromFile("0");
@@ -243,7 +238,7 @@ void Sequencer::loadSession(juce::ValueTree& stateToLoad)
                                                  return getMidiOutputDeviceData(deviceName);
                                              });
         
-        // Send OSC message to frontend indiating that Shepherd is ready to rock
+        // Send message to frontend indiating that Shepherd is ready to rock
         sendMessageToController(juce::OSCMessage(ACTION_ADDRESS_STARTED_MESSAGE));  // For new state synchroniser
     } else {
         DBG("ERROR: Could not load session data as it is incompatible or it has inconsistencies...");
@@ -369,42 +364,8 @@ void Sequencer::sendWSMessage(const juce::OSCMessage& message) {
     }
 }
 
-void Sequencer::sendOscMessage (const juce::OSCMessage& message)
-{
-    if (!oscSenderIsConnected){
-        if (oscSender.connect (oscSendHost, oscSendPort)){
-            oscSenderIsConnected = true;
-        }
-    }
-    if (oscSenderIsConnected){
-        bool success = oscSender.send (message);
-    }
-}
-
 void Sequencer::sendMessageToController(const juce::OSCMessage& message) {
-#if ENABLE_SYNC_STATE_WITH_OSC
-    sendOscMessage(message);
-#endif
-    
-#if ENABLE_SYNC_STATE_WITH_WS
     sendWSMessage(message);
-#endif
-}
-
-void Sequencer::oscMessageReceived (const juce::OSCMessage& message)
-{
-    juce::String action = message.getAddressPattern().toString();
-    juce::StringArray actionParameters = {};
-    for (int i=0; i<message.size(); i++){
-        if (message[i].isString()){
-            actionParameters.add(message[i].getString());
-        } else if (message[i].isInt32()){
-            actionParameters.add((juce::String)message[i].getInt32());
-        } else if (message[i].isFloat32()){
-            actionParameters.add((juce::String)message[i].getFloat32());
-        }
-    }
-    processMessageFromController(action, actionParameters);
 }
 
 void Sequencer::wsMessageReceived (const juce::String& serializedMessage)
@@ -419,19 +380,6 @@ void Sequencer::wsMessageReceived (const juce::String& serializedMessage)
 void Sequencer::initializeWS() {
     wsServer.setSequencerPointer(this);
     wsServer.startThread(0);
-}
-
-void Sequencer::initializeOSC()
-{
-    // Setup OSC server
-    // Note that OSC sender is not set up here because it is done lazily when trying to send a message
-    std::cout << "Initializing OSC server" << std::endl;
-    if (! connect (oscReceivePort)){
-        std::cout << "- ERROR starting OSC server" << std::endl;
-    } else {
-        std::cout << "- Started OSC server, listening at 0.0.0.0:" << oscReceivePort << std::endl;
-        addListener (this);
-    }
 }
 
 bool Sequencer::midiOutputDeviceAlreadyInitialized(const juce::String& deviceName)
@@ -1153,16 +1101,6 @@ void Sequencer::timerCallback()
     
     // Update musical context stateX members
     musicalContext->updateStateMemberVersions();
-    
-#if ENABLE_SYNC_STATE_WITH_OSC
-    // If syncing the state wia OSC, we send "/alive" messages as these are used to determine if the app is up and running
-    if ((juce::Time::getMillisecondCounterHiRes() - lastTimeIsAliveWasSent) > 1000.0){
-        // Every second send "alive" message
-        juce::OSCMessage message = juce::OSCMessage(ACTION_ADDRESS_ALIVE_MESSAGE);
-        sendOscMessage(message);
-        lastTimeIsAliveWasSent = juce::Time::getMillisecondCounterHiRes();
-    }
-#endif
 }
 
 //==============================================================================
@@ -1529,9 +1467,6 @@ void Sequencer::processMessageFromController (const juce::String action, juce::S
             juce::OSCMessage returnMessage = juce::OSCMessage(ACTION_ADDRESS_FULL_STATE);
             returnMessage.addInt32(stateUpdateID);
             returnMessage.addString(state.toXmlString(juce::XmlElement::TextFormat().singleLine()));
-            // Note that sending full state does not work well with OSC as the state is too big, so if
-            // OSC communication is to be used, this here we should somehow split the state in several
-            // messages or find a solution
             sendMessageToController(returnMessage);
         }
     } else if (action == ACTION_ADDRESS_SHEPHERD_CONTROLLER_READY) {
