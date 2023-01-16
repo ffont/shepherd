@@ -10,8 +10,6 @@
 
 #pragma once
 
-#define INCLUDE_SAMPLER 1  // Use this define to control whether to compile Shepherd together with Source sampler in a single app
-
 #ifndef WEBSOCKETS_SERVER_PORT
 #define WEBSOCKETS_SERVER_PORT 8126
 #endif

@@ -2,8 +2,8 @@
 
 <JUCERPROJECT id="Dgct1A" name="Shepherd" projectType="guiapp" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" projectLineFeed="&#10;"
-              headerPath="../../3rdParty/Simple-WebSocket-Server/&#10;../../3rdParty/asio/asio/include/&#10;../../3rdParty/source/SourceSampler/Source/&#10;../../Source/common/&#10;../../3rdParty/ff_meters/LevelMeter/"
-              defines="ASIO_STANDALONE=1&#10;SOURCE_DISABLE_HTTP_SERVER=1&#10;SOURCE_APP_DIRECTORY_NAME=&quot;Shepherd/Source&quot;&#10;LOADED_LATEST_LOADED_PRESET_AT_STARTUP=1">
+              headerPath="../../3rdParty/Simple-WebSocket-Server/&#10;../../3rdParty/asio/asio/include/&#10;../../Source/common/&#10;../../3rdParty/ff_meters/LevelMeter/"
+              defines="ASIO_STANDALONE=1">
   <MAINGROUP id="zLUL6I" name="Shepherd">
     <GROUP id="{B45EB155-D048-3EF5-85B3-FB1E9ACEE101}" name="Sequencer">
       <FILE id="zmUAPT" name="defines_shepherd.h" compile="0" resource="0"
@@ -27,43 +27,17 @@
       <FILE id="qdmhPB" name="Playhead.h" compile="0" resource="0" file="Source/Playhead.h"/>
       <FILE id="kwO2YT" name="Playhead.cpp" compile="1" resource="0" file="Source/Playhead.cpp"/>
     </GROUP>
-    <GROUP id="{CF2E7CFA-DF3C-D911-CC85-DD4C9B98E850}" name="Sampler">
-      <FILE id="ji4dYk" name="defines_source.h" compile="0" resource="0"
-            file="3rdParty/source/SourceSampler/Source/defines_source.h"/>
-      <FILE id="oyWPE2" name="helpers_source.h" compile="0" resource="0"
-            file="3rdParty/source/SourceSampler/Source/helpers_source.h"/>
-      <FILE id="E4ijTW" name="FreesoundAPI.cpp" compile="1" resource="0"
-            file="3rdParty/source/SourceSampler/Source/FreesoundAPI.cpp"/>
-      <FILE id="d0sWKW" name="FreesoundAPI.h" compile="0" resource="0" file="3rdParty/source/SourceSampler/Source/FreesoundAPI.h"/>
-      <FILE id="GyNvx2" name="ServerInterface.h" compile="0" resource="0"
-            file="3rdParty/source/SourceSampler/Source/ServerInterface.h"/>
-      <FILE id="PDZ3K2" name="SourceSampler.cpp" compile="1" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSampler.cpp"/>
-      <FILE id="yCToCd" name="SourceSampler.h" compile="0" resource="0" file="3rdParty/source/SourceSampler/Source/SourceSampler.h"/>
-      <FILE id="GzXbfv" name="SourceSamplerSound.cpp" compile="1" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSamplerSound.cpp"/>
-      <FILE id="WdCRCD" name="SourceSamplerSound.h" compile="0" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSamplerSound.h"/>
-      <FILE id="jnHpts" name="SourceSamplerSynthesiser.cpp" compile="1" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSamplerSynthesiser.cpp"/>
-      <FILE id="xfKBZT" name="SourceSamplerSynthesiser.h" compile="0" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSamplerSynthesiser.h"/>
-      <FILE id="YcUjdn" name="SourceSamplerVoice.cpp" compile="1" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSamplerVoice.cpp"/>
-      <FILE id="K9CsgJ" name="SourceSamplerVoice.h" compile="0" resource="0"
-            file="3rdParty/source/SourceSampler/Source/SourceSamplerVoice.h"/>
-    </GROUP>
     <GROUP id="{0C21C24E-748E-BBD6-0619-F3B611386F41}" name="Support">
+      <FILE id="uAVujS" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
+            file="Source/common/drow_ValueTreeObjectList.h"/>
+      <FILE id="PfRo2t" name="Fifo.h" compile="0" resource="0" file="Source/common/Fifo.h"/>
+      <FILE id="VzNiJY" name="ReleasePool.h" compile="0" resource="0" file="Source/common/ReleasePool.h"/>
       <FILE id="bd3SeO" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
       <FILE id="yJw2cK" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="pJ65YQ" name="DevelopmentUIComponent.h" compile="0" resource="0"
             file="Source/DevelopmentUIComponent.h"/>
       <FILE id="BO3tIE" name="SynthAudioSource.h" compile="0" resource="0"
             file="Source/SynthAudioSource.h"/>
-      <FILE id="uAVujS" name="drow_ValueTreeObjectList.h" compile="0" resource="0"
-            file="Source/common/drow_ValueTreeObjectList.h"/>
-      <FILE id="PfRo2t" name="Fifo.h" compile="0" resource="0" file="Source/common/Fifo.h"/>
-      <FILE id="VzNiJY" name="ReleasePool.h" compile="0" resource="0" file="Source/common/ReleasePool.h"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
@@ -88,7 +62,6 @@
         <MODULEPATH id="juce_gui_basics" path="3rdParty/JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="3rdParty/JUCE/modules"/>
         <MODULEPATH id="juce_osc" path="3rdParty/JUCE/modules"/>
-        <MODULEPATH id="juce_dsp" path="3rdParty/JUCE/modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
     <LINUX_MAKE targetFolder="Builds/LinuxMakefile" extraLinkerFlags="-latomic&#10;-lssl &#10;-lcrypto"
@@ -110,7 +83,6 @@
         <MODULEPATH id="juce_audio_formats" path="3rdParty/JUCE/modules"/>
         <MODULEPATH id="juce_audio_devices" path="3rdParty/JUCE/modules"/>
         <MODULEPATH id="juce_audio_basics" path="3rdParty/JUCE/modules"/>
-        <MODULEPATH id="juce_dsp" path="3rdParty/JUCE/modules"/>
       </MODULEPATHS>
     </LINUX_MAKE>
     <LINUX_MAKE targetFolder="RaspberryPi" extraDefs="RPI_BUILD=1" extraLinkerFlags="-latomic&#10;-lssl &#10;-lcrypto"
@@ -132,7 +104,6 @@
         <MODULEPATH id="juce_audio_formats"/>
         <MODULEPATH id="juce_audio_devices"/>
         <MODULEPATH id="juce_audio_basics"/>
-        <MODULEPATH id="juce_dsp" path="~/JUCE/modules"/>
       </MODULEPATHS>
     </LINUX_MAKE>
   </EXPORTFORMATS>
@@ -144,7 +115,6 @@
     <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
