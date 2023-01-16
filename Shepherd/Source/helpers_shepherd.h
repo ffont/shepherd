@@ -55,6 +55,14 @@ namespace ShepherdHelpers
 
     inline juce::ValueTree createDefaultSession(juce::StringArray availableHardwareDeviceNames, int numTracks, int numScenes)
     {
+        if (numTracks > MAX_NUM_TRACKS){
+            numTracks = MAX_NUM_TRACKS;
+        }
+        
+        if (numScenes > MAX_NUM_SCENES){
+            numScenes = MAX_NUM_SCENES;
+        }
+        
         juce::ValueTree session (ShepherdIDs::SESSION);
         ShepherdHelpers::createUuidProperty (session);
         session.setProperty (ShepherdIDs::version, ProjectInfo::versionString , nullptr);

@@ -12,9 +12,13 @@
 
 #define INCLUDE_SAMPLER 1  // Use this define to control whether to compile Shepherd together with Source sampler in a single app
 
+#ifndef WEBSOCKETS_SERVER_PORT
 #define WEBSOCKETS_SERVER_PORT 8126
+#endif
 
-#define ACTION_ADDRESS_GENERIC "/action"
+#ifndef APP_DATA_SUBDIRECTORY_NAME
+#define APP_DATA_SUBDIRECTORY_NAME "Shepherd"
+#endif
 
 #define ACTION_ADDRESS_TRANSPORT "/transport"
 #define ACTION_ADDRESS_TRANSPORT_PLAY_STOP "/transport/playStop"
@@ -83,6 +87,8 @@
 
 #define DEFAULT_NUM_SCENES 8
 #define DEFAULT_NUM_TRACKS 8
+#define MAX_NUM_TRACKS 16
+#define MAX_NUM_SCENES 32
 
 #define MIDI_SUSTAIN_PEDAL_CC 64
 #define MIDI_BANK_CHANGE_CC 0

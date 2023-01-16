@@ -80,7 +80,7 @@ void Sequencer::bindState()
 }
 
 juce::File Sequencer::getDataLocation() {
-    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Shepherd/");
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(APP_DATA_SUBDIRECTORY_NAME);
 }
 
 void Sequencer::saveCurrentSessionToFile(juce::String filePath)
