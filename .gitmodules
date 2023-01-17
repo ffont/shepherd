@@ -7,9 +7,6 @@
 [submodule "Shepherd/3rdParty/asio"]
 	path = Shepherd/3rdParty/asio
 	url = https://github.com/chriskohlhoff/asio.git
-[submodule "Shepherd/3rdParty/source"]
-	path = Shepherd/3rdParty/source
-	url = https://github.com/ffont/source.git
 [submodule "Shepherd/3rdParty/ff_meters"]
 	path = Shepherd/3rdParty/ff_meters
 	url = https://github.com/ffAudio/ff_meters.git
