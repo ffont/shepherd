@@ -14,6 +14,10 @@
 #define WEBSOCKETS_SERVER_PORT 8126
 #endif
 
+#ifndef USE_WS_SERVER
+#define USE_WS_SERVER 1
+#endif
+
 #ifndef SHEPHERD_DATA_DIRECTORY_NAME
 #define SHEPHERD_DATA_DIRECTORY_NAME "Shepherd"
 #endif

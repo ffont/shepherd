@@ -59,10 +59,12 @@ Sequencer::Sequencer()
 
 Sequencer::~Sequencer()
 {
+    #if USE_WS_SERVER
     if (wsServer.serverPtr != nullptr){
         wsServer.serverPtr->stop();
     }
     wsServer.stopThread(5000);  // Give it enough time to stop the websockets server...
+    #endif
 }
 
 void Sequencer::bindState()
@@ -353,6 +355,7 @@ juce::String Sequencer::serliaizeOSCMessage(const juce::OSCMessage& message)
 }
 
 void Sequencer::sendWSMessage(const juce::OSCMessage& message) {
+    #if USE_WS_SERVER
     if (wsServer.serverPtr == nullptr){
         // If ws server is not yet running, don't try to send any message
         return;
@@ -362,6 +365,7 @@ void Sequencer::sendWSMessage(const juce::OSCMessage& message) {
         juce::String serializedMessage = serliaizeOSCMessage(message);
         a_connection->send(serializedMessage.toStdString());
     }
+    #endif
 }
 
 void Sequencer::sendMessageToController(const juce::OSCMessage& message) {

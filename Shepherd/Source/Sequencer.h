@@ -18,13 +18,16 @@
 #include "Playhead.h"
 #include "Clip.h"
 #include "Track.h"
+#if USE_WS_SERVER
 #include "server_ws.hpp"
+#endif
 
 
 class Sequencer; // Forward declaration
 
+#if USE_WS_SERVER
 using WsServer = SimpleWeb::SocketServer<SimpleWeb::WS>;
-
+#endif
 
 class ShepherdWebSocketsServer: public juce::Thread
 {
@@ -35,9 +38,11 @@ public:
     }
    
     ~ShepherdWebSocketsServer(){
+        #if USE_WS_SERVER
         if (serverPtr != nullptr){
             serverPtr.release();
         }
+        #endif
     }
     
     void setSequencerPointer(Sequencer* _sequencer){
@@ -48,7 +53,9 @@ public:
 
     int assignedPort = -1;
     Sequencer* sequencerPtr;
+    #if USE_WS_SERVER
     std::unique_ptr<WsServer> serverPtr;
+    #endif 
 };
 
 
@@ -194,6 +201,7 @@ private:
 
 void ShepherdWebSocketsServer::run()
 {
+    #if USE_WS_SERVER
     WsServer server;
     server.config.port = WEBSOCKETS_SERVER_PORT;  // Use a known port so python UI can connect to it
     serverPtr.reset(&server);
@@ -210,4 +218,5 @@ void ShepherdWebSocketsServer::run()
         assignedPort = port;
         DBG("- Started Websockets Server listening at 0.0.0.0:" << port);
     });
+    #endif
 }
